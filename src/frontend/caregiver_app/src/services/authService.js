@@ -20,11 +20,11 @@ export const verifyOtp = async (email, otp) => {
     method: 'POST',
     body: JSON.stringify({ email, otp }),
   });
-  
+
   if (data.token) {
     localStorage.setItem('token', data.token);
   }
-  
+
   return data; // Usually returns { token, caregiver }
 };
 
@@ -43,7 +43,7 @@ export const logout = async () => {
   } catch (error) {
     console.warn("Backend logout failed!");
   }
-  
+
   localStorage.removeItem('token');
   return { success: true };
 };
