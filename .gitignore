@@ -30,3 +30,6 @@ Thumbs.db
 assets/file-structure.md
 src/backend/.env.example
 src/frontend/caregiver_app/frontend_structure.md
+
+# Agents
+src/patient_app/agents/difficulty_mlp.tflite
