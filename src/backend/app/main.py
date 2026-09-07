@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import analytics, auth, caregiver, difficulty, sync, voice
+from app.api.routes import analytics, auth, caregiver, difficulty, patients, sync, voice
 from app.database import init_db
 
 app = FastAPI(title="Cognitive Assist API")
@@ -19,6 +19,7 @@ app.include_router(difficulty.router)
 app.include_router(voice.router)
 app.include_router(analytics.router)
 app.include_router(caregiver.router)
+app.include_router(patients.router)
 
 
 @app.on_event("startup")

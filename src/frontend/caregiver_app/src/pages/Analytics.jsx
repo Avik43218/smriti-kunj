@@ -25,7 +25,7 @@ import {
   Award,
 } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
-import { getPatientById } from '../services/patientService';
+import { fetchPatients, getPatientById } from '../services/patientService';
 import {
   getGameSessions,
   DOMAINS,
@@ -75,10 +75,28 @@ const CustomChartTooltip = ({ active, payload, domainKey }) => {
   );
 };
 
+const ScoreBadge = ({ score }) => {
+  if (score === null || score === undefined) return <span className="text-ink-soft">—</span>;
+  const pct = Math.round(score * 100);
+  const colorClass =
+    pct >= 80
+      ? 'bg-sage/15 text-sage border-sage/30'
+      : pct >= 65
+      ? 'bg-gold/15 text-gold border-gold/30'
+      : 'bg-terracotta/15 text-terracotta border-terracotta/30';
+
+  return (
+    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold border ${colorClass}`}>
+      {pct}%
+    </span>
+  );
+};
+
 export const Analytics = () => {
   const { id } = useParams();
   const location = useLocation();
-  const patientId = id || 'p101';
+  const [resolvedId, setResolvedId] = useState(id || '');
+  const patientId = resolvedId;
   const { theme } = useTheme();
   const isDark = theme === 'dark';
 
@@ -89,13 +107,27 @@ export const Analytics = () => {
 
   // Load patient info and game session analytics
   const loadData = async () => {
+    let targetId = id;
+    if (!targetId) {
+      const roster = await fetchPatients();
+      if (roster && roster.length > 0) {
+        targetId = roster[0].id;
+        setResolvedId(targetId);
+      }
+    }
+
+    if (!targetId) {
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
       setError(null);
 
       const [patientData, sessionsData] = await Promise.all([
-        getPatientById(patientId),
-        getGameSessions(patientId),
+        getPatientById(targetId),
+        getGameSessions(targetId),
       ]);
 
       setPatient(patientData);
@@ -110,7 +142,7 @@ export const Analytics = () => {
 
   useEffect(() => {
     loadData();
-  }, [patientId]);
+  }, [id]);
 
   // Scroll to session history table when hash is #session-history
   useEffect(() => {

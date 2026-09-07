@@ -33,20 +33,14 @@ import { TimePicker } from '../components/TimePicker';
 import { StyledSelect } from '../components/StyledSelect';
 import { SoundClipCard } from '../components/SoundClipCard';
 import { ConfirmDeleteModal } from '../components/ConfirmDeleteModal';
+import { fetchPatients, getPatientById } from '../services/patientService';
 
 export const CarePlan = () => {
   const { id: routePatientId } = useParams();
-  const patientId = routePatientId || 'p1';
+  const [resolvedPatientId, setResolvedPatientId] = useState(routePatientId || '');
+  const [patientName, setPatientName] = useState('');
+  const patientId = resolvedPatientId;
   const { caregiver } = useAuth();
-
-  // Patient display details mapping
-  const patientNames = {
-    p1: 'Arthur Miller',
-    p2: 'Rohan Sharma',
-    p101: 'Aarav Sharma',
-    p102: 'Maya Sen',
-  };
-  const patientName = patientNames[patientId] || (patientId ? `Patient (${patientId})` : 'Arthur');
 
   // Memory Gallery State
   const [familyMembers, setFamilyMembers] = useState([]);
@@ -173,18 +167,46 @@ export const CarePlan = () => {
     let isMounted = true;
 
     const loadAllData = async () => {
+      let targetId = routePatientId;
+      if (!targetId) {
+        const roster = await fetchPatients();
+        if (roster && roster.length > 0) {
+          targetId = roster[0].id;
+        }
+      }
+
+      if (isMounted) {
+        setResolvedPatientId(targetId || '');
+      }
+
+      if (!targetId) {
+        if (isMounted) {
+          setIsLoadingMemories(false);
+          setIsLoadingReminders(false);
+          setIsLoadingCompliance(false);
+        }
+        return;
+      }
+
+      // Fetch real patient name
+      try {
+        const p = await getPatientById(targetId);
+        if (isMounted && p && p.name) {
+          setPatientName(p.name);
+        }
+      } catch (_) {}
+
       setIsLoadingMemories(true);
       setIsLoadingReminders(true);
       setMemoryError('');
       setReminderError('');
-
       setIsLoadingCompliance(true);
 
       try {
         const [membersData, remindersData, complianceData] = await Promise.all([
-          fetchFamilyMembers(patientId),
-          fetchReminders(patientId),
-          getPatientComplianceDetails(patientId),
+          fetchFamilyMembers(targetId),
+          fetchReminders(targetId),
+          getPatientComplianceDetails(targetId),
         ]);
 
         if (isMounted) {
@@ -215,7 +237,7 @@ export const CarePlan = () => {
     return () => {
       isMounted = false;
     };
-  }, [patientId]);
+  }, [routePatientId]);
 
   // Helper to validate and process memory image file
   const processImageFile = (file) => {
