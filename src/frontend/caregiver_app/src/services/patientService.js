@@ -107,6 +107,15 @@ const MOCK_PATIENTS = [
   },
 ];
 
+const getStoredPatients = () => {
+  try {
+    const raw = localStorage.getItem('smriti_registered_patients');
+    return raw ? JSON.parse(raw) : [];
+  } catch (err) {
+    return [];
+  }
+};
+
 /**
  * Fetches all patients assigned to the active caregiver with derived live careStatus.
  * 
@@ -117,16 +126,46 @@ const MOCK_PATIENTS = [
 export const fetchPatients = async () => {
   return new Promise((resolve) => {
     setTimeout(() => {
-      const enrichedPatients = MOCK_PATIENTS.map((patient) => {
+      const stored = getStoredPatients();
+      const combined = [...stored, ...MOCK_PATIENTS];
+      const seen = new Set();
+      const uniquePatients = combined.filter((p) => {
+        if (!p.id || seen.has(p.id)) return false;
+        seen.add(p.id);
+        return true;
+      });
+
+      const enrichedPatients = uniquePatients.map((patient) => {
         const compliance = getTodayComplianceSummary(patient.id);
         return {
           ...patient,
-          careStatus: compliance.careStatus,
+          careStatus: patient.careStatus || compliance.careStatus,
           complianceSummary: compliance,
         };
       });
       resolve(enrichedPatients);
     }, 350); // Simulated latency
+  });
+};
+
+/**
+ * Registers a new patient into local storage and patient roster.
+ * 
+ * @param {Object} newPatient 
+ * @returns {Promise<Object>}
+ */
+export const registerPatient = async (newPatient) => {
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      const stored = getStoredPatients();
+      stored.unshift(newPatient);
+      try {
+        localStorage.setItem('smriti_registered_patients', JSON.stringify(stored));
+      } catch (err) {
+        console.warn('Could not save patient to localStorage:', err);
+      }
+      resolve(newPatient);
+    }, 250);
   });
 };
 
@@ -141,13 +180,14 @@ export const fetchPatients = async () => {
 export const getPatientById = async (id) => {
   return new Promise((resolve) => {
     setTimeout(() => {
-      const patient = MOCK_PATIENTS.find((p) => p.id === id);
+      const stored = getStoredPatients();
+      const patient = stored.find((p) => p.id === id) || MOCK_PATIENTS.find((p) => p.id === id);
       const compliance = getTodayComplianceSummary(id);
 
       if (patient) {
         resolve({
           ...patient,
-          careStatus: compliance.careStatus,
+          careStatus: patient.careStatus || compliance.careStatus,
           complianceSummary: compliance,
         });
       } else {
@@ -185,6 +225,7 @@ export const getPatientById = async (id) => {
 export default {
   fetchPatients,
   getPatientById,
+  registerPatient,
   getCareStatusConfig,
   CARE_STATUS,
 };
