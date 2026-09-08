@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 from enum import Enum
-from typing import Optional, Annotated
+from typing import Any, Dict, Optional, Annotated
 
 from beanie import Document, Indexed
 from pydantic import Field
@@ -29,6 +29,21 @@ class User(Document):
     region_language: str = "bn"  # as / bn / mni ...
     caregiver_id: Optional[Annotated[uuid.UUID, Indexed()]] = None
     device_id: Optional[Annotated[str, Indexed(unique=True, sparse=True)]] = None
+
+    # Patient profile attributes
+    patient_code: Optional[Annotated[str, Indexed(unique=True, sparse=True)]] = None  # e.g. "p101"
+    age: Optional[int] = None
+    gender: Optional[str] = None
+    date_of_birth: Optional[str] = None
+    diagnosis: Optional[str] = None
+    health_issue: Optional[str] = None
+    avatar_url: Optional[str] = None
+    status: Optional[str] = "stable"
+    status_label: Optional[str] = "Active • Tablet synced"
+    last_check_in: Optional[str] = None
+    notes: Optional[str] = None
+    emergency_contact: Optional[Dict[str, Any]] = None
+    device_status: Optional[Dict[str, Any]] = None
 
     created_at: datetime = Field(default_factory=datetime.utcnow)
 

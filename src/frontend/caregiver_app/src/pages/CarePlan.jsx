@@ -33,20 +33,14 @@ import { TimePicker } from '../components/TimePicker';
 import { StyledSelect } from '../components/StyledSelect';
 import { SoundClipCard } from '../components/SoundClipCard';
 import { ConfirmDeleteModal } from '../components/ConfirmDeleteModal';
+import { fetchPatients, getPatientById } from '../services/patientService';
 
 export const CarePlan = () => {
   const { id: routePatientId } = useParams();
-  const patientId = routePatientId || 'p1';
+  const [resolvedPatientId, setResolvedPatientId] = useState(routePatientId || '');
+  const [patientName, setPatientName] = useState('');
+  const patientId = resolvedPatientId;
   const { caregiver } = useAuth();
-
-  // Patient display details mapping
-  const patientNames = {
-    p1: 'Arthur Miller',
-    p2: 'Rohan Sharma',
-    p101: 'Aarav Sharma',
-    p102: 'Maya Sen',
-  };
-  const patientName = patientNames[patientId] || (patientId ? `Patient (${patientId})` : 'Arthur');
 
   // Memory Gallery State
   const [familyMembers, setFamilyMembers] = useState([]);
@@ -173,23 +167,56 @@ export const CarePlan = () => {
     let isMounted = true;
 
     const loadAllData = async () => {
+      let targetId = routePatientId;
+      if (!targetId) {
+        const roster = await fetchPatients();
+        if (roster && roster.length > 0) {
+          targetId = roster[0].id;
+        }
+      }
+
+      if (isMounted) {
+        setResolvedPatientId(targetId || '');
+      }
+
+      if (!targetId) {
+        if (isMounted) {
+          setIsLoadingMemories(false);
+          setIsLoadingReminders(false);
+          setIsLoadingCompliance(false);
+        }
+        return;
+      }
+
+      // Fetch real patient name
+      try {
+        const p = await getPatientById(targetId);
+        if (isMounted && p && p.name) {
+          setPatientName(p.name);
+        }
+      } catch (_) {}
+
       setIsLoadingMemories(true);
       setIsLoadingReminders(true);
       setMemoryError('');
       setReminderError('');
-
       setIsLoadingCompliance(true);
 
       try {
         const [membersData, remindersData, complianceData] = await Promise.all([
-          fetchFamilyMembers(patientId),
-          fetchReminders(patientId),
-          getPatientComplianceDetails(patientId),
+          fetchFamilyMembers(targetId),
+          fetchReminders(targetId),
+          getPatientComplianceDetails(targetId),
         ]);
 
         if (isMounted) {
-          setFamilyMembers(membersData);
-          setReminders(remindersData);
+          setFamilyMembers(membersData || []);
+          setReminders({
+            medication: [],
+            meals: [],
+            custom: [],
+            ...(remindersData || {}),
+          });
           setCompliance(complianceData);
         }
       } catch (err) {
@@ -210,7 +237,7 @@ export const CarePlan = () => {
     return () => {
       isMounted = false;
     };
-  }, [patientId]);
+  }, [routePatientId]);
 
   // Helper to validate and process memory image file
   const processImageFile = (file) => {
@@ -317,7 +344,7 @@ export const CarePlan = () => {
   const handleDeleteCustomReminder = (reminderId) => {
     setReminders((prev) => ({
       ...prev,
-      custom: prev.custom.filter((c) => c.id !== reminderId),
+      custom: (prev.custom || []).filter((c) => c.id !== reminderId),
     }));
   };
 
@@ -502,7 +529,7 @@ export const CarePlan = () => {
 
       setReminders((prev) => ({
         ...prev,
-        custom: [...prev.custom, newCustom],
+        custom: [...(prev.custom || []), newCustom],
       }));
 
       setCustomLabel('');
@@ -663,14 +690,12 @@ export const CarePlan = () => {
 
             {/* Summary Badge */}
             {compliance && !isLoadingCompliance && (
-              <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border shrink-0 ${
-                compliance.summary.hasMissedToday
+              <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border shrink-0 ${compliance.summary.hasMissedToday
                   ? 'bg-gold/15 text-gold border-gold/40'
                   : 'bg-sage/15 text-sage border-sage/30'
-              }`}>
-                <span className={`w-2 h-2 rounded-full ${
-                  compliance.summary.hasMissedToday ? 'bg-gold' : 'bg-sage'
-                }`} />
+                }`}>
+                <span className={`w-2 h-2 rounded-full ${compliance.summary.hasMissedToday ? 'bg-gold' : 'bg-sage'
+                  }`} />
                 <span className="truncate">{compliance.summary.summaryText}</span>
               </div>
             )}
@@ -770,13 +795,12 @@ export const CarePlan = () => {
                           {/* Custom Styled Tooltip with edge-aware positioning */}
                           <div
                             role="tooltip"
-                            className={`absolute bottom-full mb-2 ${
-                              isFirst
+                            className={`absolute bottom-full mb-2 ${isFirst
                                 ? 'left-0'
                                 : isLast
                                   ? 'right-0'
                                   : 'left-1/2 -translate-x-1/2'
-                            } px-2.5 py-1.5 bg-ink/95 dark:bg-surface text-surface dark:text-ink text-xs font-medium rounded-lg shadow-xl whitespace-nowrap opacity-0 translate-y-1 group-hover/day:opacity-100 group-hover/day:translate-y-0 transition-all duration-150 pointer-events-none z-50 border border-border/20 dark:border-ink-soft/40 flex flex-col items-center gap-0.5`}
+                              } px-2.5 py-1.5 bg-ink/95 dark:bg-surface text-surface dark:text-ink text-xs font-medium rounded-lg shadow-xl whitespace-nowrap opacity-0 translate-y-1 group-hover/day:opacity-100 group-hover/day:translate-y-0 transition-all duration-150 pointer-events-none z-50 border border-border/20 dark:border-ink-soft/40 flex flex-col items-center gap-0.5`}
                           >
                             <div className="flex items-center gap-1.5 font-bold">
                               <span>{day.dateLabel}:</span>
@@ -792,26 +816,24 @@ export const CarePlan = () => {
                               </span>
                             )}
                             {/* Tooltip arrow pointer */}
-                            <div className={`absolute top-full ${
-                              isFirst
+                            <div className={`absolute top-full ${isFirst
                                 ? 'left-3'
                                 : isLast
                                   ? 'right-3'
                                   : 'left-1/2 -translate-x-1/2'
-                            } -mt-px border-4 border-transparent border-t-ink/95 dark:border-t-surface`} />
+                              } -mt-px border-4 border-transparent border-t-ink/95 dark:border-t-surface`} />
                           </div>
 
                           {/* Day label */}
                           <span className="text-[10px] font-bold text-ink-soft dark:text-cream/60 uppercase">{day.dateLabel}</span>
 
                           {/* Progress circle / indicator */}
-                          <div className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center border-2 text-[10px] font-bold transition-colors ${
-                            allDone
+                          <div className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center border-2 text-[10px] font-bold transition-colors ${allDone
                               ? 'bg-sage/15 border-sage/50 text-sage'
                               : anyMissed
                                 ? 'bg-gold/15 border-gold/50 text-gold'
                                 : 'bg-cream dark:bg-ink-soft/40 border-border/60 dark:border-ink-soft/30 text-ink-soft dark:text-cream/60'
-                          }`}>
+                            }`}>
                             {day.rate}%
                           </div>
 
@@ -910,11 +932,10 @@ export const CarePlan = () => {
                             type="button"
                             onClick={() => toggleAlarmStatus('medication', med.id)}
                             aria-label={isAlarmActive ? 'Alarm is Active (Click to mute)' : 'Alarm is Off (Click to activate)'}
-                            className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold border shadow-2xs transition-all cursor-pointer select-none active:scale-95 ${
-                              isAlarmActive
+                            className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold border shadow-2xs transition-all cursor-pointer select-none active:scale-95 ${isAlarmActive
                                 ? 'bg-sage/20 border-sage/60 text-sage dark:bg-sage/30 dark:text-sage dark:border-sage/60 hover:bg-sage/30'
                                 : 'bg-cream dark:bg-ink-soft/40 border-border dark:border-ink-soft/50 text-ink-soft dark:text-cream/50 hover:bg-surface'
-                            }`}
+                              }`}
                           >
                             <span className={`w-2 h-2 rounded-full ${isAlarmActive ? 'bg-sage animate-pulse' : 'bg-ink-soft/40'}`} />
                             <span className="flex items-center gap-1.5">
@@ -968,11 +989,10 @@ export const CarePlan = () => {
                       type="button"
                       onClick={() => toggleAlarmStatus('hydration')}
                       aria-label={reminders.hydration?.active !== false ? 'Alarm is Active' : 'Alarm is Off'}
-                      className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold border shadow-2xs transition-all cursor-pointer select-none active:scale-95 ${
-                        reminders.hydration?.active !== false
+                      className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold border shadow-2xs transition-all cursor-pointer select-none active:scale-95 ${reminders.hydration?.active !== false
                           ? 'bg-sage/20 border-sage/60 text-sage dark:bg-sage/30 dark:text-sage dark:border-sage/60 hover:bg-sage/30'
                           : 'bg-cream dark:bg-ink-soft/40 border-border dark:border-ink-soft/50 text-ink-soft dark:text-cream/50 hover:bg-surface'
-                      }`}
+                        }`}
                     >
                       <span className={`w-2 h-2 rounded-full ${reminders.hydration?.active !== false ? 'bg-sage animate-pulse' : 'bg-ink-soft/40'}`} />
                       <span className="flex items-center gap-1.5">
@@ -1031,11 +1051,10 @@ export const CarePlan = () => {
                             type="button"
                             onClick={() => toggleAlarmStatus('meals', meal.id)}
                             aria-label={isAlarmActive ? 'Alarm is Active' : 'Alarm is Off'}
-                            className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold border shadow-2xs transition-all cursor-pointer select-none active:scale-95 ${
-                              isAlarmActive
+                            className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold border shadow-2xs transition-all cursor-pointer select-none active:scale-95 ${isAlarmActive
                                 ? 'bg-sage/20 border-sage/60 text-sage dark:bg-sage/30 dark:text-sage dark:border-sage/60 hover:bg-sage/30'
                                 : 'bg-cream dark:bg-ink-soft/40 border-border dark:border-ink-soft/50 text-ink-soft dark:text-cream/50 hover:bg-surface'
-                            }`}
+                              }`}
                           >
                             <span className={`w-2 h-2 rounded-full ${isAlarmActive ? 'bg-sage animate-pulse' : 'bg-ink-soft/40'}`} />
                             <span className="flex items-center gap-1.5">
@@ -1085,11 +1104,10 @@ export const CarePlan = () => {
                             type="button"
                             onClick={() => toggleAlarmStatus('custom', cust.id)}
                             aria-label={isAlarmActive ? 'Alarm is Active' : 'Alarm is Off'}
-                            className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold border shadow-2xs transition-all cursor-pointer select-none active:scale-95 ${
-                              isAlarmActive
+                            className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold border shadow-2xs transition-all cursor-pointer select-none active:scale-95 ${isAlarmActive
                                 ? 'bg-sage/20 border-sage/60 text-sage dark:bg-sage/30 dark:text-sage dark:border-sage/60 hover:bg-sage/30'
                                 : 'bg-cream dark:bg-ink-soft/40 border-border dark:border-ink-soft/50 text-ink-soft dark:text-cream/50 hover:bg-surface'
-                            }`}
+                              }`}
                           >
                             <span className={`w-2 h-2 rounded-full ${isAlarmActive ? 'bg-sage animate-pulse' : 'bg-ink-soft/40'}`} />
                             <span className="flex items-center gap-1.5">
@@ -1395,11 +1413,10 @@ export const CarePlan = () => {
                     onDragEnter={handlePhotoDragOver}
                     onDragLeave={handlePhotoDragLeave}
                     onDrop={handlePhotoDrop}
-                    className={`border-2 border-dashed rounded-lg p-5 flex flex-col items-center justify-center text-center cursor-pointer transition-all min-h-[140px] outline-none focus-within:ring-1 focus-within:ring-terracotta ${
-                      isDraggingPhoto
+                    className={`border-2 border-dashed rounded-lg p-5 flex flex-col items-center justify-center text-center cursor-pointer transition-all min-h-[140px] outline-none focus-within:ring-1 focus-within:ring-terracotta ${isDraggingPhoto
                         ? 'border-terracotta bg-terracotta/10 dark:bg-terracotta/15 scale-[1.01] shadow-xs'
                         : 'border-border/80 dark:border-ink-soft/40 hover:border-terracotta dark:hover:border-terracotta bg-cream/40 dark:bg-ink-soft/20 hover:bg-cream dark:hover:bg-ink-soft/30'
-                    }`}
+                      }`}
                   >
                     <ImageIcon className={`w-8 h-8 text-terracotta mb-2 transition-transform duration-150 ${isDraggingPhoto ? 'scale-110' : ''}`} />
                     <span className="text-xs font-semibold text-ink dark:text-cream">
@@ -1988,11 +2005,10 @@ export const CarePlan = () => {
                     onDragEnter={handleAudioDragOver}
                     onDragLeave={handleAudioDragLeave}
                     onDrop={handleAudioDrop}
-                    className={`border-2 border-dashed rounded-card p-5 flex flex-col items-center justify-center text-center cursor-pointer transition-all ${
-                      isDraggingAudio
+                    className={`border-2 border-dashed rounded-card p-5 flex flex-col items-center justify-center text-center cursor-pointer transition-all ${isDraggingAudio
                         ? 'border-terracotta bg-terracotta/10 dark:bg-terracotta/20 scale-[0.99]'
                         : 'border-border/80 dark:border-ink-soft/40 hover:border-terracotta dark:hover:border-terracotta bg-cream/30 dark:bg-ink-soft/10 hover:bg-cream/60 dark:hover:bg-ink-soft/20'
-                    }`}
+                      }`}
                   >
                     <div className="w-10 h-10 rounded-full bg-surface dark:bg-ink-soft/30 border border-border dark:border-ink-soft/40 flex items-center justify-center text-terracotta mb-2">
                       <Volume2 className="w-5 h-5" />

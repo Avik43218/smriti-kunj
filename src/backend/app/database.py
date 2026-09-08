@@ -4,6 +4,8 @@ from beanie import init_beanie
 from app.config import settings
 from app.models.analytics import Alert, BanditArmState, DriftMetric
 from app.models.auth import OtpCode, RevokedToken
+from app.models.care_plan import FamilyMember
+from app.models.reminder import PatientReminder
 from app.models.session import GameSession, VoiceInteraction
 from app.models.user import DevicePairingToken, User
 
@@ -27,5 +29,7 @@ async def init_db() -> None:
             DriftMetric,
             Alert,
             BanditArmState,
+            FamilyMember,
+            PatientReminder,
         ],
     )
