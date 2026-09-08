@@ -331,7 +331,7 @@ export const RegisterPatient = () => {
                 </span>
               </div>
               <p className="text-xs text-ink-soft dark:text-cream/70">
-                Turn on the patient tablet, open <strong>Smriti Setu Assist</strong>, and enter this one-time code to lock the device into simplified Patient Mode:
+                Turn on the patient tablet, open <strong>Smriti Kunj Assist</strong>, and enter this one-time code to lock the device into simplified Patient Mode:
               </p>
               <div className="flex items-center gap-3">
                 <div className="px-4 py-2 bg-cream dark:bg-ink border border-border dark:border-ink-soft/60 rounded-lg font-mono font-bold text-lg text-ink dark:text-cream tracking-widest">

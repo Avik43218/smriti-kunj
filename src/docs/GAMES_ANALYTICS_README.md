@@ -1,4 +1,4 @@
-# Smriti Setu — Patient-Side Games & Analytics Reference
+# Smriti Kunj — Patient-Side Games & Analytics Reference
 
 This document defines the 3 initial games for the patient-facing Flutter app, the cognitive domains they target, and the analytics parameters each game generates. Use this as the source of truth when building the caregiver dashboard Analytics page (`/patients/:id/analytics`) and when defining the game session JSON schema in `api.js` / `api_service.dart`.
 

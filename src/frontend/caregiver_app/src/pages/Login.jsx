@@ -130,7 +130,7 @@ export const Login = () => {
       <TopControls showSettings={false} />
 
       <div className="w-full max-w-md my-auto pt-6 pb-8">
-        {/* Header Branding with Smriti Setu */}
+        {/* Header Branding with Smriti Kunj */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-14 h-14 rounded-card bg-surface dark:bg-ink-soft/30 border border-border/80 dark:border-ink-soft/40 shadow-xs mb-3">
             <HeartHandshake className="w-8 h-8 text-terracotta" />
@@ -141,7 +141,7 @@ export const Login = () => {
               Caregiver Portal
             </div>
             <h1 className="text-2xl sm:text-3xl font-bold text-ink dark:text-cream tracking-tight font-sans">
-              Smriti Setu
+              Smriti Kunj
             </h1>
             <p className="text-xs sm:text-sm text-ink-soft dark:text-cream/70 mt-1 max-w-sm mx-auto leading-relaxed">
               {step === 'credentials'
@@ -362,9 +362,9 @@ export const Login = () => {
           )}
         </div>
 
-        {/* Footer info with Smriti Setu branding */}
+        {/* Footer info with Smriti Kunj branding */}
         <p className="text-center text-xs text-ink-soft dark:text-cream/60 mt-6 font-sans">
-          Smriti Setu • Cognitive Assist Platform
+          Smriti Kunj • Cognitive Assist Platform
         </p>
       </div>
     </div>

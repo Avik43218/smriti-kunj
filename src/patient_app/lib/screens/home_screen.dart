@@ -54,7 +54,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  'Smriti Setu',
+                                  'Smriti Kunj',
                                   style: textTheme.displayLarge?.copyWith(
                                     fontWeight: FontWeight.w700,
                                     color: AppColors.ink,
