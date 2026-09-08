@@ -155,7 +155,6 @@ export const RegisterPatient = () => {
     if (!formData.emergencyContact.relationship.trim()) {
       newErrors.emergency_relationship = 'Relationship is required';
     }
-
     if (!formData.emergencyContact.phone.trim()) {
       newErrors.emergency_phone = 'Contact phone number is required';
     } else if (!/^[+0-9\s-]{7,16}$/.test(formData.emergencyContact.phone.trim())) {
@@ -451,8 +450,9 @@ export const RegisterPatient = () => {
                   value={formData.name}
                   onChange={(e) => handleChange('name', e.target.value)}
                   placeholder="e.g. Aarav Sharma"
-                  className={`w-full px-3.5 py-2.5 bg-cream/40 dark:bg-ink-soft/20 border rounded-xl text-sm text-ink dark:text-cream placeholder:text-ink-soft/50 dark:placeholder:text-cream/30 focus:outline-none focus:ring-2 focus:ring-terracotta/40 transition-colors shadow-xs ${errors.name ? 'border-alert focus:border-alert' : 'border-border/80 dark:border-ink-soft/40 focus:border-terracotta'
-                    }`}
+                  className={`w-full px-3.5 py-2.5 bg-cream/40 dark:bg-ink-soft/20 border rounded-xl text-sm text-ink dark:text-cream placeholder:text-ink-soft/50 dark:placeholder:text-cream/30 focus:outline-none focus:ring-2 focus:ring-terracotta/40 transition-colors shadow-xs ${
+                    errors.name ? 'border-alert focus:border-alert' : 'border-border/80 dark:border-ink-soft/40 focus:border-terracotta'
+                  }`}
                   aria-invalid={Boolean(errors.name)}
                 />
                 {errors.name && (
@@ -495,8 +495,9 @@ export const RegisterPatient = () => {
                   value={formData.age}
                   onChange={(e) => handleChange('age', e.target.value)}
                   placeholder="e.g. 72"
-                  className={`w-full px-3.5 py-2.5 bg-cream/40 dark:bg-ink-soft/20 border rounded-xl text-sm text-ink dark:text-cream placeholder:text-ink-soft/50 dark:placeholder:text-cream/30 focus:outline-none focus:ring-2 focus:ring-terracotta/40 transition-colors shadow-xs ${errors.age ? 'border-alert focus:border-alert' : 'border-border/80 dark:border-ink-soft/40 focus:border-terracotta'
-                    }`}
+                  className={`w-full px-3.5 py-2.5 bg-cream/40 dark:bg-ink-soft/20 border rounded-xl text-sm text-ink dark:text-cream placeholder:text-ink-soft/50 dark:placeholder:text-cream/30 focus:outline-none focus:ring-2 focus:ring-terracotta/40 transition-colors shadow-xs ${
+                    errors.age ? 'border-alert focus:border-alert' : 'border-border/80 dark:border-ink-soft/40 focus:border-terracotta'
+                  }`}
                   aria-invalid={Boolean(errors.age)}
                 />
                 {errors.age && (
@@ -595,8 +596,9 @@ export const RegisterPatient = () => {
                   value={formData.healthIssue}
                   onChange={(e) => handleChange('healthIssue', e.target.value)}
                   placeholder="e.g. Mild Cognitive Impairment (MCI) • Early-stage memory recall decline • Hypertension"
-                  className={`w-full px-3.5 py-2.5 bg-cream/40 dark:bg-ink-soft/20 border rounded-xl text-sm text-ink dark:text-cream placeholder:text-ink-soft/50 dark:placeholder:text-cream/30 focus:outline-none focus:ring-2 focus:ring-terracotta/40 transition-colors shadow-xs ${errors.healthIssue ? 'border-alert focus:border-alert' : 'border-border/80 dark:border-ink-soft/40 focus:border-terracotta'
-                    }`}
+                  className={`w-full px-3.5 py-2.5 bg-cream/40 dark:bg-ink-soft/20 border rounded-xl text-sm text-ink dark:text-cream placeholder:text-ink-soft/50 dark:placeholder:text-cream/30 focus:outline-none focus:ring-2 focus:ring-terracotta/40 transition-colors shadow-xs ${
+                    errors.healthIssue ? 'border-alert focus:border-alert' : 'border-border/80 dark:border-ink-soft/40 focus:border-terracotta'
+                  }`}
                   aria-invalid={Boolean(errors.healthIssue)}
                 />
                 {errors.healthIssue ? (
@@ -654,8 +656,9 @@ export const RegisterPatient = () => {
                   value={formData.emergencyContact.name}
                   onChange={(e) => handleEmergencyChange('name', e.target.value)}
                   placeholder="e.g. Priya Sharma"
-                  className={`w-full px-3.5 py-2.5 bg-cream/40 dark:bg-ink-soft/20 border rounded-xl text-sm text-ink dark:text-cream placeholder:text-ink-soft/50 dark:placeholder:text-cream/30 focus:outline-none focus:ring-2 focus:ring-terracotta/40 transition-colors shadow-xs ${errors.emergency_name ? 'border-alert focus:border-alert' : 'border-border/80 dark:border-ink-soft/40 focus:border-terracotta'
-                    }`}
+                  className={`w-full px-3.5 py-2.5 bg-cream/40 dark:bg-ink-soft/20 border rounded-xl text-sm text-ink dark:text-cream placeholder:text-ink-soft/50 dark:placeholder:text-cream/30 focus:outline-none focus:ring-2 focus:ring-terracotta/40 transition-colors shadow-xs ${
+                    errors.emergency_name ? 'border-alert focus:border-alert' : 'border-border/80 dark:border-ink-soft/40 focus:border-terracotta'
+                  }`}
                   aria-invalid={Boolean(errors.emergency_name)}
                 />
                 {errors.emergency_name && (
@@ -677,8 +680,9 @@ export const RegisterPatient = () => {
                   value={formData.emergencyContact.relationship}
                   onChange={(e) => handleEmergencyChange('relationship', e.target.value)}
                   placeholder="e.g. Daughter (Primary Guardian)"
-                  className={`w-full px-3.5 py-2.5 bg-cream/40 dark:bg-ink-soft/20 border rounded-xl text-sm text-ink dark:text-cream placeholder:text-ink-soft/50 dark:placeholder:text-cream/30 focus:outline-none focus:ring-2 focus:ring-terracotta/40 transition-colors shadow-xs ${errors.emergency_relationship ? 'border-alert focus:border-alert' : 'border-border/80 dark:border-ink-soft/40 focus:border-terracotta'
-                    }`}
+                  className={`w-full px-3.5 py-2.5 bg-cream/40 dark:bg-ink-soft/20 border rounded-xl text-sm text-ink dark:text-cream placeholder:text-ink-soft/50 dark:placeholder:text-cream/30 focus:outline-none focus:ring-2 focus:ring-terracotta/40 transition-colors shadow-xs ${
+                    errors.emergency_relationship ? 'border-alert focus:border-alert' : 'border-border/80 dark:border-ink-soft/40 focus:border-terracotta'
+                  }`}
                   aria-invalid={Boolean(errors.emergency_relationship)}
                 />
                 {errors.emergency_relationship && (
@@ -700,8 +704,9 @@ export const RegisterPatient = () => {
                   value={formData.emergencyContact.phone}
                   onChange={(e) => handleEmergencyChange('phone', e.target.value)}
                   placeholder="+91 98765 43210"
-                  className={`w-full px-3.5 py-2.5 bg-cream/40 dark:bg-ink-soft/20 border rounded-xl text-sm text-ink dark:text-cream placeholder:text-ink-soft/50 dark:placeholder:text-cream/30 focus:outline-none focus:ring-2 focus:ring-terracotta/40 transition-colors shadow-xs ${errors.emergency_phone ? 'border-alert focus:border-alert' : 'border-border/80 dark:border-ink-soft/40 focus:border-terracotta'
-                    }`}
+                  className={`w-full px-3.5 py-2.5 bg-cream/40 dark:bg-ink-soft/20 border rounded-xl text-sm text-ink dark:text-cream placeholder:text-ink-soft/50 dark:placeholder:text-cream/30 focus:outline-none focus:ring-2 focus:ring-terracotta/40 transition-colors shadow-xs ${
+                    errors.emergency_phone ? 'border-alert focus:border-alert' : 'border-border/80 dark:border-ink-soft/40 focus:border-terracotta'
+                  }`}
                   aria-invalid={Boolean(errors.emergency_phone)}
                 />
                 {errors.emergency_phone && (

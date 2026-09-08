@@ -1,22 +1,170 @@
-"""Caregiver Portal API: patient roster + the dashboard chart data
-(daily task completion rate, longitudinal performance), computed with a
-Mongo aggregation pipeline rather than pulling every session into Python."""
+"""Caregiver Portal API: patient roster & details + dashboard analytics."""
 import uuid
-from typing import List
+from typing import List, Optional
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 
 from app.core.security import require_caregiver
 from app.models.session import GameSession
-from app.models.user import User
-from app.schemas.auth import UserOut
+from app.models.user import RoleEnum, User
+from app.schemas.patient import (
+    DeviceStatus,
+    EmergencyContact,
+    PatientCreateRequest,
+    PatientDetailOut,
+    PatientSummaryOut,
+)
 
-router = APIRouter(prefix="/caregiver", tags=["caregiver"])
+router = APIRouter(prefix="/api/caregiver", tags=["caregiver"])
 
 
-@router.get("/patients", response_model=List[UserOut])
+def _user_to_patient_summary(user: User) -> PatientSummaryOut:
+    return PatientSummaryOut(
+        id=user.patient_code or str(user.id),
+        name=user.name,
+        age=user.age,
+        diagnosis=user.diagnosis,
+        avatarUrl=user.avatar_url,
+        status=user.status or "stable",
+        statusLabel=user.status_label or "Active • Tablet synced",
+        lastCheckIn=user.last_check_in or "Just registered",
+    )
+
+
+def _user_to_patient_detail(user: User) -> PatientDetailOut:
+    ec = None
+    if user.emergency_contact:
+        ec = EmergencyContact(
+            name=user.emergency_contact.get("name", "Emergency Contact"),
+            relationship=user.emergency_contact.get("relationship", "Guardian"),
+            phone=user.emergency_contact.get("phone", "+91 90000 00000"),
+        )
+    ds = None
+    if user.device_status:
+        ds = DeviceStatus(
+            linked=user.device_status.get("linked", False),
+            deviceName=user.device_status.get("deviceName"),
+            deviceId=user.device_status.get("deviceId"),
+            lastSynced=user.device_status.get("lastSynced"),
+        )
+
+    return PatientDetailOut(
+        id=user.patient_code or str(user.id),
+        name=user.name,
+        age=user.age,
+        gender=user.gender,
+        dateOfBirth=user.date_of_birth,
+        healthIssue=user.health_issue,
+        avatarUrl=user.avatar_url,
+        status=user.status or "stable",
+        statusLabel=user.status_label or "Active • Tablet synced",
+        lastCheckIn=user.last_check_in or "Just registered",
+        emergencyContact=ec,
+        deviceStatus=ds,
+    )
+
+
+async def find_patient_for_caregiver(patient_id_str: str, caregiver_id: uuid.UUID) -> Optional[User]:
+    """Find a patient by patient_code, id, or normalized aliases."""
+    normalized_id = patient_id_str.strip()
+
+    # Try patient_code first
+    patient = await User.find_one(
+        User.caregiver_id == caregiver_id,
+        User.role == RoleEnum.patient,
+        User.patient_code == normalized_id,
+    )
+    if patient:
+        return patient
+
+    # Try UUID if valid
+    try:
+        parsed_uuid = uuid.UUID(normalized_id)
+        patient = await User.find_one(
+            User.caregiver_id == caregiver_id,
+            User.role == RoleEnum.patient,
+            User.id == parsed_uuid,
+        )
+        if patient:
+            return patient
+    except ValueError:
+        pass
+
+    return None
+
+
+@router.get("/patients", response_model=List[PatientSummaryOut])
 async def list_patients(caregiver: User = Depends(require_caregiver)):
-    return await User.find(User.caregiver_id == caregiver.id).to_list()
+    """Fetch list of all patients assigned to the logged-in caregiver."""
+    patients = await User.find(
+        User.caregiver_id == caregiver.id,
+        User.role == RoleEnum.patient,
+    ).to_list()
+    return [_user_to_patient_summary(p) for p in patients]
+
+
+@router.post("/patients", response_model=PatientDetailOut, status_code=201)
+async def register_patient(
+    payload: PatientCreateRequest,
+    caregiver: User = Depends(require_caregiver),
+):
+    """Register or save a patient under the active caregiver."""
+    patient_code = (
+        payload.id.strip() if payload.id and payload.id.strip() else f"p{uuid.uuid4().hex[:6]}"
+    )
+
+    existing = await User.find_one(
+        User.caregiver_id == caregiver.id,
+        User.patient_code == patient_code,
+    )
+    if existing:
+        existing.name = payload.name.strip()
+        existing.age = payload.age
+        existing.gender = payload.gender
+        existing.date_of_birth = payload.dateOfBirth
+        existing.diagnosis = payload.diagnosis
+        existing.health_issue = payload.healthIssue
+        existing.avatar_url = payload.avatarUrl
+        existing.status = payload.status or "stable"
+        existing.status_label = payload.statusLabel or "Active • Tablet synced"
+        existing.notes = payload.notes
+        if payload.emergencyContact:
+            existing.emergency_contact = payload.emergencyContact
+        if payload.deviceStatus:
+            existing.device_status = payload.deviceStatus
+        await existing.save()
+        return _user_to_patient_detail(existing)
+
+    patient = User(
+        role=RoleEnum.patient,
+        name=payload.name.strip(),
+        caregiver_id=caregiver.id,
+        patient_code=patient_code,
+        age=payload.age,
+        gender=payload.gender,
+        date_of_birth=payload.dateOfBirth,
+        diagnosis=payload.diagnosis,
+        health_issue=payload.healthIssue,
+        avatar_url=payload.avatarUrl,
+        status=payload.status or "stable",
+        status_label=payload.statusLabel or "Active • Tablet synced",
+        last_check_in="Just registered",
+        notes=payload.notes,
+        emergency_contact=payload.emergencyContact,
+        device_status=payload.deviceStatus,
+    )
+    await patient.insert()
+    return _user_to_patient_detail(patient)
+
+
+@router.get("/patients/{id}", response_model=PatientDetailOut)
+async def get_patient_detail(id: str, caregiver: User = Depends(require_caregiver)):
+    """Fetch detailed profile, emergency contact, and device pairing status for a patient."""
+    patient = await find_patient_for_caregiver(id, caregiver.id)
+    if not patient:
+        raise HTTPException(status_code=404, detail="Patient not found or unauthorized access")
+
+    return _user_to_patient_detail(patient)
 
 
 @router.get("/dashboard/{patient_id}")
