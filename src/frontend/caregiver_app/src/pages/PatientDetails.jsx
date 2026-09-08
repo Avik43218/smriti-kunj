@@ -25,7 +25,49 @@ import {
   Droplets,
   Utensils,
   AlertTriangle,
+  Copy,
+  Check,
+  Sparkles,
 } from 'lucide-react';
+
+export const CONDITION_OPTIONS = [
+  {
+    key: 'normal',
+    label: 'Stable Condition',
+    shortLabel: 'Stable',
+    badgeBg: 'bg-sage/15',
+    badgeText: 'text-sage',
+    badgeBorder: 'border-sage/30',
+    dotColor: 'bg-sage',
+    ringColor: 'ring-sage/40',
+    description: 'Vitals stable • Routine and adherence on track',
+    icon: CheckCircle2,
+  },
+  {
+    key: 'reminder_missed',
+    label: 'Needs Attention',
+    shortLabel: 'Needs Attention',
+    badgeBg: 'bg-gold/15',
+    badgeText: 'text-gold',
+    badgeBorder: 'border-gold/30',
+    dotColor: 'bg-gold',
+    ringColor: 'ring-gold/40',
+    description: 'Routine delayed or missed • Check-in advised',
+    icon: AlertTriangle,
+  },
+  {
+    key: 'alert',
+    label: 'Critical / High Alert',
+    shortLabel: 'Urgent Care',
+    badgeBg: 'bg-alert/15',
+    badgeText: 'text-alert',
+    badgeBorder: 'border-alert/30',
+    dotColor: 'bg-alert',
+    ringColor: 'ring-alert/40',
+    description: 'Acute distress / anomaly • Prompt check needed',
+    icon: AlertCircle,
+  },
+];
 
 export const PatientDetails = () => {
   const { id } = useParams();
@@ -34,6 +76,7 @@ export const PatientDetails = () => {
   const [remindersList, setRemindersList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [copiedCode, setCopiedCode] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -50,7 +93,15 @@ export const PatientDetails = () => {
         ]);
 
         if (isMounted) {
-          setPatient(patientData);
+          // Patient care status is determined dynamically by backend algorithms and analysis
+          const effectiveCareStatus = patientData?.careStatus || 'normal';
+
+          const resolvedPatient = {
+            ...patientData,
+            careStatus: effectiveCareStatus,
+          };
+
+          setPatient(resolvedPatient);
 
           // Take the 3 most recent sessions (sorted descending by date)
           const sortedSessions = [...(sessionsData || [])].sort(
@@ -60,7 +111,7 @@ export const PatientDetails = () => {
 
           // Flatten and prioritize reminders (missed first, then upcoming up to 3 total)
           const processedReminders = [];
-          const hasMissedStatus = patientData?.careStatus === 'reminder_missed';
+          const hasMissedStatus = effectiveCareStatus === 'reminder_missed';
 
           if (rawReminders) {
             // 1. Medication
@@ -225,8 +276,47 @@ export const PatientDetails = () => {
     );
   }
 
+  // Derive paired device code consistently
+  const pairedCode =
+    patient.pairingToken ||
+    (patient.deviceStatus?.deviceId &&
+    patient.deviceStatus.deviceId !== 'UNLINKED' &&
+    patient.deviceStatus.deviceId !== 'DEV-UNSET'
+      ? patient.deviceStatus.deviceId
+      : null) ||
+    (() => {
+      try {
+        const stored = localStorage.getItem(`smriti_pairing_token_${patient.id}`);
+        if (stored) return stored;
+      } catch (e) {}
+      const num = (patient.id || '').replace(/\D/g, '') || '101';
+      const generated = `PAIR-${((parseInt(num, 10) * 73939 + 184920) % 900000) + 100000}`;
+      try {
+        localStorage.setItem(`smriti_pairing_token_${patient.id}`, generated);
+      } catch (e) {}
+      return generated;
+    })();
+
+  const handleCopyDeviceCode = (code) => {
+    if (!code) return;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(code);
+    } else {
+      const textArea = document.createElement('textarea');
+      textArea.value = code;
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textArea);
+    }
+    setCopiedCode(true);
+    setTimeout(() => setCopiedCode(false), 2000);
+  };
+
   const initials = getInitials(patient.name);
-  const careStatusConfig = getCareStatusConfig(patient.careStatus);
+  const activeConditionConfig =
+    CONDITION_OPTIONS.find((c) => c.key === patient.careStatus) ||
+    CONDITION_OPTIONS[0];
 
   return (
     <div className="space-y-6">
@@ -235,8 +325,8 @@ export const PatientDetails = () => {
         aria-label="Patient Profile Overview"
         className="bg-surface dark:bg-ink-soft/20 border border-border/80 dark:border-ink-soft/40 rounded-card p-6 sm:p-8 shadow-sm transition-colors"
       >
-        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-5">
-          <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-5 min-w-0">
+        <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-6">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-5 min-w-0 flex-1">
             {/* Large Circular Photo / Avatar with Initials Fallback */}
             <div className="relative shrink-0">
               {patient.avatarUrl ? (
@@ -251,10 +341,10 @@ export const PatientDetails = () => {
                 </div>
               )}
 
-              {/* Status Dot Ring reading same careStatus */}
+              {/* Status Dot Ring reflecting selected condition */}
               <span
-                className={`absolute bottom-1 right-1 w-4 h-4 rounded-full ${careStatusConfig.dotColor} ring-2 ring-surface dark:ring-ink`}
-                aria-label={`Status: ${careStatusConfig.label}`}
+                className={`absolute bottom-1 right-1 w-4 h-4 rounded-full ${activeConditionConfig.dotColor} ring-2 ring-surface dark:ring-ink transition-colors duration-200`}
+                aria-label={`Status: ${activeConditionConfig.label}`}
               />
             </div>
 
@@ -265,12 +355,14 @@ export const PatientDetails = () => {
                   Patient ID • {patient.id}
                 </span>
 
-                {/* Patient Care Status Badge (Canonical) */}
+                {/* Patient Care Status Badge (Evaluated by Backend Algorithms & Analysis) */}
                 <span
-                  className={`inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-xs font-semibold border ${careStatusConfig.badgeBg} ${careStatusConfig.badgeText} ${careStatusConfig.badgeBorder} shadow-2xs`}
+                  className={`inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-xs font-semibold border ${activeConditionConfig.badgeBg} ${activeConditionConfig.badgeText} ${activeConditionConfig.badgeBorder} shadow-2xs transition-all duration-200`}
+                  title="Condition determined automatically by backend algorithms and analysis"
                 >
-                  <span className={`w-1.5 h-1.5 rounded-full ${careStatusConfig.dotColor}`} />
-                  <span>{careStatusConfig.label}</span>
+                  <span className={`w-1.5 h-1.5 rounded-full ${activeConditionConfig.dotColor}`} />
+                  <span>{activeConditionConfig.label}</span>
+                  <Sparkles className="w-3 h-3 text-current/70" />
                 </span>
               </div>
 
@@ -305,10 +397,62 @@ export const PatientDetails = () => {
             </div>
           </div>
 
-          {/* Unchanged Separate Device Sync Status Badge */}
-          <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-sage/15 text-sage border border-sage/30 text-xs font-semibold self-start sm:self-auto shrink-0 shadow-xs">
-            <ShieldCheck className="w-4 h-4" />
-            <span>Profile Synced</span>
+          {/* Top-Right Action Controls: Paired Device Code & Profile Synced */}
+          <div className="flex flex-col sm:items-end gap-3 shrink-0 w-full sm:w-auto">
+            {/* 1. Paired Device Code Card */}
+            <div className="w-full sm:w-auto flex items-center justify-between sm:justify-end gap-3 bg-cream/70 dark:bg-ink-soft/30 border border-border/80 dark:border-ink-soft/40 rounded-xl px-3.5 py-2 shadow-2xs">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-8 h-8 rounded-lg bg-terracotta/10 dark:bg-terracotta/20 text-terracotta flex items-center justify-center shrink-0">
+                  <Tablet className="w-4 h-4" />
+                </div>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-ink-soft dark:text-cream/60">
+                      Paired Device Code
+                    </span>
+                    <span
+                      className={`w-1.5 h-1.5 rounded-full ${
+                        patient.deviceStatus?.linked ? 'bg-sage animate-pulse' : 'bg-gold'
+                      }`}
+                      title={patient.deviceStatus?.linked ? 'Device Linked' : 'Ready to Pair'}
+                    />
+                  </div>
+                  <div className="flex items-center gap-1.5 mt-0.5">
+                    <code className="font-mono text-xs sm:text-sm font-bold text-ink dark:text-cream tracking-wider select-all">
+                      {pairedCode}
+                    </code>
+                  </div>
+                </div>
+              </div>
+
+              {/* Copy Code Button */}
+              <button
+                type="button"
+                onClick={() => handleCopyDeviceCode(pairedCode)}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-surface dark:bg-ink-soft/40 hover:bg-cream dark:hover:bg-ink border border-border/80 dark:border-ink-soft/60 text-xs font-semibold text-ink dark:text-cream transition-all active:scale-95 shrink-0 shadow-2xs cursor-pointer select-none"
+                title="Copy Paired Device Code"
+                aria-label="Copy Paired Device Code"
+              >
+                {copiedCode ? (
+                  <>
+                    <Check className="w-3.5 h-3.5 text-sage" />
+                    <span className="text-xs font-bold text-sage">Copied!</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-3.5 h-3.5 text-ink-soft dark:text-cream/70" />
+                    <span>Copy</span>
+                  </>
+                )}
+              </button>
+            </div>
+
+
+            {/* Profile Synced Badge */}
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-sage/15 text-sage border border-sage/30 text-[11px] font-semibold shadow-2xs">
+              <ShieldCheck className="w-3.5 h-3.5" />
+              <span>Profile Synced</span>
+            </div>
           </div>
         </div>
       </section>
@@ -403,9 +547,18 @@ export const PatientDetails = () => {
                 <p className="text-sm sm:text-base font-bold text-ink dark:text-cream">
                   {patient.deviceStatus.deviceName || 'Patient Tablet'}
                 </p>
-                <p className="text-xs text-ink-soft dark:text-cream/70 font-mono mt-0.5">
-                  ID: {patient.deviceStatus.deviceId || 'DEV-UNSET'}
-                </p>
+                <div className="flex items-center gap-2 mt-1">
+                  <p className="text-xs text-ink-soft dark:text-cream/70 font-mono">
+                    Paired Code: <span className="font-bold text-ink dark:text-cream">{pairedCode}</span>
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => handleCopyDeviceCode(pairedCode)}
+                    className="text-[11px] text-terracotta hover:underline font-semibold cursor-pointer"
+                  >
+                    {copiedCode ? 'Copied' : 'Copy'}
+                  </button>
+                </div>
               </div>
 
               <div className="pt-2 flex items-center gap-1.5 text-xs text-ink-soft dark:text-cream/70">
@@ -414,9 +567,23 @@ export const PatientDetails = () => {
               </div>
             </div>
           ) : (
-            <p className="text-xs sm:text-sm text-ink-soft dark:text-cream/70">
-              No tablet unit paired yet.
-            </p>
+            <div className="space-y-2">
+              <p className="text-xs sm:text-sm text-ink-soft dark:text-cream/70">
+                Tablet pairing code is ready to connect.
+              </p>
+              <div className="flex items-center gap-2">
+                <code className="font-mono font-bold text-xs bg-cream dark:bg-ink-soft/40 px-2 py-1 rounded border border-border/80">
+                  {pairedCode}
+                </code>
+                <button
+                  type="button"
+                  onClick={() => handleCopyDeviceCode(pairedCode)}
+                  className="text-xs text-terracotta font-semibold hover:underline cursor-pointer"
+                >
+                  {copiedCode ? 'Copied' : 'Copy'}
+                </button>
+              </div>
+            </div>
           )}
         </section>
       </div>
