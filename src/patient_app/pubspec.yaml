@@ -1,0 +1,42 @@
+name: patient_app
+description: Smriti Setu — patient-facing Flutter app for SIH-PS003.
+version: 1.0.0+1
+publish_to: none
+
+environment:
+  sdk: '>=3.3.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # State management (Provider — see AGENTS.md §3)
+  provider: ^6.1.2
+
+  # HTTP — for api_service.dart stubs / future real calls
+  http: ^1.2.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true
+
+  fonts:
+    - family: NotoSans
+      fonts:
+        - asset: assets/fonts/NotoSans-VariableFont_wdth,wght.ttf
+        - asset: assets/fonts/NotoSans-Italic-VariableFont_wdth,wght.ttf
+          style: italic
+    - family: NotoSansBengali
+      fonts:
+        - asset: assets/fonts/NotoSansBengali-VariableFont_wdth,wght.ttf
+    - family: NotoSansDevanagari
+      fonts:
+        - asset: assets/fonts/NotoSansDevanagari-VariableFont_wdth,wght.ttf
+
+  assets:
+    - assets/images/
+    - assets/audio/
