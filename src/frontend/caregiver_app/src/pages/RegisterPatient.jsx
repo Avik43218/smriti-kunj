@@ -57,7 +57,7 @@ export const RegisterPatient = () => {
     notes: '',
     emergencyContact: {
       name: '',
-      relationship: 'Daughter (Primary Guardian)',
+      relationship: '',
       phone: '',
     },
     deviceStatus: {
@@ -150,6 +150,10 @@ export const RegisterPatient = () => {
 
     if (!formData.emergencyContact.name.trim()) {
       newErrors.emergency_name = 'Emergency contact name is required';
+    }
+
+    if (!formData.emergencyContact.relationship.trim()) {
+      newErrors.emergency_relationship = 'Relationship is required';
     }
 
     if (!formData.emergencyContact.phone.trim()) {
@@ -385,7 +389,7 @@ export const RegisterPatient = () => {
                   notes: '',
                   emergencyContact: {
                     name: '',
-                    relationship: 'Daughter (Primary Guardian)',
+                    relationship: '',
                     phone: '',
                   },
                   deviceStatus: {
@@ -677,8 +681,17 @@ export const RegisterPatient = () => {
                   value={formData.emergencyContact.relationship}
                   onChange={(e) => handleEmergencyChange('relationship', e.target.value)}
                   placeholder="e.g. Daughter (Primary Guardian)"
-                  className="w-full px-3.5 py-2.5 bg-cream/40 dark:bg-ink-soft/20 border border-border/80 dark:border-ink-soft/40 rounded-xl text-sm text-ink dark:text-cream placeholder:text-ink-soft/50 dark:placeholder:text-cream/30 focus:outline-none focus:ring-2 focus:ring-terracotta/40 focus:border-terracotta transition-colors shadow-xs"
+                  className={`w-full px-3.5 py-2.5 bg-cream/40 dark:bg-ink-soft/20 border rounded-xl text-sm text-ink dark:text-cream placeholder:text-ink-soft/50 dark:placeholder:text-cream/30 focus:outline-none focus:ring-2 focus:ring-terracotta/40 transition-colors shadow-xs ${
+                    errors.emergency_relationship ? 'border-alert focus:border-alert' : 'border-border/80 dark:border-ink-soft/40 focus:border-terracotta'
+                  }`}
+                  aria-invalid={Boolean(errors.emergency_relationship)}
                 />
+                {errors.emergency_relationship && (
+                  <p className="text-xs text-alert flex items-center gap-1 mt-1 font-medium">
+                    <AlertCircle className="w-3.5 h-3.5" />
+                    <span>{errors.emergency_relationship}</span>
+                  </p>
+                )}
               </div>
 
               {/* Phone Number */}
