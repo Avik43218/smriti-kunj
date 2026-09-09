@@ -15,8 +15,6 @@ import {
   ShieldCheck,
   Sparkles,
   QrCode,
-  Copy,
-  Check,
   ExternalLink,
 } from 'lucide-react';
 import { registerPatient } from '../services/patientService';
@@ -70,7 +68,6 @@ export const RegisterPatient = () => {
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [registeredPatient, setRegisteredPatient] = useState(null);
-  const [copiedToken, setCopiedToken] = useState(false);
 
   // Auto-calculate age from DOB if DOB changes
   const handleDobChange = (e) => {
@@ -144,33 +141,35 @@ export const RegisterPatient = () => {
       newErrors.age = 'Please enter a valid age (e.g. 70)';
     }
 
-    if (!formData.healthIssue.trim()) {
-      newErrors.healthIssue = 'Please provide primary health and cognitive condition notes';
-    }
-
-    if (!formData.emergencyContact.name.trim()) {
-      newErrors.emergency_name = 'Emergency contact name is required';
-    }
-
-    if (!formData.emergencyContact.relationship.trim()) {
-      newErrors.emergency_relationship = 'Relationship is required';
-    }
-    if (!formData.emergencyContact.phone.trim()) {
-      newErrors.emergency_phone = 'Contact phone number is required';
-    } else if (!/^[+0-9\s-]{7,16}$/.test(formData.emergencyContact.phone.trim())) {
-      newErrors.emergency_phone = 'Please enter a valid phone number';
+    if (formData.emergencyContact.phone.trim() && !/^[+0-9\s-]{7,16}$/.test(formData.emergencyContact.phone.trim())) {
+      newErrors.emergency_phone = 'Please enter a valid phone number (e.g. +91 98765 43210)';
     }
 
     setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+
+    if (Object.keys(newErrors).length > 0) {
+      const firstField = Object.keys(newErrors)[0];
+      const targetId =
+        firstField === 'name' ? 'patient-name' :
+        firstField === 'age' ? 'patient-age' :
+        firstField === 'emergency_phone' ? 'emergency-phone' : null;
+      if (targetId) {
+        const el = document.getElementById(targetId);
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          el.focus();
+        }
+      }
+      return false;
+    }
+
+    return true;
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
     if (!validateForm()) {
-      // Scroll to top of form to show validation errors
-      window.scrollTo({ top: 100, behavior: 'smooth' });
       return;
     }
 
@@ -195,6 +194,14 @@ export const RegisterPatient = () => {
     const newPatientId = `p${Math.floor(103 + Math.random() * 890)}`;
     const pairingToken = `PAIR-${Math.floor(100000 + Math.random() * 900000)}`;
 
+    const effectiveHealthIssue =
+      formData.healthIssue.trim() ||
+      `${formData.diagnosis} • Initial registration record • Routine baseline active`;
+
+    const effectiveEmergencyName = formData.emergencyContact.name.trim() || 'Family Guardian';
+    const effectiveEmergencyRel = formData.emergencyContact.relationship.trim() || 'Primary Guardian';
+    const effectiveEmergencyPhone = formData.emergencyContact.phone.trim() || '+91 98765 43210';
+
     const newPatientRecord = {
       id: newPatientId,
       name: formData.name.trim(),
@@ -202,18 +209,18 @@ export const RegisterPatient = () => {
       gender: formData.gender,
       dateOfBirth: formattedDob || 'Not specified',
       diagnosis: formData.diagnosis,
-      healthIssue: formData.healthIssue.trim(),
+      healthIssue: effectiveHealthIssue,
       avatarUrl: null,
       lastCheckIn: 'Just registered',
       notes: formData.notes.trim() || 'Initial registration record. Baseline routine scheduled.',
       preferredLanguage: formData.preferredLanguage,
       pairingToken,
       careStatus: 'normal',
-      statusLabel: formData.deviceStatus.linked ? 'Tablet configured • Ready to pair' : 'Registration completed',
+      statusLabel: formData.deviceStatus.linked ? 'Device configured • Ready to pair' : 'Registration completed',
       emergencyContact: {
-        name: formData.emergencyContact.name.trim(),
-        relationship: formData.emergencyContact.relationship.trim(),
-        phone: formData.emergencyContact.phone.trim(),
+        name: effectiveEmergencyName,
+        relationship: effectiveEmergencyRel,
+        phone: effectiveEmergencyPhone,
       },
       deviceStatus: {
         linked: formData.deviceStatus.linked,
@@ -234,29 +241,20 @@ export const RegisterPatient = () => {
     }
 
     // Seed initial family memory card for the new patient's Care Plan
-    if (formData.emergencyContact.name.trim()) {
-      try {
-        await addFamilyMember({
-          patientId: newPatientId,
-          name: formData.emergencyContact.name.trim(),
-          relation: formData.emergencyContact.relationship.trim() || 'Family Guardian',
-          photoUrl: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300" viewBox="0 0 400 300"><rect width="400" height="300" fill="%23FBF5EA"/><circle cx="200" cy="120" r="55" fill="%23B5562F"/><path d="M100 250 C100 185, 300 185, 300 250 Z" fill="%23B5562F"/><text x="200" y="280" font-family="sans-serif" font-size="18" font-weight="bold" fill="%232E2A24" text-anchor="middle">Family</text></svg>',
-        });
-      } catch (err) {
-        console.warn('Could not seed initial memory card:', err);
-      }
+    try {
+      await addFamilyMember({
+        patientId: newPatientId,
+        name: effectiveEmergencyName,
+        relation: effectiveEmergencyRel,
+        photoUrl: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300" viewBox="0 0 400 300"><rect width="400" height="300" fill="%23FBF5EA"/><circle cx="200" cy="120" r="55" fill="%23B5562F"/><path d="M100 250 C100 185, 300 185, 300 250 Z" fill="%23B5562F"/><text x="200" y="280" font-family="sans-serif" font-size="18" font-weight="bold" fill="%232E2A24" text-anchor="middle">Family</text></svg>',
+      });
+    } catch (err) {
+      console.warn('Could not seed initial memory card:', err);
     }
 
     setIsSubmitting(false);
     setRegisteredPatient(newPatientRecord);
     window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
-  const handleCopyPairingToken = () => {
-    if (!registeredPatient?.pairingToken) return;
-    navigator.clipboard.writeText(registeredPatient.pairingToken);
-    setCopiedToken(true);
-    setTimeout(() => setCopiedToken(false), 2000);
   };
 
   return (
@@ -296,7 +294,7 @@ export const RegisterPatient = () => {
           <p className="text-sm text-ink-soft dark:text-cream/70 leading-relaxed">
             The patient profile has been created and indexed with standard cognitive baseline routines.
             {registeredPatient.deviceStatus.linked
-              ? ' A tablet pairing code has been generated to link their dedicated Assist device.'
+              ? ' A paired device code has been generated to link their dedicated Assist device.'
               : ''}
           </p>
 
@@ -318,42 +316,25 @@ export const RegisterPatient = () => {
             </div>
           </div>
 
-          {/* Tablet Pairing Code Card */}
+          {/* Paired Device Code Card */}
           {registeredPatient.deviceStatus.linked && (
             <div className="p-5 bg-surface dark:bg-ink-soft/40 border border-gold/40 rounded-xl shadow-xs space-y-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 text-gold font-bold text-sm">
                   <QrCode className="w-4 h-4" />
-                  <span>Tablet Pairing Code (Patient Device)</span>
+                  <span>Paired Device Code (Patient Device)</span>
                 </div>
                 <span className="text-[11px] font-semibold text-ink-soft dark:text-cream/60">
                   Unit: {registeredPatient.deviceStatus.deviceId}
                 </span>
               </div>
               <p className="text-xs text-ink-soft dark:text-cream/70">
-                Turn on the patient tablet, open <strong>Smriti Kunj Assist</strong>, and enter this one-time code to lock the device into simplified Patient Mode:
+                Turn on the patient device, open <strong>Smriti Kunj Assist</strong>, and enter this one-time code to lock the device into simplified Patient Mode:
               </p>
               <div className="flex items-center gap-3">
                 <div className="px-4 py-2 bg-cream dark:bg-ink border border-border dark:border-ink-soft/60 rounded-lg font-mono font-bold text-lg text-ink dark:text-cream tracking-widest">
                   {registeredPatient.pairingToken}
                 </div>
-                <button
-                  type="button"
-                  onClick={handleCopyPairingToken}
-                  className="inline-flex items-center gap-1.5 px-3 py-2 bg-surface dark:bg-ink-soft/30 hover:bg-cream dark:hover:bg-ink-soft/50 text-ink dark:text-cream text-xs font-medium rounded-lg border border-border/80 dark:border-ink-soft/40 transition-colors"
-                >
-                  {copiedToken ? (
-                    <>
-                      <Check className="w-3.5 h-3.5 text-sage" />
-                      <span className="text-sage font-bold">Copied</span>
-                    </>
-                  ) : (
-                    <>
-                      <Copy className="w-3.5 h-3.5" />
-                      <span>Copy Code</span>
-                    </>
-                  )}
-                </button>
               </div>
             </div>
           )}
@@ -418,7 +399,7 @@ export const RegisterPatient = () => {
                   Register New Patient
                 </h1>
                 <p className="text-xs sm:text-sm text-ink-soft dark:text-cream/70 leading-relaxed max-w-2xl">
-                  Enroll an elderly participant under your clinical care. Configure their cognitive diagnosis profile, language preferences, emergency contacts, and paired tablet device.
+                  Enroll an elderly participant under your clinical care. Configure their cognitive diagnosis profile, language preferences, emergency contacts, and paired patient device.
                 </p>
               </div>
             </div>
@@ -727,16 +708,16 @@ export const RegisterPatient = () => {
                   <Tablet className="w-4 h-4" />
                 </div>
                 <div>
-                  <h2 className="text-base font-bold text-ink dark:text-cream">Patient Tablet & Device Linking</h2>
+                  <h2 className="text-base font-bold text-ink dark:text-cream">Patient Device Linking</h2>
                   <p className="text-[11px] text-ink-soft dark:text-cream/60">
-                    Pre-configures the tablet device token and pairing setup.
+                    Pre-configures the patient device token and pairing setup.
                   </p>
                 </div>
               </div>
 
               {/* Toggle linked switch */}
               <label className="flex items-center gap-2 cursor-pointer select-none text-xs font-semibold text-ink-soft dark:text-cream/80">
-                <span>Pair Tablet Now</span>
+                <span>Pair Device Now</span>
                 <input
                   type="checkbox"
                   checked={formData.deviceStatus.linked}
@@ -751,7 +732,7 @@ export const RegisterPatient = () => {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label htmlFor="device-model" className="block text-xs font-semibold text-ink-soft dark:text-cream/80 mb-1.5">
-                    Tablet Model / Name
+                    Device Model / Name
                   </label>
                   <input
                     id="device-model"
@@ -781,7 +762,7 @@ export const RegisterPatient = () => {
               </div>
             ) : (
               <p className="text-xs text-ink-soft dark:text-cream/60 italic">
-                Device linking skipped. You can pair a tablet anytime later from the patient's profile.
+                Device linking skipped. You can pair a device anytime later from the patient's profile.
               </p>
             )}
           </section>

@@ -134,6 +134,30 @@ class TestCaregiverAndPatientEndpoints(unittest.IsolatedAsyncioTestCase):
                 await caregiver.get_patient_detail("unknown_id", self.caregiver_user)
             self.assertEqual(ctx.exception.status_code, 404)
 
+    async def test_delete_patient_success(self):
+        with patch("app.api.routes.caregiver.find_patient_for_caregiver", new_callable=AsyncMock) as mock_find:
+            mock_find.return_value = self.patient_user
+            with patch.object(User, "delete", new_callable=AsyncMock) as mock_delete:
+                with patch.object(DevicePairingToken, "find") as mock_find_tokens:
+                    mock_tokens_query = MagicMock()
+                    mock_tokens_query.delete = AsyncMock()
+                    mock_find_tokens.return_value = mock_tokens_query
+                    with patch.object(GameSession, "find") as mock_find_sessions:
+                        mock_sessions_query = MagicMock()
+                        mock_sessions_query.delete = AsyncMock()
+                        mock_find_sessions.return_value = mock_sessions_query
+                        res = await caregiver.delete_patient("p101", self.caregiver_user)
+                        self.assertEqual(res["message"], "Patient deleted successfully")
+                        self.assertEqual(res["id"], "p101")
+                        mock_delete.assert_called_once()
+
+    async def test_delete_patient_not_found(self):
+        with patch("app.api.routes.caregiver.find_patient_for_caregiver", new_callable=AsyncMock) as mock_find:
+            mock_find.return_value = None
+            with self.assertRaises(HTTPException) as ctx:
+                await caregiver.delete_patient("unknown_id", self.caregiver_user)
+            self.assertEqual(ctx.exception.status_code, 404)
+
     # ---- Memory Gallery Endpoints -------------------------------------------
 
     async def test_get_family_members(self):

@@ -209,6 +209,20 @@ async def get_patient_detail(id: str, caregiver: User = Depends(require_caregive
     return _user_to_patient_detail(patient)
 
 
+@router.delete("/patients/{id}", status_code=200)
+async def delete_patient(id: str, caregiver: User = Depends(require_caregiver)):
+    """Delete a patient record and clean up associated tokens and sessions."""
+    patient = await find_patient_for_caregiver(id, caregiver.id)
+    if not patient:
+        raise HTTPException(status_code=404, detail="Patient not found or unauthorized access")
+
+    await DevicePairingToken.find(DevicePairingToken.patient_id == patient.id).delete()
+    await GameSession.find(GameSession.patient_id == patient.id).delete()
+    await patient.delete()
+
+    return {"message": "Patient deleted successfully", "id": id}
+
+
 @router.get("/dashboard/{patient_id}")
 async def dashboard(patient_id: uuid.UUID, caregiver: User = Depends(require_caregiver)):
     pipeline = [
@@ -224,3 +238,4 @@ async def dashboard(patient_id: uuid.UUID, caregiver: User = Depends(require_car
     ]
     rows = await GameSession.find(GameSession.patient_id == patient_id).aggregate(pipeline).to_list()
     return [{"day": r["_id"], "avg_score": r["avg_score"], "sessions": r["sessions"]} for r in rows]
+

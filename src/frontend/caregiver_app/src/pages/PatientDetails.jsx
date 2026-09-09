@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
-import { getPatientById, getCareStatusConfig } from '../services/patientService';
+import { useParams, Link, useNavigate } from 'react-router-dom';
+import { getPatientById, getCareStatusConfig, deletePatient } from '../services/patientService';
 import {
   getGameSessions,
   DOMAIN_CONFIG,
@@ -25,9 +25,8 @@ import {
   Droplets,
   Utensils,
   AlertTriangle,
-  Copy,
-  Check,
   Sparkles,
+  Trash2,
 } from 'lucide-react';
 
 export const CONDITION_OPTIONS = [
@@ -71,12 +70,27 @@ export const CONDITION_OPTIONS = [
 
 export const PatientDetails = () => {
   const { id } = useParams();
+  const navigate = useNavigate();
   const [patient, setPatient] = useState(null);
   const [recentSessions, setRecentSessions] = useState([]);
   const [remindersList, setRemindersList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [copiedCode, setCopiedCode] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState(null);
+
+  const handleDeletePatient = async () => {
+    try {
+      setIsDeleting(true);
+      setDeleteError(null);
+      await deletePatient(patient.id);
+      navigate('/dashboard');
+    } catch (err) {
+      setDeleteError(err?.message || 'Failed to delete patient profile.');
+      setIsDeleting(false);
+    }
+  };
 
   useEffect(() => {
     let isMounted = true;
@@ -297,22 +311,6 @@ export const PatientDetails = () => {
       return generated;
     })();
 
-  const handleCopyDeviceCode = (code) => {
-    if (!code) return;
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(code);
-    } else {
-      const textArea = document.createElement('textarea');
-      textArea.value = code;
-      document.body.appendChild(textArea);
-      textArea.select();
-      document.execCommand('copy');
-      document.body.removeChild(textArea);
-    }
-    setCopiedCode(true);
-    setTimeout(() => setCopiedCode(false), 2000);
-  };
-
   const initials = getInitials(patient.name);
   const activeConditionConfig =
     CONDITION_OPTIONS.find((c) => c.key === patient.careStatus) ||
@@ -397,7 +395,7 @@ export const PatientDetails = () => {
             </div>
           </div>
 
-          {/* Top-Right Action Controls: Paired Device Code & Profile Synced */}
+          {/* Top-Right Action Controls: Paired Device Code, Profile Synced, Delete Patient */}
           <div className="flex flex-col sm:items-end gap-3 shrink-0 w-full sm:w-auto">
             {/* 1. Paired Device Code Card */}
             <div className="w-full sm:w-auto flex items-center justify-between sm:justify-end gap-3 bg-cream/70 dark:bg-ink-soft/30 border border-border/80 dark:border-ink-soft/40 rounded-xl px-3.5 py-2 shadow-2xs">
@@ -418,40 +416,29 @@ export const PatientDetails = () => {
                     />
                   </div>
                   <div className="flex items-center gap-1.5 mt-0.5">
-                    <code className="font-mono text-xs sm:text-sm font-bold text-ink dark:text-cream tracking-wider select-all">
+                    <code className="font-mono text-xs sm:text-sm font-bold text-ink dark:text-cream tracking-wider">
                       {pairedCode}
                     </code>
                   </div>
                 </div>
               </div>
-
-              {/* Copy Code Button */}
-              <button
-                type="button"
-                onClick={() => handleCopyDeviceCode(pairedCode)}
-                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-surface dark:bg-ink-soft/40 hover:bg-cream dark:hover:bg-ink border border-border/80 dark:border-ink-soft/60 text-xs font-semibold text-ink dark:text-cream transition-all active:scale-95 shrink-0 shadow-2xs cursor-pointer select-none"
-                title="Copy Paired Device Code"
-                aria-label="Copy Paired Device Code"
-              >
-                {copiedCode ? (
-                  <>
-                    <Check className="w-3.5 h-3.5 text-sage" />
-                    <span className="text-xs font-bold text-sage">Copied!</span>
-                  </>
-                ) : (
-                  <>
-                    <Copy className="w-3.5 h-3.5 text-ink-soft dark:text-cream/70" />
-                    <span>Copy</span>
-                  </>
-                )}
-              </button>
             </div>
 
-
-            {/* Profile Synced Badge */}
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-sage/15 text-sage border border-sage/30 text-[11px] font-semibold shadow-2xs">
-              <ShieldCheck className="w-3.5 h-3.5" />
-              <span>Profile Synced</span>
+            {/* Profile Synced Badge & Delete Patient Choice */}
+            <div className="flex items-center gap-2">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-sage/15 text-sage border border-sage/30 text-[11px] font-semibold shadow-2xs">
+                <ShieldCheck className="w-3.5 h-3.5" />
+                <span>Profile Synced</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowDeleteModal(true)}
+                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-alert/10 hover:bg-alert/20 text-alert border border-alert/30 text-[11px] font-semibold transition-colors cursor-pointer select-none"
+                title="Delete Patient Profile"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Delete Patient</span>
+              </button>
             </div>
           </div>
         </div>
@@ -528,7 +515,7 @@ export const PatientDetails = () => {
             </div>
             {patient.deviceStatus?.linked ? (
               <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-sage/15 text-sage border border-sage/30">
-                <CheckCircle2 className="w-3 h-3" />
+                <CheckCircle2 className="w-3.5 h-3.5" />
                 <span>Linked</span>
               </span>
             ) : (
@@ -549,15 +536,8 @@ export const PatientDetails = () => {
                 </p>
                 <div className="flex items-center gap-2 mt-1">
                   <p className="text-xs text-ink-soft dark:text-cream/70 font-mono">
-                    Paired Code: <span className="font-bold text-ink dark:text-cream">{pairedCode}</span>
+                    Paired Device Code: <span className="font-bold text-ink dark:text-cream">{pairedCode}</span>
                   </p>
-                  <button
-                    type="button"
-                    onClick={() => handleCopyDeviceCode(pairedCode)}
-                    className="text-[11px] text-terracotta hover:underline font-semibold cursor-pointer"
-                  >
-                    {copiedCode ? 'Copied' : 'Copy'}
-                  </button>
                 </div>
               </div>
 
@@ -569,19 +549,12 @@ export const PatientDetails = () => {
           ) : (
             <div className="space-y-2">
               <p className="text-xs sm:text-sm text-ink-soft dark:text-cream/70">
-                Tablet pairing code is ready to connect.
+                Paired device code is ready to connect.
               </p>
               <div className="flex items-center gap-2">
-                <code className="font-mono font-bold text-xs bg-cream dark:bg-ink-soft/40 px-2 py-1 rounded border border-border/80">
+                <code className="font-mono font-bold text-xs bg-cream dark:bg-ink-soft/40 px-2.5 py-1 rounded border border-border/80 text-ink dark:text-cream">
                   {pairedCode}
                 </code>
-                <button
-                  type="button"
-                  onClick={() => handleCopyDeviceCode(pairedCode)}
-                  className="text-xs text-terracotta font-semibold hover:underline cursor-pointer"
-                >
-                  {copiedCode ? 'Copied' : 'Copy'}
-                </button>
               </div>
             </div>
           )}
@@ -767,6 +740,66 @@ export const PatientDetails = () => {
           </div>
         </section>
       </div>
+
+      {/* 5. Delete Patient Confirmation Modal */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-surface dark:bg-ink border border-border/80 dark:border-ink-soft/60 rounded-2xl max-w-md w-full p-6 shadow-xl space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-alert/15 text-alert flex items-center justify-center shrink-0">
+                <AlertCircle className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-ink dark:text-cream">
+                  Delete Patient Profile
+                </h3>
+                <p className="text-xs text-ink-soft dark:text-cream/60">
+                  Confirm patient removal
+                </p>
+              </div>
+            </div>
+
+            <p className="text-sm text-ink-soft dark:text-cream/80 leading-relaxed">
+              Are you sure you want to delete <strong className="text-ink dark:text-cream">{patient.name}</strong> ({patient.id})? This will permanently remove their profile, cognitive telemetry records, and device pairing token.
+            </p>
+
+            {deleteError && (
+              <p className="text-xs text-alert font-medium bg-alert/10 p-2.5 rounded-lg border border-alert/30">
+                {deleteError}
+              </p>
+            )}
+
+            <div className="flex items-center justify-end gap-2.5 pt-2">
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={() => setShowDeleteModal(false)}
+                className="px-4 py-2 rounded-xl text-xs font-semibold text-ink-soft dark:text-cream/70 hover:bg-cream dark:hover:bg-ink-soft/30 border border-border/80 dark:border-ink-soft/40 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={handleDeletePatient}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold text-cream bg-alert hover:bg-red-700 active:scale-95 transition-all shadow-xs disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {isDeleting ? (
+                  <>
+                    <div className="w-3.5 h-3.5 border-2 border-cream border-t-transparent rounded-full animate-spin" />
+                    <span>Deleting...</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Delete Patient</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
