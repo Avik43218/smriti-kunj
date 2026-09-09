@@ -7,11 +7,11 @@ import 'theme/theme.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  runApp(const SmritiSetuApp());
+  runApp(const SmritiKunjApp());
 }
 
-class SmritiSetuApp extends StatelessWidget {
-  const SmritiSetuApp({super.key});
+class SmritiKunjApp extends StatelessWidget {
+  const SmritiKunjApp({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -20,7 +20,7 @@ class SmritiSetuApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => SessionService.instance),
       ],
       child: MaterialApp(
-        title: 'Smriti Setu',
+        title: 'Smriti Kunj',
         debugShowCheckedModeBanner: false,
         theme: patientTheme,
         home: Consumer<SessionService>(

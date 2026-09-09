@@ -87,7 +87,7 @@ class _PairingScreenState extends State<PairingScreen> {
                 children: [
                   // App Title & Calm Greeting
                   Text(
-                    'Smriti Setu',
+                    'Smriti Kunj',
                     textAlign: TextAlign.center,
                     style: textTheme.displayLarge?.copyWith(
                       color: AppColors.ink,

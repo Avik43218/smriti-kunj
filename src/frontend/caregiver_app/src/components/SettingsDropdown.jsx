@@ -78,7 +78,7 @@ export const SettingsDropdown = ({ isOpen, onClose, onBack }) => {
               </span>
             </div>
             <span className="text-[10px] text-ink-soft dark:text-cream/50 font-medium">
-              Smriti Setu
+              Smriti Kunj
             </span>
           </div>
 
@@ -129,7 +129,7 @@ export const SettingsDropdown = ({ isOpen, onClose, onBack }) => {
                   {activeModal === 'privacy' ? 'Privacy Policy' : 'Terms of Service'}
                 </h3>
                 <p className="text-[11px] text-ink-soft dark:text-cream/60">
-                  Smriti Setu • Cognitive Assist Platform
+                  Smriti Kunj • Cognitive Assist Platform
                 </p>
               </div>
               <button
@@ -145,8 +145,8 @@ export const SettingsDropdown = ({ isOpen, onClose, onBack }) => {
             <div className="py-4 text-xs sm:text-sm text-ink-soft dark:text-cream/80 space-y-2.5 leading-relaxed">
               <p>
                 {activeModal === 'privacy'
-                  ? 'The Smriti Setu Privacy Policy outlines how caregiver profiles, patient metrics, and longitudinal clinical data are secured using strict role-based access control and encrypted storage.'
-                  : 'The Smriti Setu Terms of Service govern clinical oversight, device pairing protocols, emergency alert responsibilities, and caregiver delegation.'}
+                  ? 'The Smriti Kunj Privacy Policy outlines how caregiver profiles, patient metrics, and longitudinal clinical data are secured using strict role-based access control and encrypted storage.'
+                  : 'The Smriti Kunj Terms of Service govern clinical oversight, device pairing protocols, emergency alert responsibilities, and caregiver delegation.'}
               </p>
               <div className="p-2.5 bg-cream dark:bg-ink-soft/20 border border-border dark:border-ink-soft/30 rounded-lg text-xs">
                 <span className="font-semibold text-ink dark:text-cream">Note:</span> Full clinical and legal compliance documentation is active for v0.1.

@@ -3,7 +3,7 @@
 Read `../../docs/BRAND_GUIDELINES.md` in full before writing any UI. This file adds
 rules specific to this app's structure, constraints, and pages.
 
-App name: **Smriti Setu**. Use it wherever a product name is contextually appropriate
+App name: **Smriti Kunj**. Use it wherever a product name is contextually appropriate
 (splash screen, headers, about text).
 
 ---

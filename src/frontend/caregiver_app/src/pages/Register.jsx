@@ -104,7 +104,7 @@ export const Register = () => {
               Caregiver Portal
             </div>
             <h1 className="text-2xl sm:text-3xl font-bold text-ink dark:text-cream tracking-tight font-sans">
-              Smriti Setu
+              Smriti Kunj
             </h1>
             <p className="text-xs sm:text-sm text-ink-soft dark:text-cream/70 mt-1 max-w-sm mx-auto leading-relaxed">
               Cognitive Assist Platform • Create your caregiver account
@@ -341,9 +341,9 @@ export const Register = () => {
           </form>
         </div>
 
-        {/* Footer info with Smriti Setu branding */}
+        {/* Footer info with Smriti Kunj branding */}
         <p className="text-center text-xs text-ink-soft dark:text-cream/60 mt-6 font-sans">
-          Smriti Setu • Cognitive Assist Platform
+          Smriti Kunj • Cognitive Assist Platform
         </p>
       </div>
     </div>

@@ -33,6 +33,7 @@ import { TimePicker } from '../components/TimePicker';
 import { StyledSelect } from '../components/StyledSelect';
 import { SoundClipCard } from '../components/SoundClipCard';
 import { ConfirmDeleteModal } from '../components/ConfirmDeleteModal';
+import { AlarmOffModal } from '../components/AlarmOffModal';
 import { fetchPatients, getPatientById } from '../services/patientService';
 
 export const CarePlan = () => {
@@ -50,12 +51,15 @@ export const CarePlan = () => {
   // Reminders State
   const [reminders, setReminders] = useState({
     medication: [],
-    hydration: { label: '', schedule: '', status: '' },
+    hydration: { label: '', schedule: '', status: '', active: false, frequency: 'Every 1 hour' },
     meals: [],
     custom: [],
   });
   const [isLoadingReminders, setIsLoadingReminders] = useState(true);
   const [reminderError, setReminderError] = useState('');
+
+  // Alarm Off Confirmation Modal State
+  const [alarmOffPrompt, setAlarmOffPrompt] = useState(null); // { category, id, label }
 
   // Compliance Tracking State
   const [compliance, setCompliance] = useState(null);
@@ -129,17 +133,39 @@ export const CarePlan = () => {
       onConfirm: null,
     });
   };
-  // Toggle Alarm Active status for a default or custom reminder
-  const toggleAlarmStatus = (category, itemId = null) => {
+  // Toggle Alarm Active status or trigger confirmation prompt if turning off
+  const handleAlarmToggleClick = (category, itemId = null, itemLabel = '', isCurrentActive = true) => {
+    if (isCurrentActive) {
+      // Prompt whether to turn off once or repeatedly
+      const fallbackLabel =
+        category === 'hydration'
+          ? reminders.hydration?.label || 'Hydration'
+          : category === 'medication'
+          ? 'Medication'
+          : category === 'meals'
+          ? 'Meal'
+          : 'Custom Reminder';
+      setAlarmOffPrompt({
+        category,
+        id: itemId,
+        label: itemLabel || fallbackLabel,
+      });
+    } else {
+      // Immediately turn back on
+      applyAlarmStatus(category, itemId, true, null);
+    }
+  };
+
+  const applyAlarmStatus = (category, itemId = null, isActive = true, offMode = null) => {
     setReminders((prev) => {
       if (category === 'hydration') {
-        const currentActive = prev.hydration?.active !== false;
         return {
           ...prev,
           hydration: {
             ...prev.hydration,
-            active: !currentActive,
-            status: !currentActive ? 'Active' : 'Muted',
+            active: isActive,
+            status: isActive ? 'Active' : (offMode === 'once' ? 'Off (Once)' : 'Muted'),
+            offMode: isActive ? null : offMode,
           },
         };
       }
@@ -149,8 +175,11 @@ export const CarePlan = () => {
           ...prev,
           [category]: (prev[category] || []).map((item) => {
             if (itemId === null || item.id === itemId) {
-              const currentActive = item.active !== false;
-              return { ...item, active: !currentActive };
+              return {
+                ...item,
+                active: isActive,
+                offMode: isActive ? null : offMode,
+              };
             }
             return item;
           }),
@@ -216,6 +245,14 @@ export const CarePlan = () => {
             meals: [],
             custom: [],
             ...(remindersData || {}),
+            hydration: {
+              label: '',
+              schedule: '',
+              status: '',
+              active: false,
+              frequency: 'Every 1 hour',
+              ...(remindersData?.hydration || {}),
+            },
           });
           setCompliance(complianceData);
         }
@@ -464,7 +501,10 @@ export const CarePlan = () => {
     if (category === 'medication') {
       setCategoryDraft(JSON.parse(JSON.stringify(reminders.medication)));
     } else if (category === 'hydration') {
-      setCategoryDraft({ ...reminders.hydration });
+      setCategoryDraft({
+        frequency: 'Every 1 hour',
+        ...reminders.hydration,
+      });
     } else if (category === 'meals') {
       setCategoryDraft(JSON.parse(JSON.stringify(reminders.meals)));
     }
@@ -915,47 +955,53 @@ export const CarePlan = () => {
                 </div>
 
                 <div className="space-y-2.5">
-                  {reminders.medication.map((med) => {
-                    const isAlarmActive = med.active !== false;
-                    return (
-                      <div
-                        key={med.id}
-                        className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 p-3 bg-surface dark:bg-ink-soft/40 border border-border/80 dark:border-ink-soft/40 rounded-xl shadow-2xs hover:border-terracotta/30 transition-colors text-xs"
-                      >
-                        <span className="font-semibold text-ink dark:text-cream">• {med.label}</span>
-                        <div className="flex items-center justify-between sm:justify-end gap-2.5">
-                          <span className="px-2.5 py-1 bg-cream dark:bg-ink-soft/30 border border-border/60 dark:border-ink-soft/30 rounded-full font-bold text-ink-soft dark:text-cream/80 text-[11px]">
-                            {med.time}
-                          </span>
-
-                          <button
-                            type="button"
-                            onClick={() => toggleAlarmStatus('medication', med.id)}
-                            aria-label={isAlarmActive ? 'Alarm is Active (Click to mute)' : 'Alarm is Off (Click to activate)'}
-                            className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold border shadow-2xs transition-all cursor-pointer select-none active:scale-95 ${isAlarmActive
-                                ? 'bg-sage/20 border-sage/60 text-sage dark:bg-sage/30 dark:text-sage dark:border-sage/60 hover:bg-sage/30'
-                                : 'bg-cream dark:bg-ink-soft/40 border-border dark:border-ink-soft/50 text-ink-soft dark:text-cream/50 hover:bg-surface'
-                              }`}
-                          >
-                            <span className={`w-2 h-2 rounded-full ${isAlarmActive ? 'bg-sage animate-pulse' : 'bg-ink-soft/40'}`} />
-                            <span className="flex items-center gap-1.5">
-                              {isAlarmActive ? (
-                                <>
-                                  <Bell className="w-3.5 h-3.5 text-sage" />
-                                  <span>Alarm Active</span>
-                                </>
-                              ) : (
-                                <>
-                                  <BellOff className="w-3.5 h-3.5 opacity-60" />
-                                  <span>Alarm Off</span>
-                                </>
-                              )}
+                  {reminders.medication.length === 0 ? (
+                    <p className="text-xs text-ink-soft dark:text-cream/50 italic px-1 py-2 text-center">
+                      No reminders set
+                    </p>
+                  ) : (
+                    reminders.medication.map((med) => {
+                      const isAlarmActive = med.active !== false;
+                      return (
+                        <div
+                          key={med.id}
+                          className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 p-3 bg-surface dark:bg-ink-soft/40 border border-border/80 dark:border-ink-soft/40 rounded-xl shadow-2xs hover:border-terracotta/30 transition-colors text-xs"
+                        >
+                          <span className="font-semibold text-ink dark:text-cream">• {med.label}</span>
+                          <div className="flex items-center justify-between sm:justify-end gap-2.5">
+                            <span className="px-2.5 py-1 bg-cream dark:bg-ink-soft/30 border border-border/60 dark:border-ink-soft/30 rounded-full font-bold text-ink-soft dark:text-cream/80 text-[11px]">
+                              {med.time}
                             </span>
-                          </button>
+
+                            <button
+                              type="button"
+                              onClick={() => handleAlarmToggleClick('medication', med.id, med.label, isAlarmActive)}
+                              aria-label={isAlarmActive ? 'Alarm is Active (Click to turn off)' : 'Alarm is Off (Click to activate)'}
+                              className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold border shadow-2xs transition-all cursor-pointer select-none active:scale-95 ${isAlarmActive
+                                  ? 'bg-sage/20 border-sage/60 text-sage dark:bg-sage/30 dark:text-sage dark:border-sage/60 hover:bg-sage/30'
+                                  : 'bg-cream dark:bg-ink-soft/40 border-border dark:border-ink-soft/50 text-ink-soft dark:text-cream/50 hover:bg-surface'
+                                }`}
+                            >
+                              <span className={`w-2 h-2 rounded-full ${isAlarmActive ? 'bg-sage animate-pulse' : 'bg-ink-soft/40'}`} />
+                              <span className="flex items-center gap-1.5">
+                                {isAlarmActive ? (
+                                  <>
+                                    <Bell className="w-3.5 h-3.5 text-sage" />
+                                    <span>Alarm Active</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <BellOff className="w-3.5 h-3.5 opacity-60" />
+                                    <span>{med.offMode === 'once' ? 'Alarm Off (Once)' : 'Alarm Off'}</span>
+                                  </>
+                                )}
+                              </span>
+                            </button>
+                          </div>
                         </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    })
+                  )}
                 </div>
               </div>
 
@@ -979,38 +1025,59 @@ export const CarePlan = () => {
                   </button>
                 </div>
 
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 p-3 bg-surface dark:bg-ink-soft/40 border border-border/80 dark:border-ink-soft/40 rounded-xl shadow-2xs hover:border-terracotta/30 transition-colors text-xs">
-                  <div>
-                    <p className="font-semibold text-ink dark:text-cream">{reminders.hydration.label}</p>
-                    <span className="text-[11px] font-semibold text-ink-soft dark:text-cream/70 block mt-0.5">{reminders.hydration.schedule}</span>
-                  </div>
-                  <div className="flex items-center justify-end gap-2.5">
-                    <button
-                      type="button"
-                      onClick={() => toggleAlarmStatus('hydration')}
-                      aria-label={reminders.hydration?.active !== false ? 'Alarm is Active' : 'Alarm is Off'}
-                      className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold border shadow-2xs transition-all cursor-pointer select-none active:scale-95 ${reminders.hydration?.active !== false
-                          ? 'bg-sage/20 border-sage/60 text-sage dark:bg-sage/30 dark:text-sage dark:border-sage/60 hover:bg-sage/30'
-                          : 'bg-cream dark:bg-ink-soft/40 border-border dark:border-ink-soft/50 text-ink-soft dark:text-cream/50 hover:bg-surface'
-                        }`}
-                    >
-                      <span className={`w-2 h-2 rounded-full ${reminders.hydration?.active !== false ? 'bg-sage animate-pulse' : 'bg-ink-soft/40'}`} />
-                      <span className="flex items-center gap-1.5">
-                        {reminders.hydration?.active !== false ? (
+                {reminders.hydration.label ? (
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 p-3 bg-surface dark:bg-ink-soft/40 border border-border/80 dark:border-ink-soft/40 rounded-xl shadow-2xs hover:border-terracotta/30 transition-colors text-xs">
+                    <div>
+                      <p className="font-semibold text-ink dark:text-cream">{reminders.hydration.label}</p>
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-0.5">
+                        <span className="text-[11px] font-semibold text-ink-soft dark:text-cream/70">{reminders.hydration.schedule}</span>
+                        {reminders.hydration.frequency && (
                           <>
-                            <Bell className="w-3.5 h-3.5 text-sage" />
-                            <span>Alarm Active</span>
-                          </>
-                        ) : (
-                          <>
-                            <BellOff className="w-3.5 h-3.5 opacity-60" />
-                            <span>Alarm Off</span>
+                            <span className="text-ink-soft/40 dark:text-cream/30 text-[10px]">•</span>
+                            <span className="text-[11px] font-medium text-terracotta dark:text-terracotta/90">{reminders.hydration.frequency}</span>
                           </>
                         )}
-                      </span>
-                    </button>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-end gap-2.5">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          handleAlarmToggleClick(
+                            'hydration',
+                            null,
+                            reminders.hydration.label,
+                            reminders.hydration?.active !== false
+                          )
+                        }
+                        aria-label={reminders.hydration?.active !== false ? 'Alarm is Active (Click to turn off)' : 'Alarm is Off (Click to activate)'}
+                        className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold border shadow-2xs transition-all cursor-pointer select-none active:scale-95 ${reminders.hydration?.active !== false
+                            ? 'bg-sage/20 border-sage/60 text-sage dark:bg-sage/30 dark:text-sage dark:border-sage/60 hover:bg-sage/30'
+                            : 'bg-cream dark:bg-ink-soft/40 border-border dark:border-ink-soft/50 text-ink-soft dark:text-cream/50 hover:bg-surface'
+                          }`}
+                      >
+                        <span className={`w-2 h-2 rounded-full ${reminders.hydration?.active !== false ? 'bg-sage animate-pulse' : 'bg-ink-soft/40'}`} />
+                        <span className="flex items-center gap-1.5">
+                          {reminders.hydration?.active !== false ? (
+                            <>
+                              <Bell className="w-3.5 h-3.5 text-sage" />
+                              <span>Alarm Active</span>
+                            </>
+                          ) : (
+                            <>
+                              <BellOff className="w-3.5 h-3.5 opacity-60" />
+                              <span>{reminders.hydration?.offMode === 'once' ? 'Alarm Off (Once)' : 'Alarm Off'}</span>
+                            </>
+                          )}
+                        </span>
+                      </button>
+                    </div>
                   </div>
-                </div>
+                ) : (
+                  <p className="text-xs text-ink-soft dark:text-cream/50 italic px-1 py-2 text-center">
+                    No reminders set
+                  </p>
+                )}
               </div>
 
               {/* PANEL 3: Meals */}
@@ -1034,47 +1101,53 @@ export const CarePlan = () => {
                 </div>
 
                 <div className="space-y-2.5">
-                  {reminders.meals.map((meal) => {
-                    const isAlarmActive = meal.active !== false;
-                    return (
-                      <div
-                        key={meal.id}
-                        className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 p-3 bg-surface dark:bg-ink-soft/40 border border-border/80 dark:border-ink-soft/40 rounded-xl shadow-2xs hover:border-terracotta/30 transition-colors text-xs"
-                      >
-                        <span className="font-semibold text-ink dark:text-cream">• {meal.label}</span>
-                        <div className="flex items-center justify-between sm:justify-end gap-2.5">
-                          <span className="px-2.5 py-1 bg-cream dark:bg-ink-soft/30 border border-border/60 dark:border-ink-soft/30 rounded-full font-bold text-ink-soft dark:text-cream/80 text-[11px]">
-                            {meal.time}
-                          </span>
-
-                          <button
-                            type="button"
-                            onClick={() => toggleAlarmStatus('meals', meal.id)}
-                            aria-label={isAlarmActive ? 'Alarm is Active' : 'Alarm is Off'}
-                            className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold border shadow-2xs transition-all cursor-pointer select-none active:scale-95 ${isAlarmActive
-                                ? 'bg-sage/20 border-sage/60 text-sage dark:bg-sage/30 dark:text-sage dark:border-sage/60 hover:bg-sage/30'
-                                : 'bg-cream dark:bg-ink-soft/40 border-border dark:border-ink-soft/50 text-ink-soft dark:text-cream/50 hover:bg-surface'
-                              }`}
-                          >
-                            <span className={`w-2 h-2 rounded-full ${isAlarmActive ? 'bg-sage animate-pulse' : 'bg-ink-soft/40'}`} />
-                            <span className="flex items-center gap-1.5">
-                              {isAlarmActive ? (
-                                <>
-                                  <Bell className="w-3.5 h-3.5 text-sage" />
-                                  <span>Alarm Active</span>
-                                </>
-                              ) : (
-                                <>
-                                  <BellOff className="w-3.5 h-3.5 opacity-60" />
-                                  <span>Alarm Off</span>
-                                </>
-                              )}
+                  {reminders.meals.length === 0 ? (
+                    <p className="text-xs text-ink-soft dark:text-cream/50 italic px-1 py-2 text-center">
+                      No reminders set
+                    </p>
+                  ) : (
+                    reminders.meals.map((meal) => {
+                      const isAlarmActive = meal.active !== false;
+                      return (
+                        <div
+                          key={meal.id}
+                          className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 p-3 bg-surface dark:bg-ink-soft/40 border border-border/80 dark:border-ink-soft/40 rounded-xl shadow-2xs hover:border-terracotta/30 transition-colors text-xs"
+                        >
+                          <span className="font-semibold text-ink dark:text-cream">• {meal.label}</span>
+                          <div className="flex items-center justify-between sm:justify-end gap-2.5">
+                            <span className="px-2.5 py-1 bg-cream dark:bg-ink-soft/30 border border-border/60 dark:border-ink-soft/30 rounded-full font-bold text-ink-soft dark:text-cream/80 text-[11px]">
+                              {meal.time}
                             </span>
-                          </button>
+
+                            <button
+                              type="button"
+                              onClick={() => handleAlarmToggleClick('meals', meal.id, meal.label, isAlarmActive)}
+                              aria-label={isAlarmActive ? 'Alarm is Active (Click to turn off)' : 'Alarm is Off (Click to activate)'}
+                              className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold border shadow-2xs transition-all cursor-pointer select-none active:scale-95 ${isAlarmActive
+                                  ? 'bg-sage/20 border-sage/60 text-sage dark:bg-sage/30 dark:text-sage dark:border-sage/60 hover:bg-sage/30'
+                                  : 'bg-cream dark:bg-ink-soft/40 border-border dark:border-ink-soft/50 text-ink-soft dark:text-cream/50 hover:bg-surface'
+                                }`}
+                            >
+                              <span className={`w-2 h-2 rounded-full ${isAlarmActive ? 'bg-sage animate-pulse' : 'bg-ink-soft/40'}`} />
+                              <span className="flex items-center gap-1.5">
+                                {isAlarmActive ? (
+                                  <>
+                                    <Bell className="w-3.5 h-3.5 text-sage" />
+                                    <span>Alarm Active</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <BellOff className="w-3.5 h-3.5 opacity-60" />
+                                    <span>{meal.offMode === 'once' ? 'Alarm Off (Once)' : 'Alarm Off'}</span>
+                                  </>
+                                )}
+                              </span>
+                            </button>
+                          </div>
                         </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    })
+                  )}
                 </div>
               </div>
 
@@ -1102,8 +1175,8 @@ export const CarePlan = () => {
 
                           <button
                             type="button"
-                            onClick={() => toggleAlarmStatus('custom', cust.id)}
-                            aria-label={isAlarmActive ? 'Alarm is Active' : 'Alarm is Off'}
+                            onClick={() => handleAlarmToggleClick('custom', cust.id, cust.label, isAlarmActive)}
+                            aria-label={isAlarmActive ? 'Alarm is Active (Click to turn off)' : 'Alarm is Off (Click to activate)'}
                             className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold border shadow-2xs transition-all cursor-pointer select-none active:scale-95 ${isAlarmActive
                                 ? 'bg-sage/20 border-sage/60 text-sage dark:bg-sage/30 dark:text-sage dark:border-sage/60 hover:bg-sage/30'
                                 : 'bg-cream dark:bg-ink-soft/40 border-border dark:border-ink-soft/50 text-ink-soft dark:text-cream/50 hover:bg-surface'
@@ -1119,7 +1192,7 @@ export const CarePlan = () => {
                               ) : (
                                 <>
                                   <BellOff className="w-3.5 h-3.5 opacity-60" />
-                                  <span>Alarm Off</span>
+                                  <span>{cust.offMode === 'once' ? 'Alarm Off (Once)' : 'Alarm Off'}</span>
                                 </>
                               )}
                             </span>
@@ -1710,6 +1783,32 @@ export const CarePlan = () => {
                       </div>
                     </div>
                   </div>
+
+                  <div>
+                    <label
+                      htmlFor="hydrationFrequency"
+                      className="block text-xs font-semibold uppercase tracking-wider text-ink-soft dark:text-cream/70 mb-1.5"
+                    >
+                      Repeat Frequency
+                    </label>
+                    <StyledSelect
+                      id="hydrationFrequency"
+                      value={categoryDraft.frequency || 'Every 1 hour'}
+                      onChange={(val) => setCategoryDraft((prev) => ({ ...prev, frequency: val }))}
+                      options={[
+                        'Every 30 minutes',
+                        'Every 45 minutes',
+                        'Every 1 hour',
+                        'Every 1.5 hours',
+                        'Every 2 hours',
+                        'Every 3 hours',
+                        'Every 4 hours',
+                      ]}
+                    />
+                    <p className="text-[11px] text-ink-soft dark:text-cream/60 mt-1">
+                      Specifies how frequently to prompt {patientName || 'the patient'} to drink water within the active window.
+                    </p>
+                  </div>
                 </div>
               )}
 
@@ -2100,6 +2199,25 @@ export const CarePlan = () => {
           onCancel={closeDeleteConfirmation}
         />
       )}
+
+      {/* Alarm Off Confirmation Modal */}
+      <AlarmOffModal
+        isOpen={Boolean(alarmOffPrompt)}
+        reminderLabel={alarmOffPrompt?.label}
+        onTurnOffOnce={() => {
+          if (alarmOffPrompt) {
+            applyAlarmStatus(alarmOffPrompt.category, alarmOffPrompt.id, false, 'once');
+          }
+          setAlarmOffPrompt(null);
+        }}
+        onTurnOffRepeatedly={() => {
+          if (alarmOffPrompt) {
+            applyAlarmStatus(alarmOffPrompt.category, alarmOffPrompt.id, false, 'repeatedly');
+          }
+          setAlarmOffPrompt(null);
+        }}
+        onCancel={() => setAlarmOffPrompt(null)}
+      />
 
     </div>
   );
