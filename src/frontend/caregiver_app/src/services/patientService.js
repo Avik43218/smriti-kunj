@@ -59,12 +59,75 @@ export const getCareStatusConfig = (status) => {
   }
 };
 
+const DEFAULT_PATIENTS = [
+  {
+    id: 'p101',
+    name: 'Aarav Sharma',
+    age: 72,
+    gender: 'Male',
+    dateOfBirth: 'March 14, 1954',
+    diagnosis: 'Mild Cognitive Impairment (MCI)',
+    healthIssue: 'Mild Cognitive Impairment (MCI) • Early-stage memory recall decline • Hypertension',
+    avatarUrl: null,
+    lastCheckIn: '10 mins ago',
+    notes: 'Morning memory recall exercise completed with 92% accuracy. Best response times before noon.',
+    preferredLanguage: 'Assamese',
+    pairingToken: 'PAIR-101742',
+    careStatus: 'normal',
+    statusLabel: 'Tablet active • Synced',
+    emergencyContact: {
+      name: 'Priya Sharma',
+      relationship: 'Daughter (Primary Guardian)',
+      phone: '+91 98765 43210',
+    },
+    deviceStatus: {
+      linked: true,
+      deviceName: "Lenovo Tab M10 Plus (Aarav's Unit)",
+      deviceId: 'DEV-M10-8492',
+      lastSynced: 'Today, 10:30 AM',
+    },
+  },
+  {
+    id: 'p102',
+    name: 'Sunita Das',
+    age: 68,
+    gender: 'Female',
+    dateOfBirth: 'August 22, 1958',
+    diagnosis: "Early Stage Alzheimer's",
+    healthIssue: "Early Stage Alzheimer's • Needs audio prompts for daily medication adherence",
+    avatarUrl: null,
+    lastCheckIn: '1 hour ago',
+    notes: 'Word association exercises show gradual improvement in recall latency.',
+    preferredLanguage: 'Bengali',
+    pairingToken: 'PAIR-204918',
+    careStatus: 'reminder_missed',
+    statusLabel: 'Medication pending',
+    emergencyContact: {
+      name: 'Rohan Das',
+      relationship: 'Son (Primary Guardian)',
+      phone: '+91 98123 45678',
+    },
+    deviceStatus: {
+      linked: true,
+      deviceName: "Samsung Galaxy Tab A8 (Sunita's Unit)",
+      deviceId: 'DEV-A8-3190',
+      lastSynced: 'Today, 09:15 AM',
+    },
+  },
+];
+
 const getStoredPatients = () => {
   try {
     const raw = localStorage.getItem('smriti_registered_patients');
-    return raw ? JSON.parse(raw) : [];
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed;
+      }
+    }
+    return DEFAULT_PATIENTS;
   } catch (err) {
-    return [];
+    return DEFAULT_PATIENTS;
   }
 };
 
@@ -170,10 +233,38 @@ export const getPatientById = async (id) => {
   return null;
 };
 
+/**
+ * Deletes a patient from backend and local cache.
+ * 
+ * @param {string} id 
+ * @returns {Promise<boolean>}
+ */
+export const deletePatient = async (id) => {
+  try {
+    await apiClient(`/api/caregiver/patients/${id}`, {
+      method: 'DELETE',
+    });
+  } catch (err) {
+    console.warn(`apiClient DELETE /api/caregiver/patients/${id} notice:`, err.message);
+  }
+
+  const stored = getStoredPatients();
+  const updated = stored.filter((p) => p.id !== id);
+  try {
+    localStorage.setItem('smriti_registered_patients', JSON.stringify(updated));
+    localStorage.removeItem(`smriti_pairing_token_${id}`);
+  } catch (err) {
+    console.warn('Could not update localStorage after patient deletion:', err);
+  }
+  return true;
+};
+
 export default {
   fetchPatients,
   getPatientById,
   registerPatient,
+  deletePatient,
   getCareStatusConfig,
   CARE_STATUS,
 };
+
