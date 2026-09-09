@@ -3,23 +3,33 @@
 @tailwind utilities;
 
 /* Smooth global color/background transitions when theme toggles */
-*,
-*::before,
-*::after {
-  transition-property: background-color, border-color, color, fill, stroke;
-  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
-  transition-duration: 250ms;
-}
-
-body {
+html, body {
   margin: 0;
   padding: 0;
   font-family: "Noto Sans", "Noto Sans Bengali", "Noto Sans Devanagari", sans-serif;
   background-color: #FBF5EA;
   color: #2E2A24;
+  transition: background-color 400ms cubic-bezier(0.4, 0, 0.2, 1), color 400ms cubic-bezier(0.4, 0, 0.2, 1);
+  overscroll-behavior: none;
 }
 
 html.dark body {
-  background-color: #2E2A24;
+  background-color: #1A1412;
   color: #FBF5EA;
+}
+
+*,
+*::before,
+*::after {
+  transition-property: background-color, border-color, color, fill, stroke, box-shadow;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-duration: 350ms;
+}
+
+/* Exclude fast-typing input cursor and canvas from global animation overhead */
+canvas,
+input,
+textarea {
+  transition-property: background-color, border-color, box-shadow, color;
+  transition-duration: 200ms;
 }
