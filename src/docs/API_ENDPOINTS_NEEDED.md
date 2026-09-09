@@ -70,6 +70,49 @@ As stub functions are added to `src/services/`, they must be documented here.
   }
   ```
 
+### `POST /api/auth/patient/pair`
+- **Calling Service / Page:** `src/patient_app/lib/services/api_service.dart` (`PairingScreen.dart`)
+- **Purpose:** Register and pair a patient tablet using the pair code generated during registration. Links the device hardware and issues a long-lived JWT.
+- **Request Body:**
+  ```json
+  {
+    "pairing_code": "PAIR-891234",
+    "device_id": "DEV-M10-8842",
+    "device_name": "Smriti Kunj Patient Tablet"
+  }
+  ```
+- **Response Shape (200 OK):**
+  ```json
+  {
+    "patient_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+    "patient_code": "p101",
+    "patient_name": "Aarav Sharma",
+    "caregiver_id": "3fa85f64-5717-4562-b3fc-2c963f66afa7",
+    "token": {
+      "access_token": "patient_device_jwt_token",
+      "token_type": "bearer",
+      "expires_at": "2027-09-09T08:58:00Z"
+    },
+    "region_language": "bn",
+    "emergency_contact": {
+      "name": "Priya Sharma",
+      "relationship": "Daughter (Primary Guardian)",
+      "phone": "+91 98765 43210"
+    },
+    "diagnosis": "Mild Cognitive Impairment (MCI)",
+    "status": "stable"
+  }
+  ```
+- **Error Responses:**
+  - `400 Bad Request`: Pairing code is missing or empty.
+  - `404 Not Found`: Invalid or expired pairing code.
+
+### `GET /api/auth/patient/me`
+- **Calling Service / Page:** `src/patient_app/lib/services/api_service.dart`
+- **Purpose:** Fetch current authenticated patient profile and emergency contact using device token.
+- **Headers:** `Authorization: Bearer <token>`
+- **Response Shape (200 OK):** Same shape as `PatientPairCompleteOut`.
+
 ---
 
 ## 2. Patient Roster & Management

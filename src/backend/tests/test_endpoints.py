@@ -17,11 +17,12 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from fastapi import HTTPException
 from beanie import init_beanie
 
-from app.api.routes import caregiver, patients
+from app.api.routes import auth, caregiver, patients
 from app.models.care_plan import FamilyMember
 from app.models.reminder import PatientReminder
 from app.models.session import GameSession
-from app.models.user import RoleEnum, User
+from app.models.user import DevicePairingToken, RoleEnum, User
+from app.schemas.auth import PatientPairCompleteRequest
 from app.schemas.patient import (
     CustomReminderCreate,
     FamilyMemberCreate,
@@ -44,7 +45,7 @@ class TestCaregiverAndPatientEndpoints(unittest.IsolatedAsyncioTestCase):
         db.__getitem__.return_value = mock_coll
         await init_beanie(
             database=db,
-            document_models=[User, FamilyMember, PatientReminder, GameSession],
+            document_models=[User, FamilyMember, PatientReminder, GameSession, DevicePairingToken],
         )
 
         self.caregiver_id = uuid.uuid4()
@@ -273,6 +274,102 @@ class TestCaregiverAndPatientEndpoints(unittest.IsolatedAsyncioTestCase):
 
                 lang_sessions = await patients.get_game_sessions("p101", domain="language", caregiver=self.caregiver_user)
                 self.assertEqual(len(lang_sessions), 0)
+
+    async def test_register_patient_with_pairing_token(self):
+        payload = PatientCreateRequest(
+            id="p105",
+            name="Ramesh Patel",
+            age=75,
+            diagnosis="Mild Cognitive Impairment (MCI)",
+            pairingToken="PAIR-891234",
+        )
+        with patch("app.api.routes.caregiver.User.find_one", new_callable=AsyncMock) as mock_find_one, \
+             patch("app.api.routes.caregiver.User.insert", new_callable=AsyncMock), \
+             patch("app.api.routes.caregiver.DevicePairingToken.find_one", new_callable=AsyncMock) as mock_pair_find, \
+             patch("app.api.routes.caregiver.DevicePairingToken.insert", new_callable=AsyncMock):
+            mock_find_one.return_value = None
+            mock_pair_find.return_value = None
+
+            created = await caregiver.register_patient(payload, self.caregiver_user)
+            self.assertEqual(created.id, "p105")
+            self.assertEqual(created.name, "Ramesh Patel")
+            self.assertEqual(created.pairingToken, "PAIR-891234")
+
+    async def test_patient_pair_with_full_code(self):
+        mock_patient = User(
+            id=uuid.uuid4(),
+            role=RoleEnum.patient,
+            name="Ramesh Patel",
+            patient_code="p105",
+            pairing_token="PAIR-891234",
+            caregiver_id=self.caregiver_id,
+        )
+        with patch("app.api.routes.auth.DevicePairingToken.find_one", new_callable=AsyncMock) as mock_find_token, \
+             patch("app.api.routes.auth.User.find_one", new_callable=AsyncMock) as mock_find_user, \
+             patch("app.models.user.User.save", new_callable=AsyncMock):
+            mock_find_token.return_value = None
+            # Return patient when searched by pairing_token
+            mock_find_user.side_effect = lambda *args, **kwargs: mock_patient
+
+            req = PatientPairCompleteRequest(
+                pairing_code="PAIR-891234",
+                device_id="DEV-PATIENT-01",
+                device_name="Tablet unit 1",
+            )
+            res = await auth.complete_pairing(req)
+            self.assertEqual(res.patient_name, "Ramesh Patel")
+            self.assertEqual(res.patient_code, "p105")
+            self.assertTrue(res.token.access_token)
+
+    async def test_patient_pair_with_digits_only(self):
+        mock_patient = User(
+            id=uuid.uuid4(),
+            role=RoleEnum.patient,
+            name="Aarav Sharma",
+            patient_code="p101",
+            pairing_token="PAIR-652759",
+            caregiver_id=self.caregiver_id,
+        )
+        with patch("app.api.routes.auth.DevicePairingToken.find_one", new_callable=AsyncMock) as mock_find_token, \
+             patch("app.api.routes.auth.User.find_one", new_callable=AsyncMock) as mock_find_user, \
+             patch("app.models.user.User.save", new_callable=AsyncMock):
+            mock_find_token.return_value = None
+            mock_find_user.side_effect = lambda *args, **kwargs: mock_patient
+
+            # Patient enters only digits "652759"
+            req = PatientPairCompleteRequest(
+                pairing_code="652759",
+                device_id="DEV-PATIENT-02",
+            )
+            res = await auth.complete_pairing(req)
+            self.assertEqual(res.patient_name, "Aarav Sharma")
+            self.assertEqual(res.patient_code, "p101")
+            self.assertTrue(res.token.access_token)
+
+    async def test_patient_pair_invalid_code_raises_404(self):
+        with patch("app.api.routes.auth.DevicePairingToken.find_one", new_callable=AsyncMock) as mock_find_token, \
+             patch("app.api.routes.auth.User.find_one", new_callable=AsyncMock) as mock_find_user:
+            mock_find_token.return_value = None
+            mock_find_user.return_value = None
+
+            req = PatientPairCompleteRequest(pairing_code="INVALID-999999")
+            with self.assertRaises(HTTPException) as ctx:
+                await auth.complete_pairing(req)
+            self.assertEqual(ctx.exception.status_code, 404)
+
+    async def test_get_patient_me(self):
+        mock_patient = User(
+            id=uuid.uuid4(),
+            role=RoleEnum.patient,
+            name="Aarav Sharma",
+            patient_code="p101",
+            caregiver_id=self.caregiver_id,
+            region_language="bn",
+        )
+        res = await auth.get_patient_me(mock_patient)
+        self.assertEqual(res.patient_name, "Aarav Sharma")
+        self.assertEqual(res.patient_code, "p101")
+        self.assertEqual(res.region_language, "bn")
 
 
 if __name__ == "__main__":

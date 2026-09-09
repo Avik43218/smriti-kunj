@@ -26,6 +26,7 @@ class PatientSummaryOut(BaseModel):
     status: str = "stable"
     statusLabel: str = "Active • Tablet synced"
     lastCheckIn: Optional[str] = None
+    pairingToken: Optional[str] = None
 
 
 class PatientDetailOut(BaseModel):
@@ -41,6 +42,7 @@ class PatientDetailOut(BaseModel):
     lastCheckIn: Optional[str] = None
     emergencyContact: Optional[EmergencyContact] = None
     deviceStatus: Optional[DeviceStatus] = None
+    pairingToken: Optional[str] = None
 
 
 class PatientCreateRequest(BaseModel):
@@ -57,6 +59,7 @@ class PatientCreateRequest(BaseModel):
     notes: Optional[str] = None
     emergencyContact: Optional[Dict[str, Any]] = None
     deviceStatus: Optional[Dict[str, Any]] = None
+    pairingToken: Optional[str] = None
 
 
 # ---- Memory Gallery (Family Members) Schemas ----------------------------

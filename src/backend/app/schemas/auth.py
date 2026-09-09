@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime
-from typing import Optional
+from typing import Any, Dict, Optional
 
 from pydantic import BaseModel, EmailStr, Field
 
@@ -10,6 +10,11 @@ class UserOut(BaseModel):
     role: str
     name: str
     email: Optional[str] = None
+    patient_code: Optional[str] = None
+    region_language: Optional[str] = "bn"
+    pairing_token: Optional[str] = None
+    emergency_contact: Optional[Dict[str, Any]] = None
+    device_id: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -75,11 +80,20 @@ class PatientPairStartOut(BaseModel):
 
 
 class PatientPairCompleteRequest(BaseModel):
-    pairing_token: str
-    device_id: str
-    patient_name: str
+    pairing_token: Optional[str] = None
+    pairing_code: Optional[str] = None
+    device_id: Optional[str] = None
+    device_name: Optional[str] = "Patient Device"
+    patient_name: Optional[str] = None
 
 
 class PatientPairCompleteOut(BaseModel):
     patient_id: uuid.UUID
+    patient_code: Optional[str] = None
+    patient_name: str
+    caregiver_id: Optional[uuid.UUID] = None
     token: TokenOut
+    region_language: Optional[str] = "bn"
+    emergency_contact: Optional[Dict[str, Any]] = None
+    diagnosis: Optional[str] = None
+    status: Optional[str] = "stable"

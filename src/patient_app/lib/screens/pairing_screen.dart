@@ -56,14 +56,16 @@ class _PairingScreenState extends State<PairingScreen> {
         );
       } else {
         setState(() {
-          _errorMessage = 'Unable to connect with this code. Please try again.';
+          _errorMessage = SessionService.instance.errorMessage ??
+              'Unable to connect with this code. Please check with your caregiver and try again.';
           _isLoading = false;
         });
       }
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
       setState(() {
-        _errorMessage = 'Something went wrong. Please try again.';
+        final clean = e.toString().replaceAll('Exception: ', '').trim();
+        _errorMessage = clean.isNotEmpty ? clean : 'Something went wrong. Please try again.';
         _isLoading = false;
       });
     }

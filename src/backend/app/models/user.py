@@ -32,6 +32,7 @@ class User(Document):
 
     # Patient profile attributes
     patient_code: Optional[Annotated[str, Indexed(unique=True, sparse=True)]] = None  # e.g. "p101"
+    pairing_token: Optional[Annotated[str, Indexed(sparse=True)]] = None  # e.g. "PAIR-123456"
     age: Optional[int] = None
     gender: Optional[str] = None
     date_of_birth: Optional[str] = None

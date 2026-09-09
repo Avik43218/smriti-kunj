@@ -1,12 +1,14 @@
 """Caregiver Portal API: patient roster & details + dashboard analytics."""
+import random
 import uuid
+from datetime import datetime, timedelta, timezone
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 
 from app.core.security import require_caregiver
 from app.models.session import GameSession
-from app.models.user import RoleEnum, User
+from app.models.user import DevicePairingToken, RoleEnum, User
 from app.schemas.patient import (
     DeviceStatus,
     EmergencyContact,
@@ -28,6 +30,7 @@ def _user_to_patient_summary(user: User) -> PatientSummaryOut:
         status=user.status or "stable",
         statusLabel=user.status_label or "Active • Tablet synced",
         lastCheckIn=user.last_check_in or "Just registered",
+        pairingToken=user.pairing_token,
     )
 
 
@@ -61,6 +64,7 @@ def _user_to_patient_detail(user: User) -> PatientDetailOut:
         lastCheckIn=user.last_check_in or "Just registered",
         emergencyContact=ec,
         deviceStatus=ds,
+        pairingToken=user.pairing_token,
     )
 
 
@@ -113,6 +117,12 @@ async def register_patient(
         payload.id.strip() if payload.id and payload.id.strip() else f"p{uuid.uuid4().hex[:6]}"
     )
 
+    pairing_token = (
+        payload.pairingToken.strip().upper()
+        if payload.pairingToken and payload.pairingToken.strip()
+        else f"PAIR-{random.randint(100000, 999999)}"
+    )
+
     existing = await User.find_one(
         User.caregiver_id == caregiver.id,
         User.patient_code == patient_code,
@@ -128,33 +138,65 @@ async def register_patient(
         existing.status = payload.status or "stable"
         existing.status_label = payload.statusLabel or "Active • Tablet synced"
         existing.notes = payload.notes
+        existing.pairing_token = pairing_token
         if payload.emergencyContact:
             existing.emergency_contact = payload.emergencyContact
         if payload.deviceStatus:
             existing.device_status = payload.deviceStatus
         await existing.save()
-        return _user_to_patient_detail(existing)
+        patient_doc = existing
+    else:
+        patient = User(
+            role=RoleEnum.patient,
+            name=payload.name.strip(),
+            caregiver_id=caregiver.id,
+            patient_code=patient_code,
+            pairing_token=pairing_token,
+            age=payload.age,
+            gender=payload.gender,
+            date_of_birth=payload.dateOfBirth,
+            diagnosis=payload.diagnosis,
+            health_issue=payload.healthIssue,
+            avatar_url=payload.avatarUrl,
+            status=payload.status or "stable",
+            status_label=payload.statusLabel or "Active • Tablet synced",
+            last_check_in="Just registered",
+            notes=payload.notes,
+            emergency_contact=payload.emergencyContact,
+            device_status=payload.deviceStatus,
+        )
+        await patient.insert()
+        patient_doc = patient
 
-    patient = User(
-        role=RoleEnum.patient,
-        name=payload.name.strip(),
-        caregiver_id=caregiver.id,
-        patient_code=patient_code,
-        age=payload.age,
-        gender=payload.gender,
-        date_of_birth=payload.dateOfBirth,
-        diagnosis=payload.diagnosis,
-        health_issue=payload.healthIssue,
-        avatar_url=payload.avatarUrl,
-        status=payload.status or "stable",
-        status_label=payload.statusLabel or "Active • Tablet synced",
-        last_check_in="Just registered",
-        notes=payload.notes,
-        emergency_contact=payload.emergencyContact,
-        device_status=payload.deviceStatus,
-    )
-    await patient.insert()
-    return _user_to_patient_detail(patient)
+    # Ensure DevicePairingToken is updated/inserted for immediate pairing
+    try:
+        pairing_rec = await DevicePairingToken.find_one(
+            DevicePairingToken.patient_id == patient_doc.id,
+            DevicePairingToken.used == False,  # noqa: E712
+        )
+        if not pairing_rec:
+            pairing_rec = await DevicePairingToken.find_one(
+                DevicePairingToken.token == pairing_token,
+            )
+        if pairing_rec:
+            pairing_rec.token = pairing_token
+            pairing_rec.patient_id = patient_doc.id
+            pairing_rec.caregiver_id = caregiver.id
+            pairing_rec.expires_at = datetime.now(timezone.utc) + timedelta(days=365)
+            pairing_rec.used = False
+            await pairing_rec.save()
+        else:
+            await DevicePairingToken(
+                caregiver_id=caregiver.id,
+                patient_id=patient_doc.id,
+                token=pairing_token,
+                expires_at=datetime.now(timezone.utc) + timedelta(days=365),
+                used=False,
+            ).insert()
+    except Exception as e:
+        print(f"[warning] could not upsert DevicePairingToken: {e}")
+
+    return _user_to_patient_detail(patient_doc)
 
 
 @router.get("/patients/{id}", response_model=PatientDetailOut)
