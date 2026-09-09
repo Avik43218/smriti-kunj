@@ -1,0 +1,75 @@
+{
+  "_comment": "Tap the Target item bank — v1. EN + Assamese translations only.",
+  "items": [
+    {
+      "id": "japi",
+      "category": "cultural",
+      "visual_group": "woven_hat",
+      "translations": { "en": "Traditional Japi", "as": "জাপি", "bn": "", "brx": "", "miz": "", "kha": "", "gar": "" },
+      "icon_name": "style"
+    },
+    {
+      "id": "bamboo_basket",
+      "category": "cultural",
+      "visual_group": "woven_hat",
+      "translations": { "en": "Bamboo Basket", "as": "বাঁহৰ পাচি", "bn": "", "brx": "", "miz": "", "kha": "", "gar": "" },
+      "icon_name": "style"
+    },
+    {
+      "id": "orange",
+      "category": "fruit",
+      "visual_group": "round_fruit",
+      "translations": { "en": "Orange", "as": "কমলা", "bn": "", "brx": "", "miz": "", "kha": "", "gar": "" },
+      "icon_name": "circle"
+    },
+    {
+      "id": "papaya",
+      "category": "fruit",
+      "visual_group": "round_fruit",
+      "translations": { "en": "Papaya", "as": "অমিতা", "bn": "", "brx": "", "miz": "", "kha": "", "gar": "" },
+      "icon_name": "nature"
+    },
+    {
+      "id": "lemon",
+      "category": "fruit",
+      "visual_group": "round_fruit",
+      "translations": { "en": "Kazi Nemu Lemon", "as": "কাজী নেমু", "bn": "", "brx": "", "miz": "", "kha": "", "gar": "" },
+      "icon_name": "circle"
+    },
+    {
+      "id": "bamboo_shoot",
+      "category": "vegetable",
+      "visual_group": "green_stem",
+      "translations": { "en": "Bamboo Shoot", "as": "বাঁহৰ গাজ", "bn": "", "brx": "", "miz": "", "kha": "", "gar": "" },
+      "icon_name": "eco"
+    },
+    {
+      "id": "green_chili",
+      "category": "vegetable",
+      "visual_group": "green_stem",
+      "translations": { "en": "Green Chili", "as": "সেউজীয়া জলকীয়া", "bn": "", "brx": "", "miz": "", "kha": "", "gar": "" },
+      "icon_name": "spa"
+    },
+    {
+      "id": "lotus",
+      "category": "flower",
+      "visual_group": "flower",
+      "translations": { "en": "Lotus Flower", "as": "পদুম ফুল", "bn": "", "brx": "", "miz": "", "kha": "", "gar": "" },
+      "icon_name": "local_florist"
+    },
+    {
+      "id": "turmeric",
+      "category": "spice",
+      "visual_group": "root",
+      "translations": { "en": "Turmeric Root", "as": "হালধি", "bn": "", "brx": "", "miz": "", "kha": "", "gar": "" },
+      "icon_name": "grain"
+    },
+    {
+      "id": "mustard_oil",
+      "category": "household",
+      "visual_group": "bottle",
+      "translations": { "en": "Mustard Oil", "as": "সৰিয়হৰ তেল", "bn": "", "brx": "", "miz": "", "kha": "", "gar": "" },
+      "icon_name": "opacity"
+    }
+  ]
+}

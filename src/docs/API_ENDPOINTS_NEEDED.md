@@ -291,34 +291,132 @@ As stub functions are added to `src/services/`, they must be documented here.
 
 ## 5. Cognitive Game Sessions & Analytics
 
+> **Note:** The schemas below use a nested `game_data` envelope (proposed contract pending backend confirmation).
+> Shared fields (`session_id`, `patient_profile_id`, `game_type`, `domain`, `session_date`, `session_duration`, `status`, `difficulty_level`, `score_normalized`, `raw_trials`) are top-level, while game-specific metrics live inside `game_data`.
+
+### `POST /api/games/sessions`
+- **Calling Service / App:** `src/patient_app/lib/games/shared/services/game_sync_service.dart` (Patient App)
+- **Purpose:** Upload completed or abandoned cognitive game sessions from the patient tablet local queue to the backend.
+- **Headers:** `Authorization: Bearer <token>`, `Content-Type: application/json`
+- **Request Body (Nested Envelope):**
+  ```json
+  {
+    "session_id": "mt_1725816312000",
+    "patient_profile_id": "p101",
+    "game_type": "market_trip",
+    "domain": "working_memory",
+    "session_date": "2026-09-10T10:15:00.000Z",
+    "session_duration": 87.4,
+    "status": "completed",
+    "difficulty_level": 1,
+    "score_normalized": 0.85,
+    "game_data": {
+      "items_prompted_count": 3,
+      "items_recalled_correct": 3,
+      "recall_accuracy": 1.0,
+      "false_selection_count": 0,
+      "time_to_complete_recall": 12.3,
+      "distractor_task_completed": true,
+      "delay_duration": 30.0,
+      "prompt_language": "english"
+    },
+    "raw_trials": [
+      {
+        "event": "distractor_summary",
+        "tap_count": 14,
+        "completed": true
+      }
+    ]
+  }
+  ```
+
+#### `game_data` schemas by `game_type`:
+
+1. **`market_trip` (`working_memory`):**
+   ```json
+   {
+     "items_prompted_count": 3,
+     "items_recalled_correct": 3,
+     "recall_accuracy": 1.0,
+     "false_selection_count": 0,
+     "time_to_complete_recall": 12.3,
+     "distractor_task_completed": true,
+     "delay_duration": 30.0,
+     "prompt_language": "english"
+   }
+   ```
+
+2. **`tap_target` (`attention`):**
+   ```json
+   {
+     "reaction_time_avg": 412.5,
+     "reaction_time_variability": 38.2,
+     "omission_rate": 0.05,
+     "false_positive_rate": 0.02,
+     "within_session_drift": 12.4,
+     "trial_count": 15,
+     "target_item_type": "japi"
+   }
+   ```
+
+3. **`pair_matching` (`episodic_memory`):**
+   ```json
+   {
+     "total_flips": 18,
+     "correct_match_rate": 0.76,
+     "time_to_first_correct_match": 4.0,
+     "repeat_error_rate": 0.09,
+     "completion_time": 135.0,
+     "pairs_count": 4,
+     "used_face_name_variant": false
+   }
+   ```
+
+- **Response Shape (200 OK / 201 Created):**
+  ```json
+  {
+    "success": true,
+    "session_id": "mt_1725816312000",
+    "synced_at": "2026-09-10T10:15:02.000Z"
+  }
+  ```
+- **Error Responses:**
+  - `400 Bad Request`: Validation failure on envelope or game_data payload.
+  - `401 Unauthorized`: Missing or expired patient auth token.
+
+---
+
 ### `GET /api/patients/:patientId/game-sessions`
-- **Calling Service / Page:** `src/services/gameSessionService.js` (`Analytics.jsx`)
+- **Calling Service / Page:** `src/services/gameSessionService.js` (`Analytics.jsx` - Caregiver Web)
 - **Purpose:** Fetch historical game session records and cognitive metrics for a specific patient.
 - **Headers:** `Authorization: Bearer <token>`
 - **Query Parameters (Optional):**
-  - `domain`: `memory` | `language` | `attention` (filter by cognitive domain)
+  - `domain`: `working_memory` | `episodic_memory` | `semantic_memory` | `attention`
+  - `game_type`: `market_trip` | `tap_target` | `pair_matching`
   - `limit`: integer (e.g. 50)
   - `from_date`: ISO string
 - **Response Shape (200 OK):**
   ```json
   [
     {
-      "session_id": "sess_mem_p101_1",
+      "session_id": "pm_1725816312000",
       "patient_profile_id": "p101",
       "game_type": "pair_matching",
-      "domain": "memory",
+      "domain": "episodic_memory",
       "session_date": "2026-08-08T10:15:00.000Z",
-      "session_duration": 135,
+      "session_duration": 135.0,
       "status": "completed",
       "difficulty_level": 1,
       "score_normalized": 0.72,
-      "correct_match_rate": 0.76,
-      "total_flips": 18,
-      "time_to_first_correct_match": 4.0,
-      "repeat_error_rate": 0.09,
-      "completion_time": 135,
-      "pairs_count": 4,
-      "used_face_name_variant": true,
+      "game_data": {
+        "total_flips": 18,
+        "correct_match_rate": 0.76,
+        "time_to_first_correct_match": 4.0,
+        "repeat_error_rate": 0.09,
+        "completion_time": 135.0,
+        "pairs_count": 4,
+        "used_face_name_variant": false
+      },
       "raw_trials": []
     }
   ]
@@ -326,4 +424,5 @@ As stub functions are added to `src/services/`, they must be documented here.
 - **Error Responses:**
   - `401 Unauthorized`: Missing or invalid session token.
   - `404 Not Found`: Patient record not found.
+
 

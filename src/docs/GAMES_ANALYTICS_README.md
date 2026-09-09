@@ -1,27 +1,56 @@
 # Smriti Kunj — Patient-Side Games & Analytics Reference
 
-This document defines the 3 initial games for the patient-facing Flutter app, the cognitive domains they target, and the analytics parameters each game generates. Use this as the source of truth when building the caregiver dashboard Analytics page (`/patients/:id/analytics`) and when defining the game session JSON schema in `api.js` / `api_service.dart`.
+This document defines the 4 initial games for the patient-facing Flutter app, the cognitive domains they target, and the analytics parameters each game generates. Use this as the source of truth when building the caregiver dashboard Analytics page (`/patients/:id/analytics`) and when defining the game session JSON schema in `api.js` / `api_service.dart`.
 
 ---
 
-## Why these 3 games (scope rationale)
+## Why these 4 games (scope rationale)
 
-Starting with 3 games covers 3 distinct cognitive domains without overcommitting the build timeline. Each was chosen for:
+4 games covering 4 distinct cognitive domains, each independently evidence-backed rather than variations on the same underlying task. Each was chosen for:
 1. Evidence backing (research-supported effect on the target domain)
-2. Ease of localization (Assamese / Bengali / Bodo)
+2. Ease of cultural/regional localization (Assamese / Bengali / Bodo, regional imagery)
 3. Feasibility to build and instrument cleanly in Flutter for a hackathon timeline
 
-Executive function and orientation games are deferred to a later phase — the schema below is written to be domain-agnostic so adding them later won't require restructuring.
+Games section (Executive function, orientation) beyond these 4 is deferred — schema is written domain-agnostic so adding more later won't require restructuring.
 
 ---
 
-## Game 1: Pair Matching (Memory Recall)
+## Game 1: The Market Trip (Working Memory & Delayed Recall)
+
+**Cognitive domain:** Working memory / delayed recall
+
+**Concept:** Audio prompt lists items to buy, in the patient's native language (e.g., "Today we need bamboo shoots, ginger, and mustard oil"). A brief unrelated distractor task follows (e.g., a 10-second tap/watering interaction). Patient is then shown a set of visual item cards and selects the ones that were on the list.
+
+**Dynamic difficulty:**
+- **Easy:** 2 items, instant recall (no distractor), visually distinct item cards
+- **Medium:** 3–4 items, short distractor delay, some visually similar distractors
+- **Hard:** 6–8 items, longer distractor delay, visually/semantically similar decoy items
+- Adaptation driver: recall accuracy over the last N sessions — item count and delay scale up after consistent high accuracy, scale down after repeated false selections
+
+### Analytics parameters
+
+| Parameter | Type | Description |
+|---|---|---|
+| `items_prompted_count` | int | Number of items in the prompt list |
+| `items_recalled_correct` | int | Correctly selected items |
+| `recall_accuracy` | float (0–1) | Correct selections / items prompted |
+| `false_selection_count` | int | Items selected that were never prompted (intrusion errors) |
+| `time_to_complete_recall` | seconds | Time from recall phase start to submission |
+| `distractor_task_completed` | bool | Whether the distractor step was engaged with |
+| `delay_duration` | seconds | Time between end of prompt and start of recall phase |
+| `prompt_language` | enum | `assamese` \| `bengali` \| `bodo` \| `mizo` \| `khasi` \| `garo` |
+
+---
+
+## Game 2: Pair Matching (Episodic Memory)
 
 **Cognitive domain:** Episodic memory
 
-**Concept:** Classic card-flip matching game. Variant: face-name matching using caregiver-uploaded family photos instead of generic icons/cards, for personal relevance and higher engagement.
+**Concept:** Classic card-flip matching game. Variant: face-name matching using caregiver-uploaded family photos instead of generic icons, for personal relevance and higher engagement.
 
-**Difficulty scaling:** Number of pairs (e.g., 4 → 6 → 8 pairs), grid size, time limit (optional).
+**Dynamic difficulty:**
+- Pair count scales (e.g., 4 → 6 → 8 pairs) and grid size increases based on rolling `correct_match_rate`
+- `repeat_error_rate` spikes trigger a temporary difficulty step-down rather than an immediate step-up, to avoid compounding frustration
 
 ### Analytics parameters
 
@@ -37,34 +66,42 @@ Executive function and orientation games are deferred to a later phase — the s
 
 ---
 
-## Game 2: Word Association (Language / Semantic Memory)
+## Game 3: Family & Village Object Finder (Semantic Memory / Recognition)
 
-**Cognitive domain:** Language and semantic memory
+**Cognitive domain:** Semantic memory, object/face recognition
 
-**Concept:** Patient is given a category (e.g., "fruits," "things in a kitchen") and asked to name as many items as possible within a time window (e.g., 60 seconds). Regionalized to Assamese, Bengali, and Bodo vocabulary and categories relevant to Northeast India daily life.
+**Concept:** Caregiver uploads 4–5 photos of close family members and household/cultural items (spectacles, tea flask, keys, traditional Japi). App presents 3 photos and asks e.g. "Which one is your grandson Rohan?" or "Where did you leave your reading glasses?"
 
-**Difficulty scaling:** Category familiarity/breadth, time window, number of rounds.
+**Dynamic difficulty:**
+- Number of options shown scales (2 → 3 → 4) as accuracy improves
+- Visual similarity between the correct answer and distractors increases at higher levels
+- Adjusts presentation frequency of a specific person/object based on error rate for that specific item — if a specific relative is consistently misidentified, frequency for that item increases (for reinforcement) and the caregiver dashboard is flagged for a potential face-recognition (prosopagnosia) drift
 
 ### Analytics parameters
 
 | Parameter | Type | Description |
 |---|---|---|
-| `words_recalled_count` | int | Number of valid words given per category per round |
-| `response_latency_per_word` | array[seconds] | Time between each word — flags slowing recall |
-| `category_switch_errors` | int | Perseveration — repeating a category or already-said word; an early clinical marker |
-| `language_used` | enum | `assamese` \| `bengali` \| `bodo` \| `mizo` \| `khasi` \| `garo` (secondary set) |
-| `category_prompt` | string | The category given for that round |
-| `round_duration` | seconds | Time window allotted |
+| `total_prompts` | int | Number of identification prompts in the session |
+| `correct_identifications` | int | Correct selections |
+| `identification_accuracy` | float (0–1) | Correct / total prompts |
+| `repeat_misidentification_flag` | bool | Same specific person/object misidentified 2+ times across recent sessions |
+| `misidentified_target_id` | string \| null | ID of the specific person/object repeatedly missed, if flagged |
+| `avg_response_time` | seconds | Average time to respond per prompt |
+| `prompt_type` | enum | `family_member` \| `household_item` |
+| `options_shown_count` | int | Difficulty setting — number of photo options presented |
 
 ---
 
-## Game 3: Visual Search / Reaction-Time Tap (Attention & Processing Speed)
+## Game 4: Tap the Target (Attention & Processing Speed)
 
-**Cognitive domain:** Attention and processing speed
+**Cognitive domain:** Attention, processing speed, response inhibition
 
-**Concept:** Patient taps a target item (e.g., "tap the red circle" or "find the odd one out") as it appears among distractors. Simple to build, clean timestamp-based data, low Flutter complexity.
+**Concept:** Patient taps a designated target (customizable to something culturally relevant, e.g. a specific fruit or object) as it appears among visually similar distractors. No visible timer or speed pressure shown to the patient — reaction time is captured silently.
 
-**Difficulty scaling:** Number of distractors, target-appearance interval, visual similarity between target and distractors.
+**Dynamic difficulty:**
+- Number of distractors and their visual similarity to the target increase with performance
+- Target-appearance interval shortens gradually based on rolling `reaction_time_avg`
+- A rise in `omission_rate` or `false_positive_rate` triggers a difficulty step-down before a step-up is considered, prioritizing avoiding frustration over pure progression
 
 ### Analytics parameters
 
@@ -74,12 +111,13 @@ Executive function and orientation games are deferred to a later phase — the s
 | `reaction_time_variability` | ms (std dev) | Often a better early-decline signal than raw average speed |
 | `omission_rate` | float (0–1) | Missed targets / total targets shown |
 | `false_positive_rate` | float (0–1) | Incorrect taps / total taps |
-| `within_session_drift` | float | Performance change from early trials to late trials in the same session — flags fatigue vs. genuine impairment |
+| `within_session_drift` | float | Performance change from early to late trials in the same session — flags fatigue vs. genuine impairment |
 | `trial_count` | int | Total number of targets shown in the session |
+| `target_item_type` | string | The culturally-customized target used for that session (e.g. `japi`, `orange`, `bamboo_hat`) |
 
 ---
 
-## Shared fields (every game session, all 3 games)
+## Shared fields (every game session, all 4 games)
 
 These feed the caregiver dashboard trend lines and should be part of every session record regardless of game type.
 
@@ -87,14 +125,14 @@ These feed the caregiver dashboard trend lines and should be part of every sessi
 |---|---|---|
 | `session_id` | string | Unique session identifier |
 | `patient_profile_id` | string | Links to patient record |
-| `game_type` | enum | `pair_matching` \| `word_association` \| `visual_search` |
-| `domain` | enum | `memory` \| `language` \| `attention` |
+| `game_type` | enum | `market_trip` \| `pair_matching` \| `object_recognition` \| `visual_search` |
+| `domain` | enum | `working_memory` \| `episodic_memory` \| `semantic_memory` \| `attention` |
 | `session_date` | datetime | When the session occurred |
 | `session_duration` | seconds | Total time spent in the game |
 | `status` | enum | `completed` \| `abandoned` |
 | `difficulty_level` | int/enum | Difficulty at time of play |
 | `score_normalized` | float | Score relative to the patient's own rolling baseline (not population norms) |
-| `raw_trials` | array[object] | Per-flip / per-word / per-tap event log, for ML-side derived stats later |
+| `raw_trials` | array[object] | Per-selection / per-flip / per-prompt / per-tap event log, for ML-side derived stats later |
 
 ---
 
@@ -102,10 +140,10 @@ These feed the caregiver dashboard trend lines and should be part of every sessi
 
 For `/patients/:id/analytics`, prioritize:
 
-1. **Per-domain trend lines** (memory, language, attention) over time — primary visual, likely a multi-line time series chart
+1. **Per-domain trend lines** (working memory, episodic memory, semantic memory, attention) over time — primary visual, 4-card grid of individual time-series charts (2x2 on desktop, stacked on mobile)
 2. **Baseline comparison** — patient's own rolling average, not population norms
-3. **Anomaly/flag surfacing** — e.g., a session where reaction-time variability spiked, rather than showing raw session-by-session noise
-4. **Session history table** — secondary, more detailed drill-down view
+3. **Anomaly/flag surfacing** — e.g. a `repeat_misidentification_flag` or a reaction-time-variability spike, surfaced distinctly rather than buried in raw session noise
+4. **Session history table** — secondary, more detailed drill-down view across all 4 game types
 
 ---
 
@@ -113,10 +151,11 @@ For `/patients/:id/analytics`, prioritize:
 
 - Serious games show a modest but real positive effect on cognitive function in dementia patients (pooled effect size 0.34) and also reduce depression.
 - Serious games specifically improve attention in cognitively impaired older adults, outperforming both passive intervention and some traditional cognitive training.
-- Serious games enhance nonverbal learning better than no-intervention controls.
-- Crossword/word-based activities have some of the strongest long-term evidence — one long-running study found word puzzle participation delayed onset of accelerated memory decline by over 2 years; a newer trial found crosswords outperformed computer brain-training games specifically for MCI patients.
-- Effects are real but modest — a more recent analysis found brain games weren't more effective than control interventions on some measures. Position this as a support tool, not a treatment, in any documentation.
+- Personalized/personal-photo-based recognition tasks show measurably higher engagement and better recall detail than generic-image equivalents in dementia populations.
+- Go/No-Go and visual search-type attention tasks reliably track cognitive decline severity (commission errors, reaction-time variability) across unimpaired, MCI, and early-AD groups.
+- Crossword/word-based activities have some of the strongest long-term evidence in the literature generally — worth noting as a limitation/comparison point, not a reason to avoid game-based approaches.
+- Effects are real but modest — position this as a support and monitoring tool, not a treatment, in any documentation.
 
 ---
 
-*Last updated: for use alongside PROJECT_BRIEF.md and AGENTS.md context files.*
+*Last updated: reflects the 4 finalized patient-side games (Market Trip, Pair Matching, Family & Village Object Finder, Tap the Target), replacing the earlier 3-game draft. For use alongside PROJECT_BRIEF.md and AGENTS.md context files.*

@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../services/app_strings.dart';
 import '../services/background_music_service.dart';
+import '../services/locale_service.dart';
 import '../theme/theme.dart';
 import '../widgets/mute_toggle.dart';
 import '../widgets/sos_button.dart';
@@ -18,7 +21,6 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    // Start ambient background music per app scaffold decision
     BackgroundMusicService.instance.start();
   }
 
@@ -30,6 +32,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final locale = context.watch<LocaleService>();
+    final s = AppStrings(locale.lang);
     final textTheme = Theme.of(context).textTheme;
 
     return Scaffold(
@@ -44,7 +48,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      // Top header row: App title + Mute toggle
+                      // Top header row: App title + controls (Language toggle + Mute)
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -54,7 +58,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  'Smriti Kunj',
+                                  s.appName,
                                   style: textTheme.displayLarge?.copyWith(
                                     fontWeight: FontWeight.w700,
                                     color: AppColors.ink,
@@ -62,7 +66,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
-                                  'Today\'s Activities',
+                                  s.todayActivity,
                                   style: textTheme.bodyMedium?.copyWith(
                                     color: AppColors.inkSoft,
                                     fontWeight: FontWeight.w500,
@@ -71,46 +75,54 @@ class _HomeScreenState extends State<HomeScreen> {
                               ],
                             ),
                           ),
-                          const MuteToggle(),
+                          // Language toggle + Mute
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              _LangToggle(locale: locale),
+                              const SizedBox(width: 8),
+                              const MuteToggle(),
+                            ],
+                          ),
                         ],
                       ),
                       const SizedBox(height: 16),
 
-                      // Main action tiles: Games, Reminders, Memory Gallery
+                      // Main action tiles
                       Expanded(
                         child: Column(
                           children: [
-                            // 1. Games Tile
+                            // 1. Games
                             Expanded(
                               child: _HomeActionTile(
                                 icon: Icons.extension_rounded,
                                 iconBgColor: AppColors.terracotta,
-                                title: 'Brain Games',
-                                subtitle: 'Play matching & word games',
+                                title: s.brainGames,
+                                subtitle: s.brainGamesSubtitle,
                                 onTap: () => _navigateTo(const GamesScreen()),
                               ),
                             ),
                             const SizedBox(height: 14),
 
-                            // 2. Reminders Tile
+                            // 2. Reminders
                             Expanded(
                               child: _HomeActionTile(
                                 icon: Icons.notifications_active_rounded,
                                 iconBgColor: AppColors.sageGreen,
-                                title: 'Daily Reminders',
-                                subtitle: 'Medicines, hydration & routine',
+                                title: s.reminders,
+                                subtitle: s.remindersSubtitle,
                                 onTap: () => _navigateTo(const RemindersScreen()),
                               ),
                             ),
                             const SizedBox(height: 14),
 
-                            // 3. Memory Gallery Tile
+                            // 3. Memory Gallery
                             Expanded(
                               child: _HomeActionTile(
                                 icon: Icons.photo_library_rounded,
                                 iconBgColor: AppColors.mugaGold,
-                                title: 'Memory Gallery',
-                                subtitle: 'Family photos & voice notes',
+                                title: s.memoryGallery,
+                                subtitle: s.memoryGallerySubtitle,
                                 onTap: () => _navigateTo(const MemoryGalleryScreen()),
                               ),
                             ),
@@ -121,7 +133,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     ],
                   ),
 
-                  // Fixed Position SOS Button in bottom-right corner
+                  // SOS button — fixed bottom-right
                   const Positioned(
                     right: 0,
                     bottom: 0,
@@ -137,6 +149,87 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Language toggle widget — two pill chips: EN | অ
+// ─────────────────────────────────────────────────────────────────────────────
+class _LangToggle extends StatelessWidget {
+  final LocaleService locale;
+  const _LangToggle({required this.locale});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 44,
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: AppColors.border, width: 1.5),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _LangChip(
+            label: AppLang.english.label,
+            selected: locale.lang == AppLang.english,
+            onTap: () => locale.setLang(AppLang.english),
+          ),
+          _LangChip(
+            label: AppLang.assamese.label,
+            selected: locale.lang == AppLang.assamese,
+            onTap: () => locale.setLang(AppLang.assamese),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LangChip extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _LangChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: label,
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          width: 44,
+          height: 44,
+          decoration: BoxDecoration(
+            color: selected ? AppColors.terracotta : Colors.transparent,
+            borderRadius: BorderRadius.circular(22),
+          ),
+          child: Center(
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                color: selected ? Colors.white : AppColors.inkSoft,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Home action tile (unchanged visually)
+// ─────────────────────────────────────────────────────────────────────────────
 class _HomeActionTile extends StatelessWidget {
   final IconData icon;
   final Color iconBgColor;
@@ -178,7 +271,6 @@ class _HomeActionTile extends StatelessWidget {
             ),
             child: Row(
               children: [
-                // Icon circle with distinctive category accent color
                 Container(
                   width: 68,
                   height: 68,
@@ -186,15 +278,9 @@ class _HomeActionTile extends StatelessWidget {
                     color: iconBgColor,
                     shape: BoxShape.circle,
                   ),
-                  child: Icon(
-                    icon,
-                    size: 36,
-                    color: Colors.white,
-                  ),
+                  child: Icon(icon, size: 36, color: Colors.white),
                 ),
                 const SizedBox(width: 18),
-
-                // Text labels (Recognition over recall)
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -226,10 +312,7 @@ class _HomeActionTile extends StatelessWidget {
                     ],
                   ),
                 ),
-
                 const SizedBox(width: 8),
-
-                // Right arrow forward affordance
                 const Icon(
                   Icons.arrow_forward_ios_rounded,
                   color: AppColors.inkSoft,
