@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'screens/home_screen.dart';
 import 'screens/pairing_screen.dart';
 import 'services/session_service.dart';
+import 'services/locale_service.dart';
 import 'theme/theme.dart';
 
 void main() {
@@ -18,6 +19,7 @@ class SmritiKunjApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => SessionService.instance),
+        ChangeNotifierProvider(create: (_) => LocaleService.instance),
       ],
       child: MaterialApp(
         title: 'Smriti Kunj',
