@@ -207,5 +207,12 @@ void main() {
       expect(restored.gameType, decision.gameType);
       expect(restored.featureVector.length, 4);
     });
+
+    test('Supported games list covers all live mini-games', () {
+      expect(DifficultyDatabaseService.supportedGames, contains('market_trip'));
+      expect(DifficultyDatabaseService.supportedGames, contains('tap_target'));
+      expect(DifficultyDatabaseService.supportedGames, contains('pair_matching'));
+      expect(DifficultyDatabaseService.supportedGames.length, 3);
+    });
   });
 }

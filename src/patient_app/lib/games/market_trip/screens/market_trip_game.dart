@@ -299,7 +299,7 @@ class _MarketTripGameScreenState extends State<MarketTripGameScreen> {
           currentDifficulty: _activeDifficulty.index + 1,
           gameType: 'market_trip',
         );
-        await DifficultyDatabaseService.instance.saveDifficultySetting(
+        await DifficultyDatabaseService.instance.saveDifficultySettingsForAllGames(
           decision,
           rawJson: rawTelemetryJson,
         );

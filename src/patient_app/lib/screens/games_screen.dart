@@ -14,69 +14,34 @@ import '../games/pair_matching/screens/pair_matching_game.dart';
 import '../games/pair_matching/services/pair_bank_service.dart';
 import '../games/pair_matching/models/game_session_result.dart';
 
-class GamesScreen extends StatefulWidget {
+class GamesScreen extends StatelessWidget {
   const GamesScreen({super.key});
-
-  @override
-  State<GamesScreen> createState() => _GamesScreenState();
-}
-
-class _GamesScreenState extends State<GamesScreen> {
-  GameDifficulty _marketDifficulty = GameDifficulty.easy;
-  TapDifficulty _tapDifficulty = TapDifficulty.easy;
-  PairDifficulty _pairDifficulty = PairDifficulty.easy;
-
-  @override
-  void initState() {
-    super.initState();
-    _checkPendingDifficulty();
-  }
-
-  Future<void> _checkPendingDifficulty() async {
-    final pending = await DifficultyDatabaseService.instance.peekLatestDifficultySetting();
-    if (pending != null && mounted) {
-      setState(() {
-        if (pending.gameType == 'market_trip' || pending.gameType.isEmpty) {
-          if (pending.recommendedDifficulty == 1) _marketDifficulty = GameDifficulty.easy;
-          if (pending.recommendedDifficulty == 2) _marketDifficulty = GameDifficulty.medium;
-          if (pending.recommendedDifficulty == 3) _marketDifficulty = GameDifficulty.hard;
-        }
-        if (pending.gameType == 'tap_target' || pending.gameType.isEmpty) {
-          if (pending.recommendedDifficulty == 1) _tapDifficulty = TapDifficulty.easy;
-          if (pending.recommendedDifficulty == 2) _tapDifficulty = TapDifficulty.medium;
-          if (pending.recommendedDifficulty == 3) _tapDifficulty = TapDifficulty.hard;
-        }
-        if (pending.gameType == 'pair_matching' || pending.gameType.isEmpty) {
-          if (pending.recommendedDifficulty == 1) _pairDifficulty = PairDifficulty.easy;
-          if (pending.recommendedDifficulty == 2) _pairDifficulty = PairDifficulty.medium;
-          if (pending.recommendedDifficulty == 3) _pairDifficulty = PairDifficulty.hard;
-        }
-      });
-      debugPrint('[GamesScreen] Auto-adapted difficulty chips from SQLite: '
-          'Market: $_marketDifficulty, Tap: $_tapDifficulty, Pair: $_pairDifficulty');
-    }
-  }
 
   Future<void> _launchMarketTrip(
     BuildContext context,
     SessionService session,
     LocaleService locale,
   ) async {
-    // Consume setting from SQLite and remove entry
-    final pending = await DifficultyDatabaseService.instance
-        .consumeLatestDifficultySetting(gameType: 'market_trip');
-    if (pending != null) {
-      if (pending.recommendedDifficulty == 1) _marketDifficulty = GameDifficulty.easy;
-      if (pending.recommendedDifficulty == 2) _marketDifficulty = GameDifficulty.medium;
-      if (pending.recommendedDifficulty == 3) _marketDifficulty = GameDifficulty.hard;
-      if (mounted) setState(() {});
-      debugPrint('[GamesScreen] Consumed and removed SQLite difficulty setting for Market Trip: $_marketDifficulty');
-    }
+    // Consume setting for Market Trip and automatically remove all pending settings from SQLite
+    final decision = await DifficultyDatabaseService.instance
+        .consumeAndClearForSelectedGame('market_trip');
+
+    final level = decision?.recommendedDifficulty ??
+        await DifficultyDatabaseService.instance.getCurrentLevel('market_trip');
+
+    final difficulty = switch (level) {
+      1 => GameDifficulty.easy,
+      2 => GameDifficulty.medium,
+      3 => GameDifficulty.hard,
+      _ => GameDifficulty.easy,
+    };
+
+    debugPrint('[GamesScreen] Launching Market Trip at auto-adjusted difficulty: $difficulty');
 
     if (!context.mounted) return;
     await Navigator.of(context).push(MaterialPageRoute(
       builder: (_) => MarketTripGameScreen(
-        difficulty: _marketDifficulty,
+        difficulty: difficulty,
         promptLanguage: locale.code,
         patientProfileId: session.patientId,
         onGameCompleted: (GameSessionResult result) {
@@ -85,8 +50,6 @@ class _GamesScreenState extends State<GamesScreen> {
         },
       ),
     ));
-
-    if (mounted) _checkPendingDifficulty();
   }
 
   Future<void> _launchTapTarget(
@@ -94,21 +57,26 @@ class _GamesScreenState extends State<GamesScreen> {
     SessionService session,
     LocaleService locale,
   ) async {
-    // Consume setting from SQLite and remove entry
-    final pending = await DifficultyDatabaseService.instance
-        .consumeLatestDifficultySetting(gameType: 'tap_target');
-    if (pending != null) {
-      if (pending.recommendedDifficulty == 1) _tapDifficulty = TapDifficulty.easy;
-      if (pending.recommendedDifficulty == 2) _tapDifficulty = TapDifficulty.medium;
-      if (pending.recommendedDifficulty == 3) _tapDifficulty = TapDifficulty.hard;
-      if (mounted) setState(() {});
-      debugPrint('[GamesScreen] Consumed and removed SQLite difficulty setting for Tap Target: $_tapDifficulty');
-    }
+    // Consume setting for Tap Target and automatically remove all pending settings from SQLite
+    final decision = await DifficultyDatabaseService.instance
+        .consumeAndClearForSelectedGame('tap_target');
+
+    final level = decision?.recommendedDifficulty ??
+        await DifficultyDatabaseService.instance.getCurrentLevel('tap_target');
+
+    final difficulty = switch (level) {
+      1 => TapDifficulty.easy,
+      2 => TapDifficulty.medium,
+      3 => TapDifficulty.hard,
+      _ => TapDifficulty.easy,
+    };
+
+    debugPrint('[GamesScreen] Launching Tap Target at auto-adjusted difficulty: level $level');
 
     if (!context.mounted) return;
     await Navigator.of(context).push(MaterialPageRoute(
       builder: (_) => TapTargetGameScreen(
-        difficulty: _tapDifficulty,
+        difficulty: difficulty,
         promptLanguage: locale.code,
         patientProfileId: session.patientId,
         onGameCompleted: (result) {
@@ -117,8 +85,6 @@ class _GamesScreenState extends State<GamesScreen> {
         },
       ),
     ));
-
-    if (mounted) _checkPendingDifficulty();
   }
 
   Future<void> _launchPairMatching(
@@ -126,21 +92,26 @@ class _GamesScreenState extends State<GamesScreen> {
     SessionService session,
     LocaleService locale,
   ) async {
-    // Consume setting from SQLite and remove entry
-    final pending = await DifficultyDatabaseService.instance
-        .consumeLatestDifficultySetting(gameType: 'pair_matching');
-    if (pending != null) {
-      if (pending.recommendedDifficulty == 1) _pairDifficulty = PairDifficulty.easy;
-      if (pending.recommendedDifficulty == 2) _pairDifficulty = PairDifficulty.medium;
-      if (pending.recommendedDifficulty == 3) _pairDifficulty = PairDifficulty.hard;
-      if (mounted) setState(() {});
-      debugPrint('[GamesScreen] Consumed and removed SQLite difficulty setting for Pair Matching: $_pairDifficulty');
-    }
+    // Consume setting for Pair Matching and automatically remove all pending settings from SQLite
+    final decision = await DifficultyDatabaseService.instance
+        .consumeAndClearForSelectedGame('pair_matching');
+
+    final level = decision?.recommendedDifficulty ??
+        await DifficultyDatabaseService.instance.getCurrentLevel('pair_matching');
+
+    final difficulty = switch (level) {
+      1 => PairDifficulty.easy,
+      2 => PairDifficulty.medium,
+      3 => PairDifficulty.hard,
+      _ => PairDifficulty.easy,
+    };
+
+    debugPrint('[GamesScreen] Launching Pair Matching at auto-adjusted difficulty: level $level');
 
     if (!context.mounted) return;
     await Navigator.of(context).push(MaterialPageRoute(
       builder: (_) => PairMatchingGameScreen(
-        difficulty: _pairDifficulty,
+        difficulty: difficulty,
         promptLanguage: locale.code,
         patientProfileId: session.patientId,
         onGameCompleted: (PairMatchingSessionResult result) {
@@ -150,8 +121,6 @@ class _GamesScreenState extends State<GamesScreen> {
         },
       ),
     ));
-
-    if (mounted) _checkPendingDifficulty();
   }
 
   @override
@@ -190,43 +159,14 @@ class _GamesScreenState extends State<GamesScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const SizedBox(height: 12),
-                  Text(
-                    s.chooseDifficulty,
-                    style: textTheme.bodyMedium?.copyWith(
-                      color: AppColors.inkSoft,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  Row(children: [
-                    _DifficultyChip<GameDifficulty>(
-                      label: s.easy, sublabel: s.easyItems,
-                      value: GameDifficulty.easy, selected: _marketDifficulty,
-                      accentColor: AppColors.terracotta,
-                      onTap: (v) => setState(() => _marketDifficulty = v),
-                    ),
-                    const SizedBox(width: 8),
-                    _DifficultyChip<GameDifficulty>(
-                      label: s.medium, sublabel: s.mediumItems,
-                      value: GameDifficulty.medium, selected: _marketDifficulty,
-                      accentColor: AppColors.terracotta,
-                      onTap: (v) => setState(() => _marketDifficulty = v),
-                    ),
-                    const SizedBox(width: 8),
-                    _DifficultyChip<GameDifficulty>(
-                      label: s.hard, sublabel: s.hardItems,
-                      value: GameDifficulty.hard, selected: _marketDifficulty,
-                      accentColor: AppColors.terracotta,
-                      onTap: (v) => setState(() => _marketDifficulty = v),
-                    ),
-                  ]),
                   const SizedBox(height: 16),
                   ElevatedButton.icon(
                     onPressed: () => _launchMarketTrip(context, session, locale),
                     icon: const Icon(Icons.play_arrow_rounded, size: 28),
-                    label: Text(s.playNow,
-                        style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                    label: Text(
+                      s.playNow,
+                      style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                    ),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.terracotta,
                       foregroundColor: Colors.white,
@@ -250,43 +190,14 @@ class _GamesScreenState extends State<GamesScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const SizedBox(height: 12),
-                  Text(
-                    s.chooseDifficulty,
-                    style: textTheme.bodyMedium?.copyWith(
-                      color: AppColors.inkSoft,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  Row(children: [
-                    _DifficultyChip<TapDifficulty>(
-                      label: s.easy, sublabel: s.easyItems,
-                      value: TapDifficulty.easy, selected: _tapDifficulty,
-                      accentColor: AppColors.terracottaDark,
-                      onTap: (v) => setState(() => _tapDifficulty = v),
-                    ),
-                    const SizedBox(width: 8),
-                    _DifficultyChip<TapDifficulty>(
-                      label: s.medium, sublabel: s.mediumItems,
-                      value: TapDifficulty.medium, selected: _tapDifficulty,
-                      accentColor: AppColors.terracottaDark,
-                      onTap: (v) => setState(() => _tapDifficulty = v),
-                    ),
-                    const SizedBox(width: 8),
-                    _DifficultyChip<TapDifficulty>(
-                      label: s.hard, sublabel: s.hardItems,
-                      value: TapDifficulty.hard, selected: _tapDifficulty,
-                      accentColor: AppColors.terracottaDark,
-                      onTap: (v) => setState(() => _tapDifficulty = v),
-                    ),
-                  ]),
                   const SizedBox(height: 16),
                   ElevatedButton.icon(
                     onPressed: () => _launchTapTarget(context, session, locale),
                     icon: const Icon(Icons.play_arrow_rounded, size: 28),
-                    label: Text(s.playNow,
-                        style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                    label: Text(
+                      s.playNow,
+                      style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                    ),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.terracottaDark,
                       foregroundColor: Colors.white,
@@ -310,43 +221,14 @@ class _GamesScreenState extends State<GamesScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const SizedBox(height: 12),
-                  Text(
-                    s.chooseDifficulty,
-                    style: textTheme.bodyMedium?.copyWith(
-                      color: AppColors.inkSoft,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  Row(children: [
-                    _DifficultyChip<PairDifficulty>(
-                      label: s.easy, sublabel: s.easyPairs,
-                      value: PairDifficulty.easy, selected: _pairDifficulty,
-                      accentColor: AppColors.mugaGold,
-                      onTap: (v) => setState(() => _pairDifficulty = v),
-                    ),
-                    const SizedBox(width: 8),
-                    _DifficultyChip<PairDifficulty>(
-                      label: s.medium, sublabel: s.mediumPairs,
-                      value: PairDifficulty.medium, selected: _pairDifficulty,
-                      accentColor: AppColors.mugaGold,
-                      onTap: (v) => setState(() => _pairDifficulty = v),
-                    ),
-                    const SizedBox(width: 8),
-                    _DifficultyChip<PairDifficulty>(
-                      label: s.hard, sublabel: s.hardPairs,
-                      value: PairDifficulty.hard, selected: _pairDifficulty,
-                      accentColor: AppColors.mugaGold,
-                      onTap: (v) => setState(() => _pairDifficulty = v),
-                    ),
-                  ]),
                   const SizedBox(height: 16),
                   ElevatedButton.icon(
                     onPressed: () => _launchPairMatching(context, session, locale),
                     icon: const Icon(Icons.play_arrow_rounded, size: 28),
-                    label: Text(s.playNow,
-                        style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                    label: Text(
+                      s.playNow,
+                      style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                    ),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.mugaGold,
                       foregroundColor: Colors.white,
@@ -358,7 +240,6 @@ class _GamesScreenState extends State<GamesScreen> {
               ),
             ),
             const SizedBox(height: 16),
-
 
             // ── Coming soon: Family & Village Finder ────────────────────────
             const _GameCard(
@@ -440,13 +321,24 @@ class _GameCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(title,
-                        style: const TextStyle(
-                            fontSize: 22, fontWeight: FontWeight.w700, color: AppColors.ink, height: 1.2)),
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.ink,
+                        height: 1.2,
+                      ),
+                    ),
                     const SizedBox(height: 2),
-                    Text(subtitle,
-                        style: const TextStyle(
-                            fontSize: 16, color: AppColors.inkSoft, height: 1.3)),
+                    Text(
+                      subtitle,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        color: AppColors.inkSoft,
+                        height: 1.3,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -472,65 +364,6 @@ class _GameCard extends StatelessWidget {
           ),
           if (child != null) child!,
         ],
-      ),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Generic difficulty chip — works for any comparable enum/object.
-// ─────────────────────────────────────────────────────────────────────────────
-class _DifficultyChip<T> extends StatelessWidget {
-  final String label;
-  final String sublabel;
-  final T value;
-  final T selected;
-  final Color accentColor;
-  final ValueChanged<T> onTap;
-
-  const _DifficultyChip({
-    required this.label,
-    required this.sublabel,
-    required this.value,
-    required this.selected,
-    required this.accentColor,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final isSelected = value == selected;
-    return Expanded(
-      child: GestureDetector(
-        onTap: () => onTap(value),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 160),
-          padding: const EdgeInsets.symmetric(vertical: 10),
-          decoration: BoxDecoration(
-            color: isSelected ? accentColor : AppColors.cream,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: isSelected ? accentColor : AppColors.border,
-              width: isSelected ? 2.5 : 1.5,
-            ),
-          ),
-          child: Column(
-            children: [
-              Text(label,
-                  style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                      color: isSelected ? Colors.white : AppColors.ink)),
-              const SizedBox(height: 2),
-              Text(sublabel,
-                  style: TextStyle(
-                      fontSize: 12,
-                      color: isSelected
-                          ? Colors.white.withValues(alpha: 0.85)
-                          : AppColors.inkSoft)),
-            ],
-          ),
-        ),
       ),
     );
   }

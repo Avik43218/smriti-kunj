@@ -347,7 +347,7 @@ class _PairMatchingGameScreenState extends State<PairMatchingGameScreen> {
           currentDifficulty: _activeDifficulty.level,
           gameType: 'pair_matching',
         );
-        await DifficultyDatabaseService.instance.saveDifficultySetting(
+        await DifficultyDatabaseService.instance.saveDifficultySettingsForAllGames(
           decision,
           rawJson: rawTelemetryJson,
         );

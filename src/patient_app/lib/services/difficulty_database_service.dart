@@ -4,13 +4,14 @@ import 'package:path/path.dart' as p;
 import 'package:sqflite/sqflite.dart';
 import 'difficulty_service.dart';
 
-/// Local SQLite database persistence for pending difficulty settings.
+/// Local SQLite database persistence for pending difficulty settings across games.
 ///
 /// Workflow:
 /// 1. A game round finishes and the TFLite model generates a [DifficultyDecision].
-/// 2. [DifficultyDatabaseService.saveDifficultySetting] inserts the record into SQLite.
-/// 3. When the next game is launched, [DifficultyDatabaseService.consumeLatestDifficultySetting]
-///    fetches the setting, applies it to the next game, and deletes the row from the database.
+/// 2. [DifficultyDatabaseService.saveDifficultySettingsForAllGames] calculates and stores the
+///    next difficulty setting for each game ('market_trip', 'tap_target', 'pair_matching') in SQLite.
+/// 3. Once any game is selected, [DifficultyDatabaseService.consumeAndClearForSelectedGame]
+///    applies that game's difficulty setting and automatically deletes all pending settings from SQLite.
 class DifficultyDatabaseService {
   static final DifficultyDatabaseService instance =
       DifficultyDatabaseService._internal();
@@ -20,6 +21,13 @@ class DifficultyDatabaseService {
 
   static const _dbName = 'smriti_kunj_sessions.db';
   static const _table = 'pending_difficulty_settings';
+  static const _levelsTable = 'game_current_levels';
+
+  static const List<String> supportedGames = [
+    'market_trip',
+    'tap_target',
+    'pair_matching',
+  ];
 
   Database? _db;
 
@@ -36,7 +44,7 @@ class DifficultyDatabaseService {
 
     _db = await openDatabase(
       fullPath,
-      version: 2,
+      version: 3,
       onCreate: (db, version) async {
         await _createTables(db);
       },
@@ -61,9 +69,93 @@ class DifficultyDatabaseService {
         created_at             TEXT    NOT NULL
       )
     ''');
+
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS $_levelsTable (
+        game_type TEXT PRIMARY KEY,
+        level     INTEGER NOT NULL
+      )
+    ''');
   }
 
-  /// Inserts a newly evaluated [DifficultyDecision] into the SQLite database.
+  /// Returns current baseline difficulty level (1 = easy, 2 = medium, 3 = hard) for a game.
+  Future<int> getCurrentLevel(String gameType) async {
+    try {
+      final db = await database;
+      final rows = await db.query(
+        _levelsTable,
+        where: 'game_type = ?',
+        whereArgs: [gameType],
+        limit: 1,
+      );
+      if (rows.isNotEmpty) {
+        return (rows.first['level'] as num).toInt();
+      }
+    } catch (e) {
+      debugPrint('[DifficultyDatabaseService] Error fetching current level for $gameType: $e');
+    }
+    return 1; // Default to Easy
+  }
+
+  /// Persists the active difficulty level for a game.
+  Future<void> setCurrentLevel(String gameType, int level) async {
+    try {
+      final db = await database;
+      await db.insert(
+        _levelsTable,
+        {
+          'game_type': gameType,
+          'level': level.clamp(1, 3),
+        },
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    } catch (e) {
+      debugPrint('[DifficultyDatabaseService] Error updating level for $gameType: $e');
+    }
+  }
+
+  /// Saves next difficulty settings for EACH supported game in SQLite after one round completes.
+  Future<void> saveDifficultySettingsForAllGames(
+    DifficultyDecision decision, {
+    String rawJson = '',
+  }) async {
+    try {
+      final db = await database;
+
+      // Clear any prior unconsumed settings first so only the freshest round recommendations exist
+      await db.delete(_table);
+
+      for (final game in supportedGames) {
+        final currentLevel = await getCurrentLevel(game);
+        final nextLevel = (currentLevel + decision.difficultyDelta).clamp(1, 3);
+
+        await db.insert(
+          _table,
+          {
+            'game_type': game,
+            'action': decision.action,
+            'difficulty_delta': decision.difficultyDelta,
+            'previous_difficulty': currentLevel,
+            'recommended_difficulty': nextLevel,
+            'confidence': decision.confidence,
+            'raw_json': rawJson.isNotEmpty ? rawJson : jsonEncode(decision.toJson()),
+            'created_at': decision.createdAt.toIso8601String(),
+          },
+        );
+
+        // Keep baseline level updated
+        await setCurrentLevel(game, nextLevel);
+
+        debugPrint(
+            '[DifficultyDatabaseService] Stored next difficulty for $game: '
+            'Level $nextLevel (${decision.action}, delta: ${decision.difficultyDelta})');
+      }
+    } catch (e) {
+      debugPrint('[DifficultyDatabaseService] Error saving settings for all games: $e');
+    }
+  }
+
+  /// Inserts a single evaluated [DifficultyDecision] into the SQLite database.
   Future<int> saveDifficultySetting(
     DifficultyDecision decision, {
     String rawJson = '',
@@ -84,6 +176,8 @@ class DifficultyDatabaseService {
         },
       );
 
+      await setCurrentLevel(decision.gameType, decision.recommendedDifficulty);
+
       debugPrint(
           '[DifficultyDatabaseService] Stored difficulty decision ID=$id in SQLite: '
           '${decision.action} (next level: ${decision.recommendedDifficulty}) for ${decision.gameType}');
@@ -94,76 +188,107 @@ class DifficultyDatabaseService {
     }
   }
 
-  /// Retrieves the latest pending difficulty setting and IMMEDIATELY deletes it
-  /// from the SQLite database so it is only applied once.
-  Future<DifficultyDecision?> consumeLatestDifficultySetting({
-    String? gameType,
-  }) async {
+  /// Retrieves the difficulty setting for [selectedGameType] and AUTOMATICALLY REMOVES
+  /// all pending difficulty entries from the database once that game is selected.
+  Future<DifficultyDecision?> consumeAndClearForSelectedGame(
+    String selectedGameType,
+  ) async {
     try {
       final db = await database;
 
-      // Query latest record
+      // 1. Find the setting queued for this game (or newest record)
       final List<Map<String, dynamic>> rows = await db.query(
         _table,
-        where: gameType != null ? 'game_type = ?' : null,
-        whereArgs: gameType != null ? [gameType] : null,
+        where: 'game_type = ?',
+        whereArgs: [selectedGameType],
         orderBy: 'id DESC',
         limit: 1,
       );
 
-      if (rows.isEmpty) {
-        // Fallback: If no game-specific record, check for any global/cross-game pending record
-        if (gameType != null) {
-          final List<Map<String, dynamic>> anyRows = await db.query(
-            _table,
-            orderBy: 'id DESC',
-            limit: 1,
-          );
-          if (anyRows.isNotEmpty) {
-            return await _consumeRow(db, anyRows.first);
-          }
+      Map<String, dynamic>? selectedRow;
+      if (rows.isNotEmpty) {
+        selectedRow = rows.first;
+      } else {
+        // Fallback: check any pending record
+        final anyRows = await db.query(_table, orderBy: 'id DESC', limit: 1);
+        if (anyRows.isNotEmpty) {
+          selectedRow = anyRows.first;
         }
-        return null;
       }
 
-      return await _consumeRow(db, rows.first);
-    } catch (e) {
+      // 2. AUTOMATICALLY REMOVE all pending difficulty settings from the database
+      final deletedCount = await db.delete(_table);
       debugPrint(
-          '[DifficultyDatabaseService] Error consuming difficulty setting: $e');
+          '[DifficultyDatabaseService] Game "$selectedGameType" selected. '
+          'Automatically removed $deletedCount pending difficulty entries from SQLite.');
+
+      if (selectedRow != null) {
+        final decision = DifficultyDecision(
+          action: selectedRow['action'] as String,
+          difficultyDelta: (selectedRow['difficulty_delta'] as num).toInt(),
+          previousDifficulty: (selectedRow['previous_difficulty'] as num).toInt(),
+          recommendedDifficulty: (selectedRow['recommended_difficulty'] as num).toInt(),
+          confidence: (selectedRow['confidence'] as num).toDouble(),
+          distribution: {},
+          gameType: selectedGameType,
+          featureVector: const [],
+          createdAt: DateTime.tryParse(selectedRow['created_at'].toString()) ?? DateTime.now(),
+        );
+
+        await setCurrentLevel(selectedGameType, decision.recommendedDifficulty);
+        return decision;
+      }
+
+      // If no pending row was found, return a decision matching current baseline level
+      final currentLevel = await getCurrentLevel(selectedGameType);
+      return DifficultyDecision(
+        action: 'Maintain (0)',
+        difficultyDelta: 0,
+        previousDifficulty: currentLevel,
+        recommendedDifficulty: currentLevel,
+        confidence: 1.0,
+        distribution: {},
+        gameType: selectedGameType,
+        featureVector: const [],
+      );
+    } catch (e) {
+      debugPrint('[DifficultyDatabaseService] Error consuming and clearing for $selectedGameType: $e');
       return null;
     }
   }
 
-  Future<DifficultyDecision> _consumeRow(
-    Database db,
-    Map<String, dynamic> row,
-  ) async {
-    final int id = row['id'] as int;
-
-    // Remove entry from SQLite database
-    await db.delete(
-      _table,
-      where: 'id = ?',
-      whereArgs: [id],
-    );
-
-    final decision = DifficultyDecision(
-      action: row['action'] as String,
-      difficultyDelta: (row['difficulty_delta'] as num).toInt(),
-      previousDifficulty: (row['previous_difficulty'] as num).toInt(),
-      recommendedDifficulty: (row['recommended_difficulty'] as num).toInt(),
-      confidence: (row['confidence'] as num).toDouble(),
-      distribution: {},
-      gameType: row['game_type'] as String,
-      featureVector: const [],
-      createdAt: DateTime.tryParse(row['created_at'].toString()) ?? DateTime.now(),
-    );
-
-    debugPrint(
-        '[DifficultyDatabaseService] Consumed & removed setting ID=$id from SQLite -> '
-        'Next game difficulty set to ${decision.recommendedDifficulty} (${decision.action})');
-
-    return decision;
+  /// Retrieves the latest pending difficulty setting and deletes it.
+  Future<DifficultyDecision?> consumeLatestDifficultySetting({
+    String? gameType,
+  }) async {
+    if (gameType != null) {
+      return consumeAndClearForSelectedGame(gameType);
+    }
+    try {
+      final db = await database;
+      final List<Map<String, dynamic>> rows = await db.query(
+        _table,
+        orderBy: 'id DESC',
+        limit: 1,
+      );
+      if (rows.isEmpty) return null;
+      final row = rows.first;
+      await db.delete(_table);
+      return DifficultyDecision(
+        action: row['action'] as String,
+        difficultyDelta: (row['difficulty_delta'] as num).toInt(),
+        previousDifficulty: (row['previous_difficulty'] as num).toInt(),
+        recommendedDifficulty: (row['recommended_difficulty'] as num).toInt(),
+        confidence: (row['confidence'] as num).toDouble(),
+        distribution: {},
+        gameType: row['game_type'] as String,
+        featureVector: const [],
+        createdAt: DateTime.tryParse(row['created_at'].toString()) ?? DateTime.now(),
+      );
+    } catch (e) {
+      debugPrint('[DifficultyDatabaseService] Error consuming difficulty setting: $e');
+      return null;
+    }
   }
 
   /// Peeks at the latest difficulty recommendation without removing it.

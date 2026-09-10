@@ -454,7 +454,7 @@ class _TapTargetGameScreenState extends State<TapTargetGameScreen>
           currentDifficulty: _activeDifficulty.level,
           gameType: 'tap_target',
         );
-        await DifficultyDatabaseService.instance.saveDifficultySetting(
+        await DifficultyDatabaseService.instance.saveDifficultySettingsForAllGames(
           decision,
           rawJson: rawTelemetryJson,
         );
