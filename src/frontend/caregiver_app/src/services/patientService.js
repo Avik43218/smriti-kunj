@@ -75,6 +75,11 @@ const DEFAULT_PATIENTS = [
     pairingToken: 'PAIR-101742',
     careStatus: 'normal',
     statusLabel: 'Tablet active • Synced',
+    weight: '68 kg',
+    diabetic: 'Non-Diabetic',
+    nutritionDiet: 'Healthy & Balanced (Regular nutritious meals)',
+    alcoholLevel: 'None / Non-Drinker',
+    smokingStatus: 'Non-Smoker',
     emergencyContact: {
       name: 'Priya Sharma',
       relationship: 'Daughter (Primary Guardian)',
@@ -102,6 +107,11 @@ const DEFAULT_PATIENTS = [
     pairingToken: 'PAIR-204918',
     careStatus: 'reminder_missed',
     statusLabel: 'Medication pending',
+    weight: '61 kg',
+    diabetic: 'Type 2 Diabetic (Controlled)',
+    nutritionDiet: 'Specialized Diabetic / Low-Sodium Diet',
+    alcoholLevel: 'None / Non-Drinker',
+    smokingStatus: 'Non-Smoker',
     emergencyContact: {
       name: 'Rohan Das',
       relationship: 'Son (Primary Guardian)',
@@ -205,12 +215,21 @@ export const registerPatient = async (newPatient) => {
  * @returns {Promise<Object|null>}
  */
 export const getPatientById = async (id) => {
+  const stored = getStoredPatients();
+  const cachedPatient = stored.find((p) => p.id === id);
+
   try {
     const data = await apiClient(`/api/caregiver/patients/${id}`);
     if (data && data.id) {
       const compliance = getTodayComplianceSummary(id);
       return {
+        ...cachedPatient,
         ...data,
+        weight: data.weight || cachedPatient?.weight,
+        diabetic: data.diabetic || cachedPatient?.diabetic,
+        nutritionDiet: data.nutritionDiet || cachedPatient?.nutritionDiet,
+        alcoholLevel: data.alcoholLevel || cachedPatient?.alcoholLevel,
+        smokingStatus: data.smokingStatus || cachedPatient?.smokingStatus,
         careStatus: data.status || compliance.careStatus,
         complianceSummary: compliance,
       };
@@ -219,13 +238,11 @@ export const getPatientById = async (id) => {
     console.warn(`apiClient /api/caregiver/patients/${id} notice, checking stored:`, err.message);
   }
 
-  const stored = getStoredPatients();
-  const patient = stored.find((p) => p.id === id);
-  if (patient) {
+  if (cachedPatient) {
     const compliance = getTodayComplianceSummary(id);
     return {
-      ...patient,
-      careStatus: patient.careStatus || compliance.careStatus,
+      ...cachedPatient,
+      careStatus: cachedPatient.careStatus || compliance.careStatus,
       complianceSummary: compliance,
     };
   }
@@ -259,10 +276,53 @@ export const deletePatient = async (id) => {
   return true;
 };
 
+/**
+ * Updates an existing patient record in local storage and attempts API sync.
+ * 
+ * @param {string} id 
+ * @param {Object} updatedFields 
+ * @returns {Promise<Object>}
+ */
+export const updatePatient = async (id, updatedFields) => {
+  const stored = getStoredPatients();
+  const index = stored.findIndex((p) => p.id === id);
+  let updatedPatient;
+
+  if (index !== -1) {
+    updatedPatient = {
+      ...stored[index],
+      ...updatedFields,
+      id,
+    };
+    stored[index] = updatedPatient;
+  } else {
+    updatedPatient = { id, ...updatedFields };
+    stored.unshift(updatedPatient);
+  }
+
+  try {
+    localStorage.setItem('smriti_registered_patients', JSON.stringify(stored));
+  } catch (err) {
+    console.warn('Could not update patient in localStorage:', err);
+  }
+
+  try {
+    await apiClient('/api/caregiver/patients', {
+      method: 'POST',
+      body: JSON.stringify(updatedPatient),
+    });
+  } catch (err) {
+    console.warn('apiClient update notice:', err.message);
+  }
+
+  return updatedPatient;
+};
+
 export default {
   fetchPatients,
   getPatientById,
   registerPatient,
+  updatePatient,
   deletePatient,
   getCareStatusConfig,
   CARE_STATUS,
