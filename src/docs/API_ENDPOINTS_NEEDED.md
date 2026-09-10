@@ -318,19 +318,65 @@ As stub functions are added to `src/services/`, they must be documented here.
       "time_to_complete_recall": 12.3,
       "distractor_task_completed": true,
       "delay_duration": 30.0,
-      "prompt_language": "english"
+      "prompt_language": "english",
+      "telemetry": {
+        "latency": {
+          "avg_ms": 412.5,
+          "median_ms": 395.0,
+          "min_ms": 320.0,
+          "max_ms": 850.0,
+          "variability_ms": 45.2,
+          "p90_ms": 620.0
+        },
+        "accuracy": {
+          "overall_rate": 0.850,
+          "total_rounds": 20,
+          "correct_count": 17,
+          "error_count": 3
+        },
+        "hesitation": {
+          "hesitation_events_count": 2,
+          "total_hesitation_ms": 3200.0,
+          "avg_hesitation_ms": 1600.0,
+          "hesitation_ratio": 0.120,
+          "initial_hesitation_ms": 1450.0
+        },
+        "error_burst": {
+          "max_consecutive_errors": 2,
+          "error_burst_count": 1,
+          "burst_errors_count": 2,
+          "error_burst_rate": 0.667,
+          "burst_detected": true
+        },
+        "rounds": [
+          {
+            "round_index": 1,
+            "timestamp": "2026-09-10T10:15:00.000Z",
+            "event_type": "target_hit",
+            "latency_ms": 425.0,
+            "accuracy": 1.0,
+            "hesitation": { "hesitation_ms": 0.0, "is_hesitation": false },
+            "error_burst": { "is_error": false, "consecutive_errors": 0, "is_error_burst": false }
+          }
+        ]
+      }
     },
     "raw_trials": [
       {
-        "event": "distractor_summary",
-        "tap_count": 14,
-        "completed": true
+        "round_index": 1,
+        "event_type": "target_hit",
+        "latency_ms": 425.0,
+        "accuracy": 1.0,
+        "hesitation": { "hesitation_ms": 0.0, "is_hesitation": false },
+        "error_burst": { "is_error": false, "consecutive_errors": 0, "is_error_burst": false }
       }
     ]
   }
   ```
 
 #### `game_data` schemas by `game_type`:
+
+All games include the standard `telemetry` JSON object (`latency`, `accuracy`, `hesitation`, `error_burst`, `rounds`) along with domain-specific metrics:
 
 1. **`market_trip` (`working_memory`):**
    ```json
@@ -342,7 +388,8 @@ As stub functions are added to `src/services/`, they must be documented here.
      "time_to_complete_recall": 12.3,
      "distractor_task_completed": true,
      "delay_duration": 30.0,
-     "prompt_language": "english"
+     "prompt_language": "english",
+     "telemetry": { ... }
    }
    ```
 
@@ -355,7 +402,8 @@ As stub functions are added to `src/services/`, they must be documented here.
      "false_positive_rate": 0.02,
      "within_session_drift": 12.4,
      "trial_count": 15,
-     "target_item_type": "japi"
+     "target_item_type": "japi",
+     "telemetry": { ... }
    }
    ```
 
@@ -368,7 +416,8 @@ As stub functions are added to `src/services/`, they must be documented here.
      "repeat_error_rate": 0.09,
      "completion_time": 135.0,
      "pairs_count": 4,
-     "used_face_name_variant": false
+     "used_face_name_variant": false,
+     "telemetry": { ... }
    }
    ```
 

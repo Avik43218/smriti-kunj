@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../../theme/theme.dart';
+import '../../../games/shared/models/round_telemetry.dart';
 import '../../../games/shared/services/game_session_repository.dart';
 import '../models/game_session_result.dart';
 import '../models/market_item.dart';
@@ -47,13 +48,16 @@ class _MarketTripGameScreenState extends State<MarketTripGameScreen> {
   late DateTime _sessionStartTime;
   DateTime? _recallStartTime;
   DateTime? _recallEndTime;
+  DateTime? _lastSelectionTime;
+  final GameTelemetryTracker _telemetryTracker =
+      GameTelemetryTracker(hesitationThresholdMs: 2500.0, errorBurstThreshold: 2);
+  final List<Map<String, dynamic>> _rawTrials = [];
   DateTime? _distractorStartTime;
   DateTime? _distractorEndTime;
 
   int _distractorTapCount = 0;
   bool _distractorTaskCompleted = false;
 
-  final List<Map<String, dynamic>> _rawTrials = [];
   GameSessionResult? _finalResult;
 
   @override
@@ -112,6 +116,7 @@ class _MarketTripGameScreenState extends State<MarketTripGameScreen> {
 
   void _startRecallPhase() {
     _recallStartTime = DateTime.now();
+    _lastSelectionTime = _recallStartTime;
     setState(() {
       _currentPhase = MarketGamePhase.recalling;
       _selectedItemIds.clear();
@@ -123,6 +128,26 @@ class _MarketTripGameScreenState extends State<MarketTripGameScreen> {
 
     final isSelected = _selectedItemIds.contains(item.id);
     final now = DateTime.now();
+    final latencyMs = _lastSelectionTime != null
+        ? now.difference(_lastSelectionTime!).inMilliseconds.toDouble()
+        : 0.0;
+    _lastSelectionTime = now;
+
+    final isTarget = _promptItems.any((p) => p.id == item.id);
+    final isCorrect = isSelected ? !isTarget : isTarget;
+
+    _telemetryTracker.recordRound(
+      latencyMs: latencyMs,
+      isCorrect: isCorrect,
+      eventType: isSelected ? 'item_deselect' : 'item_select',
+      rawHesitationMs:
+          latencyMs > 2500.0 ? (latencyMs - 2500.0) : 0.0,
+      metadata: {
+        'item_id': item.id,
+        'action': isSelected ? 'deselect' : 'select',
+        'is_prompt_target': isTarget,
+      },
+    );
 
     setState(() {
       if (isSelected) {
@@ -136,7 +161,7 @@ class _MarketTripGameScreenState extends State<MarketTripGameScreen> {
       'timestamp': now.toIso8601String(),
       'item_id': item.id,
       'action': isSelected ? 'deselect' : 'select',
-      'is_correct_target': _promptItems.any((p) => p.id == item.id),
+      'is_correct_target': isTarget,
     });
   }
 
@@ -206,6 +231,8 @@ class _MarketTripGameScreenState extends State<MarketTripGameScreen> {
       _currentPhase = MarketGamePhase.summary;
     });
 
+    final telemetrySummary = _telemetryTracker.computeSummary();
+
     // Persist session to local storage for later sync to backend.
     final now = DateTime.now();
     unawaited(GameSessionRepository.instance.saveSession(StoredGameSession(
@@ -227,8 +254,12 @@ class _MarketTripGameScreenState extends State<MarketTripGameScreen> {
         'distractor_task_completed': result.distractorTaskCompleted,
         'delay_duration': result.delayDuration,
         'prompt_language': result.promptLanguage,
+        'telemetry': telemetrySummary.toJson(),
       },
-      rawTrials: result.rawTrials,
+      rawTrials: [
+        ...result.rawTrials,
+        ...telemetrySummary.rounds.map((r) => r.toJson()),
+      ],
       createdAt: now,
     )));
 

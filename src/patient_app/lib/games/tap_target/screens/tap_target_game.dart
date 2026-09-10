@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import '../../../theme/theme.dart';
+import '../../../games/shared/models/round_telemetry.dart';
 import '../../../games/shared/services/game_session_repository.dart';
 import '../models/game_session_result.dart';
 import '../models/target_config.dart';
@@ -89,6 +90,8 @@ class _TapTargetGameScreenState extends State<TapTargetGameScreen>
   // Analytics
   late DateTime _sessionStart;
   final List<_TapEvent> _tapEvents = [];
+  final GameTelemetryTracker _telemetryTracker =
+      GameTelemetryTracker(hesitationThresholdMs: 1800.0, errorBurstThreshold: 2);
   int _omissions = 0; // trials where target appeared but wasn't tapped in time
   int _totalTaps = 0;
   int _falseTaps = 0; // taps on distractors
@@ -286,6 +289,19 @@ class _TapTargetGameScreenState extends State<TapTargetGameScreen>
       reactionTimeMs: reactionMs,
       timestamp: DateTime.now(),
     ));
+
+    _telemetryTracker.recordRound(
+      latencyMs: reactionMs.toDouble(),
+      isCorrect: isCorrect,
+      eventType: tappedId == '__omission__'
+          ? 'omission'
+          : (isCorrect ? 'target_hit' : 'distractor_tap'),
+      metadata: {
+        'trial_index': _currentTrial,
+        'tapped_item_id': tappedId,
+        'target_id': _target.id,
+      },
+    );
   }
 
   void _advanceTrial() {
@@ -373,6 +389,8 @@ class _TapTargetGameScreenState extends State<TapTargetGameScreen>
       _phase = _GamePhase.summary;
     });
 
+    final telemetrySummary = _telemetryTracker.computeSummary();
+
     // Persist session to local storage for later sync to backend.
     final now = DateTime.now();
     unawaited(GameSessionRepository.instance.saveSession(StoredGameSession(
@@ -393,8 +411,9 @@ class _TapTargetGameScreenState extends State<TapTargetGameScreen>
         'within_session_drift': result.withinSessionDrift,
         'trial_count': result.trialCount,
         'target_item_type': result.targetItemType,
+        'telemetry': telemetrySummary.toJson(),
       },
-      rawTrials: result.rawTrials,
+      rawTrials: telemetrySummary.rounds.map((r) => r.toJson()).toList(),
       createdAt: now,
     )));
 
