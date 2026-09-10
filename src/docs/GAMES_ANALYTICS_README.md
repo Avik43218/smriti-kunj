@@ -132,9 +132,86 @@ These feed the caregiver dashboard trend lines and should be part of every sessi
 | `status` | enum | `completed` \| `abandoned` |
 | `difficulty_level` | int/enum | Difficulty at time of play |
 | `score_normalized` | float | Score relative to the patient's own rolling baseline (not population norms) |
-| `raw_trials` | array[object] | Per-selection / per-flip / per-prompt / per-tap event log, for ML-side derived stats later |
+| `raw_trials` | array[object] | Per-selection / per-flip / per-prompt / per-tap event log, containing round-level telemetry |
 
 ---
+
+## Real-Time Round Telemetry Features (Measured in each round & stored in JSON)
+
+Across all cognitive games, four essential telemetry features are continuously measured within each trial/round and aggregated into session analytics:
+
+1. **Latency (`latency_ms`, `avg_ms`, `variability_ms`, `p90_ms`)**:
+   - Time in milliseconds from stimulus onset to patient response action (tap, selection, card flip).
+   - Variability (standard deviation) measures response consistency — cognitive drift or micro-fluctuations in processing speed.
+
+2. **Accuracy (`accuracy`, `overall_rate`, `correct_count`, `error_count`)**:
+   - Success rate: `1.0` for correct target hit / matching pair / valid recall, and `0.0` for omission, mismatch, or intrusion error.
+
+3. **Hesitation (`hesitation_ms`, `is_hesitation`, `hesitation_events_count`, `total_hesitation_ms`)**:
+   - Idle or hovering delay before executing an action that exceeds the typical baseline threshold (e.g. > 1800–2500ms).
+   - Captures motor/decision hesitation, uncertainty, or visual scanning difficulty.
+
+4. **Error Burst (`is_error_burst`, `consecutive_errors`, `max_consecutive_errors`, `error_burst_count`, `error_burst_rate`)**:
+   - Clusters of consecutive mistakes occurring in rapid succession (streak of $\ge 2$ errors without recovery).
+   - Distinctly signals acute task frustration, cognitive overload, or sudden loss of attentional set.
+
+### JSON Storage Format (Round & Session Telemetry)
+
+```json
+{
+  "telemetry": {
+    "latency": {
+      "avg_ms": 412.5,
+      "median_ms": 395.0,
+      "min_ms": 320.0,
+      "max_ms": 850.0,
+      "variability_ms": 45.2,
+      "p90_ms": 620.0
+    },
+    "accuracy": {
+      "overall_rate": 0.850,
+      "total_rounds": 20,
+      "correct_count": 17,
+      "error_count": 3
+    },
+    "hesitation": {
+      "hesitation_events_count": 2,
+      "total_hesitation_ms": 3200.0,
+      "avg_hesitation_ms": 1600.0,
+      "hesitation_ratio": 0.120,
+      "initial_hesitation_ms": 1450.0
+    },
+    "error_burst": {
+      "max_consecutive_errors": 2,
+      "error_burst_count": 1,
+      "burst_errors_count": 2,
+      "error_burst_rate": 0.667,
+      "burst_detected": true
+    },
+    "rounds": [
+      {
+        "round_index": 1,
+        "timestamp": "2026-09-10T18:35:00.000Z",
+        "event_type": "target_hit",
+        "latency_ms": 425.0,
+        "accuracy": 1.0,
+        "hesitation": {
+          "hesitation_ms": 0.0,
+          "is_hesitation": false
+        },
+        "error_burst": {
+          "is_error": false,
+          "consecutive_errors": 0,
+          "is_error_burst": false
+        },
+        "metadata": {
+          "target_id": "japi"
+        }
+      }
+    ]
+  }
+}
+```
 
 ## Caregiver Dashboard — Analytics Page Recommendations
 

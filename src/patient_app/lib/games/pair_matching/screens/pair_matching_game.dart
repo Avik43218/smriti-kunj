@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../../theme/theme.dart';
+import '../../../games/shared/models/round_telemetry.dart';
 import '../../../games/shared/services/game_session_repository.dart';
 import '../models/game_session_result.dart';
 import '../models/pair_card.dart';
@@ -53,6 +54,10 @@ class _PairMatchingGameScreenState extends State<PairMatchingGameScreen> {
 
   // Analytics tracking
   late DateTime _sessionStart;
+  final GameTelemetryTracker _telemetryTracker =
+      GameTelemetryTracker(hesitationThresholdMs: 2500.0, errorBurstThreshold: 2);
+  DateTime? _turnStartTime;
+  DateTime? _firstFlipTime;
   int _totalFlips = 0;
   int _matchAttempts = 0;
   int _matchedPairs = 0;
@@ -108,6 +113,8 @@ class _PairMatchingGameScreenState extends State<PairMatchingGameScreen> {
           .toList();
       _usedFaceNameVariant = deckResult.usedFaceNameVariant;
       _phase = _GamePhase.playing;
+      _turnStartTime = DateTime.now();
+      _firstFlipTime = null;
     });
   }
 
@@ -133,6 +140,7 @@ class _PairMatchingGameScreenState extends State<PairMatchingGameScreen> {
     if (_firstFlippedIndex == null) {
       // First card of the turn
       _firstFlippedIndex = index;
+      _firstFlipTime = DateTime.now();
     } else {
       // Second card of the turn
       _secondFlippedIndex = index;
@@ -148,6 +156,29 @@ class _PairMatchingGameScreenState extends State<PairMatchingGameScreen> {
     final secondCard = _deck[secondIdx].card;
 
     final isMatch = firstCard.pairId == secondCard.pairId;
+    final secondFlipTime = DateTime.now();
+    final turnStart = _turnStartTime ?? _firstFlipTime ?? secondFlipTime;
+    final turnLatencyMs =
+        secondFlipTime.difference(turnStart).inMilliseconds.toDouble();
+    final firstFlipHesitationMs = _firstFlipTime != null
+        ? _firstFlipTime!.difference(turnStart).inMilliseconds.toDouble()
+        : 0.0;
+
+    _telemetryTracker.recordRound(
+      latencyMs: turnLatencyMs,
+      isCorrect: isMatch,
+      eventType: 'match_attempt',
+      rawHesitationMs: firstFlipHesitationMs > 2000.0
+          ? (firstFlipHesitationMs - 2000.0)
+          : 0.0,
+      metadata: {
+        'card_a': firstCard.id,
+        'card_b': secondCard.id,
+        'pair_id_a': firstCard.pairId,
+        'pair_id_b': secondCard.pairId,
+        'is_match': isMatch,
+      },
+    );
 
     _rawTrials.add({
       'event': 'match_attempt',
@@ -164,12 +195,13 @@ class _PairMatchingGameScreenState extends State<PairMatchingGameScreen> {
       _firstCorrectMatchAt ??= DateTime.now();
 
       setState(() {
-
         _deck[firstIdx].isMatched = true;
         _deck[secondIdx].isMatched = true;
         _matchedPairs++;
         _firstFlippedIndex = null;
         _secondFlippedIndex = null;
+        _turnStartTime = DateTime.now();
+        _firstFlipTime = null;
       });
 
       if (_matchedPairs >= widget.difficulty.pairCount) {
@@ -191,6 +223,8 @@ class _PairMatchingGameScreenState extends State<PairMatchingGameScreen> {
           _firstFlippedIndex = null;
           _secondFlippedIndex = null;
           _isProcessingMismatch = false;
+          _turnStartTime = DateTime.now();
+          _firstFlipTime = null;
         });
       });
     }
@@ -249,6 +283,8 @@ class _PairMatchingGameScreenState extends State<PairMatchingGameScreen> {
       _phase = _GamePhase.summary;
     });
 
+    final telemetrySummary = _telemetryTracker.computeSummary();
+
     // Persist session to local storage for later sync to backend.
     unawaited(GameSessionRepository.instance.saveSession(StoredGameSession(
       sessionId: result.sessionId,
@@ -268,8 +304,9 @@ class _PairMatchingGameScreenState extends State<PairMatchingGameScreen> {
         'completion_time': result.completionTime,
         'pairs_count': result.pairsCount,
         'used_face_name_variant': result.usedFaceNameVariant,
+        'telemetry': telemetrySummary.toJson(),
       },
-      rawTrials: result.rawTrials,
+      rawTrials: telemetrySummary.rounds.map((r) => r.toJson()).toList(),
       createdAt: now,
     )));
 
