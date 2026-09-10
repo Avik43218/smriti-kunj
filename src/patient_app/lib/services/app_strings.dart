@@ -48,5 +48,14 @@ class AppStrings {
   String get tapTargetTitle     => _as ? "লক্ষ্যত টেপ কৰক"                     : "Tap the Target";
   String get tapTargetSubtitle  => _as ? "সঠিক বস্তু দেখা গ'লে টেপ কৰক"      : "Tap the right item as it appears";
   String get attention          => _as ? "মনোযোগ"                               : "Attention";
+
+  // ── Sync strings ──────────────────────────────────────────────────────────
+  String get syncButton         => _as ? 'আপলোড / সংমিশ্ৰণ'                     : 'Sync';
+  String get syncActivities     => _as ? 'তথ্য যোগ কৰক'                          : 'Sync Activity';
+  String get syncSubtitle       => _as ? 'অভিভাৱকৰ সৈতে খেলৰ তথ্য প্ৰেৰণ কৰক'  : 'Send game progress to caregiver';
+  String get syncing            => _as ? 'তথ্য সংমিশ্ৰণ হৈ আছে...'             : 'Syncing activity...';
+  String get syncSuccess        => _as ? 'তথ্য সফলতাৰে প্ৰেৰণ হ’ল!'            : 'Activity synced with caregiver!';
+  String get syncCleaned        => _as ? 'স্থানীয় সংৰক্ষণ খালী কৰা হ’ল'        : 'Local storage wiped clean';
+  String get allSynced          => _as ? 'সকলো তথ্য ইতিমধ্যে প্ৰেৰণ কৰা হৈছে'   : 'All activities already synced';
 }
 

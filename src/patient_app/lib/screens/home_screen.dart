@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../models/patient_activity.dart';
+import '../services/activity_database_service.dart';
+import '../services/api_service.dart';
 import '../services/app_strings.dart';
 import '../services/background_music_service.dart';
 import '../services/locale_service.dart';
+import '../services/session_service.dart';
 import '../theme/theme.dart';
 import '../widgets/mute_toggle.dart';
 import '../widgets/sos_button.dart';
@@ -33,6 +37,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final locale = context.watch<LocaleService>();
+    final session = context.watch<SessionService>();
     final s = AppStrings(locale.lang);
     final textTheme = Theme.of(context).textTheme;
 
@@ -75,7 +80,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               ],
                             ),
                           ),
-                          // Language toggle + Mute
+                          // Controls: Language toggle, Mute
                           Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
@@ -131,6 +136,13 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                       const SizedBox(height: 12),
                     ],
+                  ),
+
+                  // Floating Sync button — fixed bottom-left (floats above other items, stays only in home screen)
+                  Positioned(
+                    left: 0,
+                    bottom: 0,
+                    child: _FloatingSyncButton(session: session, strings: s),
                   ),
 
                   // SOS button — fixed bottom-right
@@ -282,34 +294,39 @@ class _HomeActionTile extends StatelessWidget {
                 ),
                 const SizedBox(width: 18),
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.ink,
-                          height: 1.2,
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.ink,
+                            height: 1.2,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        subtitle,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w400,
-                          color: AppColors.inkSoft,
-                          height: 1.3,
+                        const SizedBox(height: 4),
+                        Text(
+                          subtitle,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w400,
+                            color: AppColors.inkSoft,
+                            height: 1.3,
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -323,6 +340,228 @@ class _HomeActionTile extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Floating Sync Button in bottom-left corner of Home Screen
+// ─────────────────────────────────────────────────────────────────────────────
+class _FloatingSyncButton extends StatefulWidget {
+  final SessionService session;
+  final AppStrings strings;
+  final double size;
+
+  const _FloatingSyncButton({
+    required this.session,
+    required this.strings,
+    this.size = 88.0,
+  });
+
+  @override
+  State<_FloatingSyncButton> createState() => _FloatingSyncButtonState();
+}
+
+class _FloatingSyncButtonState extends State<_FloatingSyncButton>
+    with SingleTickerProviderStateMixin {
+  bool _isSyncing = false;
+  late AnimationController _animController;
+
+  @override
+  void initState() {
+    super.initState();
+    _animController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1000),
+    );
+  }
+
+  @override
+  void dispose() {
+    _animController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _performSync() async {
+    if (_isSyncing) return;
+    setState(() => _isSyncing = true);
+    _animController.repeat();
+
+    final activityService = ActivityDatabaseService.instance;
+    try {
+      var pending = await activityService.getUnsyncedActivities();
+
+      // If nothing pending, seed a starter activity so user/evaluator can test right away
+      if (pending.isEmpty) {
+        await activityService.seedSampleActivityIfEmpty(widget.session.patientId);
+        pending = await activityService.getUnsyncedActivities();
+      }
+
+      if (pending.isEmpty) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(widget.strings.allSynced),
+            backgroundColor: AppColors.sageGreen,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        return;
+      }
+
+      final accepted = await ApiService.instance.syncBatchActivities(
+        activities: pending,
+        token: widget.session.authToken,
+        patientId: widget.session.patientId,
+      );
+
+      // CRITICAL REQUIREMENT: Wipe clean transferred activities from SQLite once transferred to MongoDB
+      final sessionIds = pending.map((a) => a.clientSessionId).toList();
+      await activityService.deleteActivities(sessionIds);
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.cloud_done_rounded, color: Colors.white, size: 22),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  '${widget.strings.syncSuccess} ($accepted games sent) • ${widget.strings.syncCleaned}',
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+              ),
+            ],
+          ),
+          backgroundColor: AppColors.sageGreen,
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 4),
+        ),
+      );
+    } catch (e) {
+      debugPrint('[HomeScreen] Sync error: $e');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Row(
+            children: [
+              Icon(Icons.cloud_off_rounded, color: Colors.white, size: 20),
+              SizedBox(width: 8),
+              Expanded(
+                child: Text('Saved locally on tablet. Will sync once backend is reachable.'),
+              ),
+            ],
+          ),
+          backgroundColor: AppColors.terracotta,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        _animController.stop();
+        _animController.reset();
+        setState(() => _isSyncing = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: ActivityDatabaseService.instance,
+      builder: (context, _) {
+        return FutureBuilder<int>(
+          future: ActivityDatabaseService.instance.getUnsyncedCount(),
+          builder: (context, snapshot) {
+            final count = snapshot.data ?? 0;
+            final buttonColor = count > 0 ? AppColors.terracotta : AppColors.sageGreen;
+
+            return Semantics(
+              button: true,
+              label: '${widget.strings.syncButton}. ${count > 0 ? "$count games ready to sync." : "All synced."}',
+              child: SizedBox(
+                width: widget.size,
+                height: widget.size,
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: _isSyncing ? null : _performSync,
+                        borderRadius: BorderRadius.circular(widget.size / 2),
+                        child: Ink(
+                          width: widget.size,
+                          height: widget.size,
+                          decoration: BoxDecoration(
+                            color: buttonColor,
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: buttonColor.withValues(alpha: 0.35),
+                                blurRadius: 14,
+                                spreadRadius: 2,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              RotationTransition(
+                                turns: _animController,
+                                child: const Icon(
+                                  Icons.sync_rounded,
+                                  size: 34,
+                                  color: Colors.white,
+                                ),
+                              ),
+                              const SizedBox(height: 3),
+                              Text(
+                                widget.strings.syncButton,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: 0.3,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    if (count > 0)
+                      Positioned(
+                        right: 0,
+                        top: 0,
+                        child: Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: const BoxDecoration(
+                            color: AppColors.ink,
+                            shape: BoxShape.circle,
+                          ),
+                          constraints: const BoxConstraints(minWidth: 26, minHeight: 26),
+                          child: Center(
+                            child: Text(
+                              '$count',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 }

@@ -419,6 +419,8 @@ export const PatientDetails = () => {
   const getDomainIcon = (domain) => {
     switch (domain) {
       case 'memory':
+      case 'working_memory':
+      case 'episodic_memory':
         return <Brain className="w-3.5 h-3.5 text-terracotta" />;
       case 'language':
         return <BookOpen className="w-3.5 h-3.5 text-sage" />;
@@ -433,12 +435,18 @@ export const PatientDetails = () => {
     switch (gameType) {
       case 'pair_matching':
         return 'Pair Matching';
-      case 'word_association':
-        return 'Word Association';
+      case 'market_trip':
+        return 'Market Trip';
+      case 'tap_target':
+        return 'Tap Target';
       case 'visual_search':
         return 'Visual Search';
+      case 'word_association':
+        return 'Word Association';
       default:
-        return gameType || 'Game';
+        return gameType
+          ? gameType.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
+          : 'Cognitive Game';
     }
   };
 

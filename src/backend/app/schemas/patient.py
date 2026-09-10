@@ -108,7 +108,7 @@ class GameSessionOut(BaseModel):
     game_type: str
     domain: str
     session_date: str
-    session_duration: int
+    session_duration: Union[float, int] = 120
     status: str = "completed"
     difficulty_level: Union[int, str] = 1
     score_normalized: float
@@ -118,7 +118,7 @@ class GameSessionOut(BaseModel):
     total_flips: Optional[int] = None
     time_to_first_correct_match: Optional[float] = None
     repeat_error_rate: Optional[float] = None
-    completion_time: Optional[int] = None
+    completion_time: Optional[Union[float, int]] = None
     pairs_count: Optional[int] = None
     used_face_name_variant: Optional[bool] = None
 
@@ -128,11 +128,11 @@ class GameSessionOut(BaseModel):
     category_switch_errors: Optional[int] = None
     language_used: Optional[str] = None
     category_prompt: Optional[str] = None
-    round_duration: Optional[int] = None
+    round_duration: Optional[Union[float, int]] = None
 
     # Attention: Visual Search fields
-    reaction_time_avg: Optional[int] = None
-    reaction_time_variability: Optional[int] = None
+    reaction_time_avg: Optional[Union[float, int]] = None
+    reaction_time_variability: Optional[Union[float, int]] = None
     omission_rate: Optional[float] = None
     false_positive_rate: Optional[float] = None
     within_session_drift: Optional[float] = None

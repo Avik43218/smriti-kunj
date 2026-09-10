@@ -246,8 +246,8 @@ async def get_game_sessions(
         except Exception:
             pass
 
-    # Sort ascending and apply limit
-    results = sorted(results, key=lambda s: s.client_timestamp or datetime.min)
+    # Sort descending by client_timestamp so newest sessions are returned
+    results = sorted(results, key=lambda s: s.client_timestamp or datetime.min, reverse=True)
     if limit:
         results = results[:limit]
 

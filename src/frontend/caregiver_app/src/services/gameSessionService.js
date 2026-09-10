@@ -12,14 +12,17 @@ import apiClient from './apiClient';
  */
 export const DOMAINS = {
   MEMORY: 'memory',
+  WORKING_MEMORY: 'working_memory',
   LANGUAGE: 'language',
   ATTENTION: 'attention',
 };
 
 export const GAME_TYPES = {
   PAIR_MATCHING: 'pair_matching',
+  MARKET_TRIP: 'market_trip',
   WORD_ASSOCIATION: 'word_association',
   VISUAL_SEARCH: 'visual_search',
+  TAP_TARGET: 'tap_target',
 };
 
 export const DOMAIN_CONFIG = {
@@ -34,6 +37,18 @@ export const DOMAIN_CONFIG = {
     textLight: 'text-terracotta',
     description: 'Visual memory retention, card pair recall & face-name recognition',
     targetParam: 'Correct Match Rate & Latency',
+  },
+  working_memory: {
+    key: 'working_memory',
+    label: 'Working Memory',
+    gameType: 'market_trip',
+    gameLabel: 'Market Trip',
+    color: '#B5562F', // Terracotta
+    bgLight: 'bg-terracotta/10',
+    borderLight: 'border-terracotta/30',
+    textLight: 'text-terracotta',
+    description: 'Shopping list recall, short-term holding & distractor resistance',
+    targetParam: 'Recall Accuracy & Latency',
   },
   language: {
     key: 'language',

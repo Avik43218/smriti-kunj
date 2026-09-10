@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../models/patient_activity.dart';
+import '../services/activity_database_service.dart';
 import '../services/app_strings.dart';
 import '../services/difficulty_database_service.dart';
 import '../services/locale_service.dart';
@@ -47,6 +49,27 @@ class GamesScreen extends StatelessWidget {
         onGameCompleted: (GameSessionResult result) {
           debugPrint('[MarketTrip] accuracy=${result.recallAccuracy}, '
               'score=${result.scoreNormalized}');
+          ActivityDatabaseService.instance.recordGameActivity(PatientActivityRecord(
+            clientSessionId: result.sessionId.isNotEmpty
+                ? result.sessionId
+                : 'mt_${DateTime.now().millisecondsSinceEpoch}',
+            patientId: session.patientId,
+            patientProfileId: session.patientId,
+            gameType: 'market_trip',
+            gameName: 'Market Trip',
+            domain: 'memory',
+            difficultyLevel: level,
+            scoreNormalized: result.scoreNormalized,
+            sessionDuration: result.sessionDuration.toInt(),
+            accuracy: result.recallAccuracy,
+            avgLatencyMs: (result.timeToCompleteRecall * 1000).clamp(0, 100000),
+            errorRate: result.itemsPromptedCount > 0
+                ? (result.falseSelectionCount / (result.itemsPromptedCount + result.falseSelectionCount)).clamp(0.0, 1.0)
+                : 0.0,
+            sessionDate: result.sessionDate,
+            status: result.status,
+            rawPayload: result.toJson(),
+          ));
         },
       ),
     ));
@@ -82,6 +105,25 @@ class GamesScreen extends StatelessWidget {
         onGameCompleted: (result) {
           debugPrint('[TapTarget] score=${result.scoreNormalized}, '
               'rt=${result.reactionTimeAvg}ms');
+          ActivityDatabaseService.instance.recordGameActivity(PatientActivityRecord(
+            clientSessionId: result.sessionId.isNotEmpty
+                ? result.sessionId
+                : 'tt_${DateTime.now().millisecondsSinceEpoch}',
+            patientId: session.patientId,
+            patientProfileId: session.patientId,
+            gameType: 'tap_target',
+            gameName: 'Tap Target',
+            domain: 'attention',
+            difficultyLevel: level,
+            scoreNormalized: result.scoreNormalized,
+            sessionDuration: result.sessionDuration.toInt(),
+            accuracy: (1.0 - result.omissionRate).clamp(0.0, 1.0),
+            avgLatencyMs: result.reactionTimeAvg,
+            errorRate: result.falsePositiveRate,
+            sessionDate: result.sessionDate,
+            status: result.status,
+            rawPayload: result.toJson(),
+          ));
         },
       ),
     ));
@@ -118,6 +160,25 @@ class GamesScreen extends StatelessWidget {
           debugPrint('[PairMatching] flips=${result.totalFlips}, '
               'score=${result.scoreNormalized}, '
               'usedPhotos=${result.usedFaceNameVariant}');
+          ActivityDatabaseService.instance.recordGameActivity(PatientActivityRecord(
+            clientSessionId: result.sessionId.isNotEmpty
+                ? result.sessionId
+                : 'pm_${DateTime.now().millisecondsSinceEpoch}',
+            patientId: session.patientId,
+            patientProfileId: session.patientId,
+            gameType: 'pair_matching',
+            gameName: 'Pair Matching',
+            domain: 'memory',
+            difficultyLevel: level,
+            scoreNormalized: result.scoreNormalized,
+            sessionDuration: result.sessionDuration.toInt(),
+            accuracy: result.correctMatchRate,
+            avgLatencyMs: (result.timeToFirstCorrectMatch * 1000).clamp(0, 100000),
+            errorRate: result.repeatErrorRate,
+            sessionDate: result.sessionDate,
+            status: result.status,
+            rawPayload: result.toJson(),
+          ));
         },
       ),
     ));
