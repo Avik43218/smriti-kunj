@@ -5,11 +5,13 @@ import 'screens/pairing_screen.dart';
 import 'services/session_service.dart';
 import 'services/difficulty_service.dart';
 import 'services/locale_service.dart';
+import 'services/api_service.dart';
 import 'theme/theme.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   // Pre-initialize TFLite dynamic difficulty model in background
+  ApiService.instance.baseUrl = 'http://192.168.1.240:8000';
   DynamicDifficultyService.instance.init();
   runApp(const SmritiKunjApp());
 }
