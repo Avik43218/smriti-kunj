@@ -20,6 +20,8 @@ dependencies:
   sqflite: ^2.3.3+1
   path: ^1.9.0
 
+  tflite_flutter: ^0.10.4
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -45,3 +47,5 @@ flutter:
     - assets/images/
     - assets/audio/
     - assets/data/
+    - agents/difficulty_mlp_ucb1.tflite
+
