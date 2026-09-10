@@ -31,5 +31,7 @@ assets/file-structure.md
 src/backend/.env.example
 src/frontend/caregiver_app/frontend_structure.md
 
-# Agents
-src/patient_app/agents/difficulty_mlp.tflite
+# Agents & Training data
+src/patient_app/agents/difficulty_mlp_ucb1.tflite
+src/patient_app/agents/generate_synthetic_data.py
+src/patient_app/agents/ucb1_distilled_dataset.npz

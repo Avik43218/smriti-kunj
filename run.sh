@@ -56,6 +56,9 @@ if [ -d "src/backend" ]; then
     | tag_stream "[API]" "$C_API" &
 fi
 
+# 4. Configure the ADB port for the device (via USB)
+adb reverse tcp:8000 tcp:8000 > /dev/null
+
 printf "${C_SYS}%-9s${C_RESET} │ Hit [Ctrl + C] right here to kill everything.\n" "[SYSTEM]"
 
 # Block and hold the main process so traps stay armed
