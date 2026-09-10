@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/app_strings.dart';
+import '../services/difficulty_database_service.dart';
 import '../services/locale_service.dart';
 import '../services/session_service.dart';
 import '../theme/theme.dart';
@@ -25,12 +26,55 @@ class _GamesScreenState extends State<GamesScreen> {
   TapDifficulty _tapDifficulty = TapDifficulty.easy;
   PairDifficulty _pairDifficulty = PairDifficulty.easy;
 
-  void _launchMarketTrip(
+  @override
+  void initState() {
+    super.initState();
+    _checkPendingDifficulty();
+  }
+
+  Future<void> _checkPendingDifficulty() async {
+    final pending = await DifficultyDatabaseService.instance.peekLatestDifficultySetting();
+    if (pending != null && mounted) {
+      setState(() {
+        if (pending.gameType == 'market_trip' || pending.gameType.isEmpty) {
+          if (pending.recommendedDifficulty == 1) _marketDifficulty = GameDifficulty.easy;
+          if (pending.recommendedDifficulty == 2) _marketDifficulty = GameDifficulty.medium;
+          if (pending.recommendedDifficulty == 3) _marketDifficulty = GameDifficulty.hard;
+        }
+        if (pending.gameType == 'tap_target' || pending.gameType.isEmpty) {
+          if (pending.recommendedDifficulty == 1) _tapDifficulty = TapDifficulty.easy;
+          if (pending.recommendedDifficulty == 2) _tapDifficulty = TapDifficulty.medium;
+          if (pending.recommendedDifficulty == 3) _tapDifficulty = TapDifficulty.hard;
+        }
+        if (pending.gameType == 'pair_matching' || pending.gameType.isEmpty) {
+          if (pending.recommendedDifficulty == 1) _pairDifficulty = PairDifficulty.easy;
+          if (pending.recommendedDifficulty == 2) _pairDifficulty = PairDifficulty.medium;
+          if (pending.recommendedDifficulty == 3) _pairDifficulty = PairDifficulty.hard;
+        }
+      });
+      debugPrint('[GamesScreen] Auto-adapted difficulty chips from SQLite: '
+          'Market: $_marketDifficulty, Tap: $_tapDifficulty, Pair: $_pairDifficulty');
+    }
+  }
+
+  Future<void> _launchMarketTrip(
     BuildContext context,
     SessionService session,
     LocaleService locale,
-  ) {
-    Navigator.of(context).push(MaterialPageRoute(
+  ) async {
+    // Consume setting from SQLite and remove entry
+    final pending = await DifficultyDatabaseService.instance
+        .consumeLatestDifficultySetting(gameType: 'market_trip');
+    if (pending != null) {
+      if (pending.recommendedDifficulty == 1) _marketDifficulty = GameDifficulty.easy;
+      if (pending.recommendedDifficulty == 2) _marketDifficulty = GameDifficulty.medium;
+      if (pending.recommendedDifficulty == 3) _marketDifficulty = GameDifficulty.hard;
+      if (mounted) setState(() {});
+      debugPrint('[GamesScreen] Consumed and removed SQLite difficulty setting for Market Trip: $_marketDifficulty');
+    }
+
+    if (!context.mounted) return;
+    await Navigator.of(context).push(MaterialPageRoute(
       builder: (_) => MarketTripGameScreen(
         difficulty: _marketDifficulty,
         promptLanguage: locale.code,
@@ -41,14 +85,28 @@ class _GamesScreenState extends State<GamesScreen> {
         },
       ),
     ));
+
+    if (mounted) _checkPendingDifficulty();
   }
 
-  void _launchTapTarget(
+  Future<void> _launchTapTarget(
     BuildContext context,
     SessionService session,
     LocaleService locale,
-  ) {
-    Navigator.of(context).push(MaterialPageRoute(
+  ) async {
+    // Consume setting from SQLite and remove entry
+    final pending = await DifficultyDatabaseService.instance
+        .consumeLatestDifficultySetting(gameType: 'tap_target');
+    if (pending != null) {
+      if (pending.recommendedDifficulty == 1) _tapDifficulty = TapDifficulty.easy;
+      if (pending.recommendedDifficulty == 2) _tapDifficulty = TapDifficulty.medium;
+      if (pending.recommendedDifficulty == 3) _tapDifficulty = TapDifficulty.hard;
+      if (mounted) setState(() {});
+      debugPrint('[GamesScreen] Consumed and removed SQLite difficulty setting for Tap Target: $_tapDifficulty');
+    }
+
+    if (!context.mounted) return;
+    await Navigator.of(context).push(MaterialPageRoute(
       builder: (_) => TapTargetGameScreen(
         difficulty: _tapDifficulty,
         promptLanguage: locale.code,
@@ -59,14 +117,28 @@ class _GamesScreenState extends State<GamesScreen> {
         },
       ),
     ));
+
+    if (mounted) _checkPendingDifficulty();
   }
 
-  void _launchPairMatching(
+  Future<void> _launchPairMatching(
     BuildContext context,
     SessionService session,
     LocaleService locale,
-  ) {
-    Navigator.of(context).push(MaterialPageRoute(
+  ) async {
+    // Consume setting from SQLite and remove entry
+    final pending = await DifficultyDatabaseService.instance
+        .consumeLatestDifficultySetting(gameType: 'pair_matching');
+    if (pending != null) {
+      if (pending.recommendedDifficulty == 1) _pairDifficulty = PairDifficulty.easy;
+      if (pending.recommendedDifficulty == 2) _pairDifficulty = PairDifficulty.medium;
+      if (pending.recommendedDifficulty == 3) _pairDifficulty = PairDifficulty.hard;
+      if (mounted) setState(() {});
+      debugPrint('[GamesScreen] Consumed and removed SQLite difficulty setting for Pair Matching: $_pairDifficulty');
+    }
+
+    if (!context.mounted) return;
+    await Navigator.of(context).push(MaterialPageRoute(
       builder: (_) => PairMatchingGameScreen(
         difficulty: _pairDifficulty,
         promptLanguage: locale.code,
@@ -78,6 +150,8 @@ class _GamesScreenState extends State<GamesScreen> {
         },
       ),
     ));
+
+    if (mounted) _checkPendingDifficulty();
   }
 
   @override

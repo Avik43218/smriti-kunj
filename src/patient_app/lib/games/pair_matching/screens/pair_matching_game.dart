@@ -1,8 +1,11 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../../../theme/theme.dart';
 import '../../../games/shared/models/round_telemetry.dart';
 import '../../../games/shared/services/game_session_repository.dart';
+import '../../../services/difficulty_service.dart';
+import '../../../services/difficulty_database_service.dart';
 import '../models/game_session_result.dart';
 import '../models/pair_card.dart';
 import '../services/pair_bank_service.dart';
@@ -77,12 +80,15 @@ class _PairMatchingGameScreenState extends State<PairMatchingGameScreen> {
   String get _summaryHeading => _isAs ? "খেল সম্পূৰ্ণ!" : "Session Complete!";
   String get _flipsSummaryLabel => _isAs ? "মুঠ ওলোটোৱা:" : "Total flips:";
   String get _accuracyLabel => _isAs ? "শুদ্ধতা:" : "Accuracy:";
+  late PairDifficulty _activeDifficulty;
+
   String get _repeatErrorsLabel => _isAs ? "পুনৰাবৃত্তিমূলক ভুল:" : "Repeat errors:";
   String get _doneButton => _isAs ? "সম্পূৰ্ণ হ'ল" : "Done";
 
   @override
   void initState() {
     super.initState();
+    _activeDifficulty = widget.difficulty;
     _initGame();
   }
 
@@ -100,9 +106,20 @@ class _PairMatchingGameScreenState extends State<PairMatchingGameScreen> {
     _isProcessingMismatch = false;
     _result = null;
 
+    // Check if next-game difficulty was queued in SQLite
+    final pending = await DifficultyDatabaseService.instance
+        .consumeLatestDifficultySetting(gameType: 'pair_matching');
+    if (pending != null) {
+      final level = pending.recommendedDifficulty;
+      if (level == 1) _activeDifficulty = PairDifficulty.easy;
+      if (level == 2) _activeDifficulty = PairDifficulty.medium;
+      if (level == 3) _activeDifficulty = PairDifficulty.hard;
+      debugPrint('[PairMatching] Applied and removed difficulty from SQLite: level $level');
+    }
+
     final deckResult = await _bankService.loadDeck(
       patientProfileId: widget.patientProfileId,
-      difficulty: widget.difficulty,
+      difficulty: _activeDifficulty,
     );
 
     if (!mounted) return;
@@ -236,7 +253,7 @@ class _PairMatchingGameScreenState extends State<PairMatchingGameScreen> {
         now.difference(_sessionStart).inMilliseconds / 1000.0;
 
     final correctMatchRate = _matchAttempts > 0
-        ? (widget.difficulty.pairCount / _matchAttempts).clamp(0.0, 1.0)
+        ? (_activeDifficulty.pairCount / _matchAttempts).clamp(0.0, 1.0)
         : 1.0;
 
     final timeToFirst = _firstCorrectMatchAt != null
@@ -248,12 +265,12 @@ class _PairMatchingGameScreenState extends State<PairMatchingGameScreen> {
     final repeatErrorPairsCount = _pairMissCounts.values
         .where((missCount) => missCount >= 2)
         .length;
-    final repeatErrorRate = widget.difficulty.pairCount > 0
-        ? (repeatErrorPairsCount / widget.difficulty.pairCount).clamp(0.0, 1.0)
+    final repeatErrorRate = _activeDifficulty.pairCount > 0
+        ? (repeatErrorPairsCount / _activeDifficulty.pairCount).clamp(0.0, 1.0)
         : 0.0;
 
     // Normalized score calculation
-    final minFlips = widget.difficulty.pairCount * 2;
+    final minFlips = _activeDifficulty.pairCount * 2;
     final flipEfficiency = _totalFlips > 0
         ? (minFlips / _totalFlips).clamp(0.0, 1.0)
         : 1.0;
@@ -266,14 +283,14 @@ class _PairMatchingGameScreenState extends State<PairMatchingGameScreen> {
       timeToFirstCorrectMatch: timeToFirst,
       repeatErrorRate: repeatErrorRate,
       completionTime: durationSeconds,
-      pairsCount: widget.difficulty.pairCount,
+      pairsCount: _activeDifficulty.pairCount,
       usedFaceNameVariant: _usedFaceNameVariant,
       sessionId: 'pm_${DateTime.now().millisecondsSinceEpoch}',
       patientProfileId: widget.patientProfileId,
       sessionDate: _sessionStart,
       sessionDuration: durationSeconds,
       status: 'completed',
-      difficultyLevel: widget.difficulty.level,
+      difficultyLevel: _activeDifficulty.level,
       scoreNormalized: scoreNormalized,
       rawTrials: _rawTrials,
     );
@@ -309,6 +326,35 @@ class _PairMatchingGameScreenState extends State<PairMatchingGameScreen> {
       rawTrials: telemetrySummary.rounds.map((r) => r.toJson()).toList(),
       createdAt: now,
     )));
+
+    // Spin up TFLite model on raw telemetry JSON and save decision to SQLite database
+    final rawTelemetryJson = jsonEncode({
+      'game_type': result.gameType,
+      'total_flips': result.totalFlips,
+      'correct_match_rate': result.correctMatchRate,
+      'time_to_first_correct_match': result.timeToFirstCorrectMatch,
+      'repeat_error_rate': result.repeatErrorRate,
+      'completion_time': result.completionTime,
+      'pairs_count': result.pairsCount,
+      'score_normalized': result.scoreNormalized,
+      'telemetry': telemetrySummary.toJson(),
+    });
+
+    unawaited(() async {
+      try {
+        final decision = await DynamicDifficultyService.instance.evaluateSessionJson(
+          rawTelemetryJson,
+          currentDifficulty: _activeDifficulty.level,
+          gameType: 'pair_matching',
+        );
+        await DifficultyDatabaseService.instance.saveDifficultySetting(
+          decision,
+          rawJson: rawTelemetryJson,
+        );
+      } catch (e) {
+        debugPrint('[PairMatching] Error running TFLite difficulty model: $e');
+      }
+    }());
 
     widget.onGameCompleted?.call(result);
   }
@@ -350,8 +396,8 @@ class _PairMatchingGameScreenState extends State<PairMatchingGameScreen> {
 
   // ── Game Board ─────────────────────────────────────────────────────────────
   Widget _buildGameBoard() {
-    final progress = widget.difficulty.pairCount > 0
-        ? _matchedPairs / widget.difficulty.pairCount
+    final progress = _activeDifficulty.pairCount > 0
+        ? _matchedPairs / _activeDifficulty.pairCount
         : 0.0;
 
     return Padding(
@@ -383,7 +429,7 @@ class _PairMatchingGameScreenState extends State<PairMatchingGameScreen> {
                       color: AppColors.mugaGold.withValues(alpha: 0.4)),
                 ),
                 child: Text(
-                  '$_pairsFoundLabel $_matchedPairs/${widget.difficulty.pairCount}',
+                  '$_pairsFoundLabel $_matchedPairs/${_activeDifficulty.pairCount}',
                   style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
@@ -414,7 +460,7 @@ class _PairMatchingGameScreenState extends State<PairMatchingGameScreen> {
               physics: const BouncingScrollPhysics(),
               itemCount: _deck.length,
               gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: widget.difficulty.gridColumns,
+                crossAxisCount: _activeDifficulty.gridColumns,
                 crossAxisSpacing: 10,
                 mainAxisSpacing: 10,
                 childAspectRatio: 0.82,

@@ -47,5 +47,6 @@ flutter:
     - assets/images/
     - assets/audio/
     - assets/data/
+    - assets/models/
     - agents/difficulty_mlp_ucb1.tflite
 

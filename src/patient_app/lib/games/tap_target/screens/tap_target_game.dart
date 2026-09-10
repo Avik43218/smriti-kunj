@@ -1,9 +1,12 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import '../../../theme/theme.dart';
 import '../../../games/shared/models/round_telemetry.dart';
 import '../../../games/shared/services/game_session_repository.dart';
+import '../../../services/difficulty_service.dart';
+import '../../../services/difficulty_database_service.dart';
 import '../models/game_session_result.dart';
 import '../models/target_config.dart';
 import '../services/target_bank_service.dart';
@@ -125,6 +128,8 @@ class _TapTargetGameScreenState extends State<TapTargetGameScreen>
   String get _summaryHeading =>
       _isAs ? 'খেল সম্পূৰ্ণ!' : 'Session Complete!';
 
+  late TapDifficulty _activeDifficulty;
+
   String get _doneButton =>
       _isAs ? "সম্পূৰ্ণ হ'ল" : 'Done';
 
@@ -132,6 +137,7 @@ class _TapTargetGameScreenState extends State<TapTargetGameScreen>
   @override
   void initState() {
     super.initState();
+    _activeDifficulty = widget.difficulty;
     _sessionStart = DateTime.now();
 
     _pulseController = AnimationController(
@@ -154,6 +160,17 @@ class _TapTargetGameScreenState extends State<TapTargetGameScreen>
 
   // ─────────────────────────────────────────────────────────────────────────
   Future<void> _initGame() async {
+    // Check if next-game difficulty was queued in SQLite
+    final pending = await DifficultyDatabaseService.instance
+        .consumeLatestDifficultySetting(gameType: 'tap_target');
+    if (pending != null) {
+      final level = pending.recommendedDifficulty;
+      if (level == 1) _activeDifficulty = TapDifficulty.easy;
+      if (level == 2) _activeDifficulty = TapDifficulty.medium;
+      if (level == 3) _activeDifficulty = TapDifficulty.hard;
+      debugPrint('[TapTarget] Applied and removed difficulty from SQLite: level $level');
+    }
+
     final bank = await _bankService.loadTargetBank();
     if (!mounted) return;
 
@@ -180,7 +197,7 @@ class _TapTargetGameScreenState extends State<TapTargetGameScreen>
   /// Shows distractor-only grid for a randomised "lead-in" delay, then
   /// inserts the target card. Patient taps target; if missed, records omission.
   void _scheduleNextTrial() {
-    if (_currentTrial >= widget.difficulty.trialCount) {
+    if (_currentTrial >= _activeDifficulty.trialCount) {
       _finishSession();
       return;
     }
@@ -191,12 +208,12 @@ class _TapTargetGameScreenState extends State<TapTargetGameScreen>
     final distractors = _bankService.selectDistractors(
       bank: _bank,
       target: _target,
-      difficulty: widget.difficulty,
+      difficulty: _activeDifficulty,
     );
 
     // Randomise lead-in: 0.5× to 1.5× of the configured interval.
     final intervalMs =
-        (widget.difficulty.appearanceIntervalSeconds * 1000).round();
+        (_activeDifficulty.appearanceIntervalSeconds * 1000).round();
     final leadIn = (intervalMs * (0.5 + _random.nextDouble())).round();
 
     setState(() {
@@ -219,7 +236,7 @@ class _TapTargetGameScreenState extends State<TapTargetGameScreen>
 
     // Target is visible for 1.5× the base interval, then counts as omission.
     final visibleMs =
-        (widget.difficulty.appearanceIntervalSeconds * 1500).round();
+        (_activeDifficulty.appearanceIntervalSeconds * 1500).round();
 
     setState(() {
       _targetVisible = true;
@@ -338,7 +355,7 @@ class _TapTargetGameScreenState extends State<TapTargetGameScreen>
       }
     }
 
-    final trialCount = widget.difficulty.trialCount;
+    final trialCount = _activeDifficulty.trialCount;
     final omissionRate =
         trialCount > 0 ? (_omissions / trialCount).clamp(0.0, 1.0) : 0.0;
     final falsePositiveRate =
@@ -379,7 +396,7 @@ class _TapTargetGameScreenState extends State<TapTargetGameScreen>
       sessionDate: DateTime.now(),
       sessionDuration: sessionDuration,
       status: 'completed',
-      difficultyLevel: widget.difficulty.level,
+      difficultyLevel: _activeDifficulty.level,
       scoreNormalized: score,
       rawTrials: _tapEvents.map((e) => e.toJson()).toList(),
     );
@@ -416,6 +433,35 @@ class _TapTargetGameScreenState extends State<TapTargetGameScreen>
       rawTrials: telemetrySummary.rounds.map((r) => r.toJson()).toList(),
       createdAt: now,
     )));
+
+    // Spin up TFLite model on raw telemetry JSON and save decision to SQLite database
+    final rawTelemetryJson = jsonEncode({
+      'game_type': result.gameType,
+      'reaction_time_avg': result.reactionTimeAvg,
+      'reaction_time_variability': result.reactionTimeVariability,
+      'omission_rate': result.omissionRate,
+      'false_positive_rate': result.falsePositiveRate,
+      'within_session_drift': result.withinSessionDrift,
+      'trial_count': result.trialCount,
+      'score_normalized': result.scoreNormalized,
+      'telemetry': telemetrySummary.toJson(),
+    });
+
+    unawaited(() async {
+      try {
+        final decision = await DynamicDifficultyService.instance.evaluateSessionJson(
+          rawTelemetryJson,
+          currentDifficulty: _activeDifficulty.level,
+          gameType: 'tap_target',
+        );
+        await DifficultyDatabaseService.instance.saveDifficultySetting(
+          decision,
+          rawJson: rawTelemetryJson,
+        );
+      } catch (e) {
+        debugPrint('[TapTarget] Error running TFLite difficulty model: $e');
+      }
+    }());
 
     widget.onGameCompleted?.call(result);
   }
@@ -556,11 +602,11 @@ class _TapTargetGameScreenState extends State<TapTargetGameScreen>
 
   // ── Play area ─────────────────────────────────────────────────────────────
   Widget _buildPlayArea() {
-    final trialCount = widget.difficulty.trialCount;
+    final trialCount = _activeDifficulty.trialCount;
     final progress = _currentTrial / trialCount;
 
     // Grid column count: 2 for easy (3 cards), 3 for medium (5 cards), 3 for hard.
-    final colCount = widget.difficulty.distractorCount <= 2 ? 2 : 3;
+    final colCount = _activeDifficulty.distractorCount <= 2 ? 2 : 3;
 
     return Padding(
       padding: const EdgeInsets.all(16),
@@ -696,7 +742,7 @@ class _TapTargetGameScreenState extends State<TapTargetGameScreen>
                 _StatRow(
                   label: _isAs ? 'হেৰুওৱা লক্ষ্য' : 'Missed targets',
                   value:
-                      '${(_omissions)}/${widget.difficulty.trialCount}',
+                      '${(_omissions)}/${_activeDifficulty.trialCount}',
                 ),
                 _StatRow(
                   label: _isAs ? 'ভুল টেপ' : 'False taps',

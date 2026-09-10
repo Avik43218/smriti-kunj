@@ -3,11 +3,14 @@ import 'package:provider/provider.dart';
 import 'screens/home_screen.dart';
 import 'screens/pairing_screen.dart';
 import 'services/session_service.dart';
+import 'services/difficulty_service.dart';
 import 'services/locale_service.dart';
 import 'theme/theme.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Pre-initialize TFLite dynamic difficulty model in background
+  DynamicDifficultyService.instance.init();
   runApp(const SmritiKunjApp());
 }
 

@@ -1,8 +1,11 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../../../theme/theme.dart';
 import '../../../games/shared/models/round_telemetry.dart';
 import '../../../games/shared/services/game_session_repository.dart';
+import '../../../services/difficulty_service.dart';
+import '../../../services/difficulty_database_service.dart';
 import '../models/game_session_result.dart';
 import '../models/market_item.dart';
 import '../services/item_bank_service.dart';
@@ -58,11 +61,13 @@ class _MarketTripGameScreenState extends State<MarketTripGameScreen> {
   int _distractorTapCount = 0;
   bool _distractorTaskCompleted = false;
 
+  late GameDifficulty _activeDifficulty;
   GameSessionResult? _finalResult;
 
   @override
   void initState() {
     super.initState();
+    _activeDifficulty = widget.difficulty;
     _sessionStartTime = DateTime.now();
     _initGame();
   }
@@ -72,15 +77,26 @@ class _MarketTripGameScreenState extends State<MarketTripGameScreen> {
       _currentPhase = MarketGamePhase.loading;
     });
 
+    // Check if next-game difficulty was queued in SQLite
+    final pending = await DifficultyDatabaseService.instance
+        .consumeLatestDifficultySetting(gameType: 'market_trip');
+    if (pending != null) {
+      final level = pending.recommendedDifficulty;
+      if (level == 1) _activeDifficulty = GameDifficulty.easy;
+      if (level == 2) _activeDifficulty = GameDifficulty.medium;
+      if (level == 3) _activeDifficulty = GameDifficulty.hard;
+      debugPrint('[MarketTrip] Applied and removed difficulty from SQLite: $_activeDifficulty');
+    }
+
     final bank = await _itemBankService.loadItemBank();
     final prompts = _itemBankService.selectPromptItems(
       bank: bank,
-      difficulty: widget.difficulty,
+      difficulty: _activeDifficulty,
     );
     final grid = _itemBankService.generateRecallGrid(
       bank: bank,
       promptItems: prompts,
-      difficulty: widget.difficulty,
+      difficulty: _activeDifficulty,
     );
 
     if (!mounted) return;
@@ -92,7 +108,7 @@ class _MarketTripGameScreenState extends State<MarketTripGameScreen> {
   }
 
   void _onPromptFinished() {
-    if (widget.difficulty == GameDifficulty.easy) {
+    if (_activeDifficulty == GameDifficulty.easy) {
       // Easy level bypasses distractor phase
       _startRecallPhase();
     } else {
@@ -205,7 +221,7 @@ class _MarketTripGameScreenState extends State<MarketTripGameScreen> {
     _rawTrials.add({
       'event': 'distractor_summary',
       'tap_count': _distractorTapCount,
-      'completed': _distractorTaskCompleted || widget.difficulty == GameDifficulty.easy,
+      'completed': _distractorTaskCompleted || _activeDifficulty == GameDifficulty.easy,
     });
 
     final result = GameSessionResult(
@@ -214,7 +230,7 @@ class _MarketTripGameScreenState extends State<MarketTripGameScreen> {
       recallAccuracy: accuracy,
       falseSelectionCount: falseCount,
       timeToCompleteRecall: recallDurationSeconds,
-      distractorTaskCompleted: _distractorTaskCompleted || widget.difficulty == GameDifficulty.easy,
+      distractorTaskCompleted: _distractorTaskCompleted || _activeDifficulty == GameDifficulty.easy,
       delayDuration: delayDuration,
       promptLanguage: langString,
       sessionId: 'sess_${DateTime.now().millisecondsSinceEpoch}',
@@ -243,7 +259,7 @@ class _MarketTripGameScreenState extends State<MarketTripGameScreen> {
       sessionDate: result.sessionDate,
       sessionDuration: result.sessionDuration,
       status: result.status,
-      difficultyLevel: widget.difficulty.index + 1,
+      difficultyLevel: _activeDifficulty.index + 1,
       scoreNormalized: result.scoreNormalized,
       gameData: {
         'items_prompted_count': result.itemsPromptedCount,
@@ -262,6 +278,35 @@ class _MarketTripGameScreenState extends State<MarketTripGameScreen> {
       ],
       createdAt: now,
     )));
+
+    // Spin up TFLite model on raw telemetry JSON and save decision to SQLite database
+    final rawTelemetryJson = jsonEncode({
+      'game_type': result.gameType,
+      'items_prompted_count': result.itemsPromptedCount,
+      'items_recalled_correct': result.itemsRecalledCorrect,
+      'recall_accuracy': result.recallAccuracy,
+      'false_selection_count': result.falseSelectionCount,
+      'time_to_complete_recall': result.timeToCompleteRecall,
+      'distractor_task_completed': result.distractorTaskCompleted,
+      'score_normalized': result.scoreNormalized,
+      'telemetry': telemetrySummary.toJson(),
+    });
+
+    unawaited(() async {
+      try {
+        final decision = await DynamicDifficultyService.instance.evaluateSessionJson(
+          rawTelemetryJson,
+          currentDifficulty: _activeDifficulty.index + 1,
+          gameType: 'market_trip',
+        );
+        await DifficultyDatabaseService.instance.saveDifficultySetting(
+          decision,
+          rawJson: rawTelemetryJson,
+        );
+      } catch (e) {
+        debugPrint('[MarketTrip] Error running TFLite difficulty model: $e');
+      }
+    }());
 
     widget.onGameCompleted?.call(result);
   }

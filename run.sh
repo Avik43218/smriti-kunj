@@ -57,7 +57,7 @@ if [ -d "src/backend" ]; then
 fi
 
 # 4. Configure the ADB port for the device (via USB)
-adb reverse tcp:8000 tcp:8000 > /dev/null
+adb reverse tcp:8000 tcp:8000
 
 printf "${C_SYS}%-9s${C_RESET} │ Hit [Ctrl + C] right here to kill everything.\n" "[SYSTEM]"
 

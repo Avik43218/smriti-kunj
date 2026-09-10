@@ -131,7 +131,7 @@ class GameSessionRepository {
   static final GameSessionRepository instance = GameSessionRepository._();
 
   static const _dbName = 'smriti_kunj_sessions.db';
-  static const _dbVersion = 1;
+  static const _dbVersion = 2;
   static const _table = 'game_sessions';
 
   Database? _db;
@@ -144,26 +144,46 @@ class GameSessionRepository {
       fullPath,
       version: _dbVersion,
       onCreate: (db, _) async {
-        await db.execute('''
-          CREATE TABLE $_table (
-            id           INTEGER PRIMARY KEY AUTOINCREMENT,
-            session_id   TEXT    NOT NULL UNIQUE,
-            patient_id   TEXT    NOT NULL,
-            game_type    TEXT    NOT NULL,
-            session_date TEXT    NOT NULL,
-            synced       INTEGER NOT NULL DEFAULT 0,
-            created_at   TEXT    NOT NULL,
-            payload      TEXT    NOT NULL
-          )
-        ''');
-        // Index for the sync query (unsynced rows, ordered for upload).
-        await db.execute('''
-          CREATE INDEX idx_unsynced
-          ON $_table (synced, created_at)
-        ''');
+        await _createDbSchema(db);
+      },
+      onUpgrade: (db, oldVersion, newVersion) async {
+        await _createDbSchema(db);
       },
     );
     return _db!;
+  }
+
+  static Future<void> _createDbSchema(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS $_table (
+        id           INTEGER PRIMARY KEY AUTOINCREMENT,
+        session_id   TEXT    NOT NULL UNIQUE,
+        patient_id   TEXT    NOT NULL,
+        game_type    TEXT    NOT NULL,
+        session_date TEXT    NOT NULL,
+        synced       INTEGER NOT NULL DEFAULT 0,
+        created_at   TEXT    NOT NULL,
+        payload      TEXT    NOT NULL
+      )
+    ''');
+    // Index for the sync query (unsynced rows, ordered for upload).
+    await db.execute('''
+      CREATE INDEX IF NOT EXISTS idx_unsynced
+      ON $_table (synced, created_at)
+    ''');
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS pending_difficulty_settings (
+        id                     INTEGER PRIMARY KEY AUTOINCREMENT,
+        game_type              TEXT    NOT NULL,
+        action                 TEXT    NOT NULL,
+        difficulty_delta       INTEGER NOT NULL,
+        previous_difficulty    INTEGER NOT NULL,
+        recommended_difficulty INTEGER NOT NULL,
+        confidence             REAL    NOT NULL,
+        raw_json               TEXT    NOT NULL,
+        created_at             TEXT    NOT NULL
+      )
+    ''');
   }
 
   // ── Write ─────────────────────────────────────────────────────────────────

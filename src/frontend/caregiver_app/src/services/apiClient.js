@@ -11,7 +11,7 @@ export const apiClient = async (endpoint, options = {}) => {
 
   // Fast abort signal to prevent long hanging when running frontend-only
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 1200);
+  // const timeoutId = setTimeout(() => controller.abort(), 1200);
 
   const config = {
     ...options,
@@ -25,7 +25,7 @@ export const apiClient = async (endpoint, options = {}) => {
 
   try {
     const response = await fetch(`${BASE_URL}${endpoint}`, config);
-    clearTimeout(timeoutId);
+    // clearTimeout(timeoutId);
     
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
@@ -34,7 +34,7 @@ export const apiClient = async (endpoint, options = {}) => {
     
     return await response.json();
   } catch (error) {
-    clearTimeout(timeoutId);
+    // clearTimeout(timeoutId);
     console.warn("API Call Notice (Mock Fallback):", error.message);
     throw error;
   }
