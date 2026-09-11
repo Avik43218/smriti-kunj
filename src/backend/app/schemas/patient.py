@@ -100,6 +100,18 @@ class RemindersOut(BaseModel):
     custom: List[Dict[str, Any]] = []
 
 
+class PatientDailyRemindersOut(BaseModel):
+    patient_id: str
+    patient_name: Optional[str] = None
+    pairing_code: Optional[str] = None
+    medication: List[Dict[str, Any]] = Field(default_factory=list)
+    hydration: Union[Dict[str, Any], List[Dict[str, Any]]] = Field(default_factory=dict)
+    meals: List[Dict[str, Any]] = Field(default_factory=list)
+    custom: List[Dict[str, Any]] = Field(default_factory=list)
+    reminders: List[Dict[str, Any]] = Field(default_factory=list)
+
+
+
 # ---- Cognitive Game Sessions Schemas -------------------------------------
 
 class GameSessionOut(BaseModel):

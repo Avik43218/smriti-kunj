@@ -20,6 +20,8 @@ app.include_router(voice.router)
 app.include_router(analytics.router)
 app.include_router(caregiver.router)
 app.include_router(patients.router)
+app.include_router(patients.patient_alias_router)
+
 
 
 @app.on_event("startup")

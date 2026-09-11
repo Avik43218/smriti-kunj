@@ -5,6 +5,8 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../models/patient_activity.dart';
 import '../models/patient_session.dart';
+import '../models/reminder_item.dart';
+
 
 class ApiService {
   static final ApiService instance = ApiService._internal();
@@ -229,4 +231,97 @@ class ApiService {
     throw lastError ??
         Exception('Unable to reach backend sync server. Activities safely kept in offline queue.');
   }
+
+  /// Fetches daily reminders for the patient tablet from the backend MongoDB database
+  /// using the patient's active pairing code.
+  /// Calls GET /api/patients/reminders?pairing_code=<cleanCode>
+  Future<List<ReminderItem>> fetchPatientReminders(String pairingCode) async {
+    final cleanCode = pairingCode.trim().toUpperCase();
+    if (cleanCode.isEmpty) {
+      throw Exception('Pairing code is required to fetch daily reminders.');
+    }
+
+    Exception? lastError;
+    final urls = candidateBaseUrls;
+
+    for (final base in urls) {
+      final endpoint = Uri.parse('$base/api/patients/reminders?pairing_code=$cleanCode');
+      debugPrint('[ApiService] Fetching patient daily reminders from $endpoint');
+
+      try {
+        final response = await http.get(
+          endpoint,
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'X-Pairing-Code': cleanCode,
+          },
+        ).timeout(const Duration(seconds: 5));
+
+        debugPrint('[ApiService] Reminders response from $base: ${response.statusCode}');
+
+        if (response.statusCode == 200) {
+          _customBaseUrl = base;
+          final dynamic resData = jsonDecode(response.body);
+          if (resData is Map<String, dynamic>) {
+            final rawReminders = resData['reminders'];
+            if (rawReminders is List) {
+              return rawReminders
+                  .map((item) => ReminderItem.fromJson(item as Map<String, dynamic>, pairingCode: cleanCode))
+                  .toList();
+            }
+
+            // Fallback: parse categories if reminders list is empty
+            final items = <ReminderItem>[];
+            if (resData['medication'] is List) {
+              for (final m in (resData['medication'] as List)) {
+                items.add(ReminderItem.fromJson(m as Map<String, dynamic>, pairingCode: cleanCode));
+              }
+            }
+            if (resData['hydration'] is Map) {
+              final hyd = resData['hydration'] as Map<String, dynamic>;
+              if (hyd.isNotEmpty) {
+                items.add(ReminderItem.fromJson(hyd, pairingCode: cleanCode));
+              }
+            }
+            if (resData['meals'] is List) {
+              for (final m in (resData['meals'] as List)) {
+                items.add(ReminderItem.fromJson(m as Map<String, dynamic>, pairingCode: cleanCode));
+              }
+            }
+            if (resData['custom'] is List) {
+              for (final c in (resData['custom'] as List)) {
+                items.add(ReminderItem.fromJson(c as Map<String, dynamic>, pairingCode: cleanCode));
+              }
+            }
+            return items;
+          }
+          return [];
+        } else if (response.statusCode == 404) {
+          final dynamic errorBody = jsonDecode(response.body);
+          final detail = errorBody is Map
+              ? (errorBody['detail'] ?? 'Pairing code not found.')
+              : 'Pairing code not found.';
+          throw Exception(detail.toString());
+        } else {
+          final dynamic errorBody = jsonDecode(response.body);
+          final detail = errorBody is Map
+              ? (errorBody['detail'] ?? 'Failed to fetch reminders (${response.statusCode})')
+              : 'Failed to fetch reminders (${response.statusCode})';
+          lastError = Exception(detail.toString());
+        }
+      } catch (e) {
+        final errStr = e.toString();
+        if (errStr.contains('Pairing code') && errStr.contains('not found')) {
+          rethrow;
+        }
+        debugPrint('[ApiService] Error fetching reminders from $base: $e');
+        lastError = e is Exception ? e : Exception(e.toString());
+      }
+    }
+
+    throw lastError ??
+        Exception('Unable to reach backend server to fetch reminders.');
+  }
 }
+
