@@ -1,74 +1,82 @@
 {
-  "_comment": "Tap the Target item bank — v1. EN + Assamese translations only.",
+  "_comment": "Tap the Target item bank — v1. EN + Assamese + Bengali + Bodo language keys.",
+  "_translation_notes": {
+    "bn_bengali": "Standard Bengali (Bangla). Both 'bn' and 'bengali' keys are identical.",
+    "brx_bodo": "Bodo language in Devanagari script. Items marked _NOTE_brx should be verified by a native Bodo speaker before shipping."
+  },
   "items": [
     {
       "id": "japi",
       "category": "cultural",
       "visual_group": "woven_hat",
-      "translations": { "en": "Traditional Japi", "as": "জাপি", "bn": "", "brx": "", "miz": "", "kha": "", "gar": "" },
+      "_NOTE_bn": "REVIEW NEEDED: 'জাপি' is an Assamese cultural artefact. Bengali-speaking patients may be unfamiliar with the term. Consider displaying as 'ঐতিহ্যবাহী জাপি' with a visual cue.",
+      "_NOTE_brx": "REVIEW NEEDED: 'जापि' is a phonetic borrowing into Bodo. Bodo communities have their own traditional headgear — verify if a native Bodo term exists or if 'जापि' is the accepted loanword.",
+      "translations": { "en": "Traditional Japi", "as": "জাপি", "bn": "জাপি", "brx": "जापि", "bengali": "জাপি", "bodo": "जापि", "miz": "", "kha": "", "gar": "" },
       "icon_name": "style"
     },
     {
       "id": "bamboo_basket",
       "category": "cultural",
       "visual_group": "woven_hat",
-      "translations": { "en": "Bamboo Basket", "as": "বাঁহৰ পাচি", "bn": "", "brx": "", "miz": "", "kha": "", "gar": "" },
+      "translations": { "en": "Bamboo Basket", "as": "বাঁহৰ পাচি", "bn": "বাঁশের ঝুড়ি", "brx": "बाँसो डालि", "bengali": "বাঁশের ঝুড়ি", "bodo": "बाँसो डालि", "miz": "", "kha": "", "gar": "" },
       "icon_name": "style"
     },
     {
       "id": "orange",
       "category": "fruit",
       "visual_group": "round_fruit",
-      "translations": { "en": "Orange", "as": "কমলা", "bn": "", "brx": "", "miz": "", "kha": "", "gar": "" },
+      "translations": { "en": "Orange", "as": "কমলা", "bn": "কমলালেবু", "brx": "कमला", "bengali": "কমলালেবু", "bodo": "कमला", "miz": "", "kha": "", "gar": "" },
       "icon_name": "circle"
     },
     {
       "id": "papaya",
       "category": "fruit",
       "visual_group": "round_fruit",
-      "translations": { "en": "Papaya", "as": "অমিতা", "bn": "", "brx": "", "miz": "", "kha": "", "gar": "" },
+      "translations": { "en": "Papaya", "as": "অমিতা", "bn": "পেঁপে", "brx": "पेँपे", "bengali": "পেঁপে", "bodo": "पेँपे", "miz": "", "kha": "", "gar": "" },
       "icon_name": "nature"
     },
     {
       "id": "lemon",
       "category": "fruit",
       "visual_group": "round_fruit",
-      "translations": { "en": "Kazi Nemu Lemon", "as": "কাজী নেমু", "bn": "", "brx": "", "miz": "", "kha": "", "gar": "" },
+      "_NOTE_bn": "REVIEW NEEDED: 'Kazi Nemu' is an Assam-specific lemon variety. Using 'কাজি নেবু' (phonetic borrowing) to preserve the varietal name. Standard Bengali is 'লেবু'. Verify which form is more recognisable to the target patient population.",
+      "_NOTE_brx": "REVIEW NEEDED: 'नेबु' is borrowed from Bengali/Assamese. Check if a distinct Bodo word exists.",
+      "translations": { "en": "Kazi Nemu Lemon", "as": "কাজী নেমু", "bn": "কাজি নেবু", "brx": "नेबु", "bengali": "কাজি নেবু", "bodo": "नेबु", "miz": "", "kha": "", "gar": "" },
       "icon_name": "circle"
     },
     {
       "id": "bamboo_shoot",
       "category": "vegetable",
       "visual_group": "green_stem",
-      "translations": { "en": "Bamboo Shoot", "as": "বাঁহৰ গাজ", "bn": "", "brx": "", "miz": "", "kha": "", "gar": "" },
+      "translations": { "en": "Bamboo Shoot", "as": "বাঁহৰ গাজ", "bn": "বাঁশের কোড়ল", "brx": "बाँसो गाज", "bengali": "বাঁশের কোড়ল", "bodo": "बाँसो गाज", "miz": "", "kha": "", "gar": "" },
       "icon_name": "eco"
     },
     {
       "id": "green_chili",
       "category": "vegetable",
       "visual_group": "green_stem",
-      "translations": { "en": "Green Chili", "as": "সেউজীয়া জলকীয়া", "bn": "", "brx": "", "miz": "", "kha": "", "gar": "" },
+      "translations": { "en": "Green Chili", "as": "সেউজীয়া জলকীয়া", "bn": "কাঁচা মরিচ", "brx": "काँचा मरिच", "bengali": "কাঁচা মরিচ", "bodo": "काँचा मरिच", "miz": "", "kha": "", "gar": "" },
       "icon_name": "spa"
     },
     {
       "id": "lotus",
       "category": "flower",
       "visual_group": "flower",
-      "translations": { "en": "Lotus Flower", "as": "পদুম ফুল", "bn": "", "brx": "", "miz": "", "kha": "", "gar": "" },
+      "translations": { "en": "Lotus Flower", "as": "পদুম ফুল", "bn": "পদ্ম ফুল", "brx": "पद्म फुल", "bengali": "পদ্ম ফুল", "bodo": "पद्म फुल", "miz": "", "kha": "", "gar": "" },
       "icon_name": "local_florist"
     },
     {
       "id": "turmeric",
       "category": "spice",
       "visual_group": "root",
-      "translations": { "en": "Turmeric Root", "as": "হালধি", "bn": "", "brx": "", "miz": "", "kha": "", "gar": "" },
+      "translations": { "en": "Turmeric Root", "as": "হালধি", "bn": "হলুদ", "brx": "हलदी", "bengali": "হলুদ", "bodo": "हलदी", "miz": "", "kha": "", "gar": "" },
       "icon_name": "grain"
     },
     {
       "id": "mustard_oil",
       "category": "household",
       "visual_group": "bottle",
-      "translations": { "en": "Mustard Oil", "as": "সৰিয়হৰ তেল", "bn": "", "brx": "", "miz": "", "kha": "", "gar": "" },
+      "translations": { "en": "Mustard Oil", "as": "সৰিয়হৰ তেল", "bn": "সরিষার তেল", "brx": "सोरिसाव तेल", "bengali": "সরিষার তেল", "bodo": "सोरिसाव तेल", "miz": "", "kha": "", "gar": "" },
       "icon_name": "opacity"
     }
   ]

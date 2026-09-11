@@ -1,21 +1,37 @@
 {
+  "_translation_notes": {
+    "bn_bengali": "Standard Bengali (Bangla). Both 'bn' and 'bengali' keys are identical.",
+    "brx_bodo": "Bodo language in Devanagari script. Items marked _NOTE_brx need verification by a native Bodo speaker before shipping."
+  },
   "items": [
     {
       "id": "japi",
       "category": "cultural",
       "icon_name": "style",
+      "_NOTE_bn": "REVIEW NEEDED: 'জাপি' is an Assamese cultural item. Bengali patients may be unfamiliar. Consider adding a short description or image label for clarity.",
+      "_NOTE_brx": "REVIEW NEEDED: 'जापि' is a phonetic borrowing. Bodo communities may use their own term for a woven conical hat — verify with a native speaker.",
       "translations": {
         "en": "Traditional Japi",
-        "as": "জাপি"
+        "as": "জাপি",
+        "bn": "জাপি",
+        "brx": "जापि",
+        "bengali": "জাপি",
+        "bodo": "जापि"
       }
     },
     {
       "id": "gamusa",
       "category": "cultural",
       "icon_name": "texture",
+      "_NOTE_bn": "REVIEW NEEDED: 'গামোছা' (gamosa) is the standard Bengali transliteration. The item is primarily an Assamese cultural symbol — Bengali patients may not recognise the term. Consider 'ঐতিহ্যবাহী গামোছা' for clarity.",
+      "_NOTE_brx": "REVIEW NEEDED: 'गामोसा' is the phonetic Bodo rendering. Bodo communities have the 'dokhona' as their own traditional cloth — verify if 'gamusa' is recognisable in Bodo cultural context.",
       "translations": {
         "en": "Gamosa",
-        "as": "গামোচা"
+        "as": "গামোচা",
+        "bn": "গামোছা",
+        "brx": "गामोसा",
+        "bengali": "গামোছা",
+        "bodo": "गामोसा"
       }
     },
     {
@@ -24,25 +40,40 @@
       "icon_name": "eco",
       "translations": {
         "en": "Tea Leaves",
-        "as": "চাহ পাত"
+        "as": "চাহ পাত",
+        "bn": "চা পাতা",
+        "brx": "चाह पात",
+        "bengali": "চা পাতা",
+        "bodo": "चाह पात"
       }
     },
     {
       "id": "rhino",
       "category": "nature",
       "icon_name": "pets",
+      "_NOTE_brx": "REVIEW NEEDED: 'गेँदा' is the standard Hindi/Devanagari word for rhino. Verify the Bodo-specific term — some sources suggest 'गँड' (from Assamese 'গঁড়') is used in Bodo as well.",
       "translations": {
         "en": "Rhino",
-        "as": "গঁড়"
+        "as": "গঁড়",
+        "bn": "গন্ডার",
+        "brx": "गँड",
+        "bengali": "গন্ডার",
+        "bodo": "गँड"
       }
     },
     {
       "id": "dhol",
       "category": "music",
       "icon_name": "music_note",
+      "_NOTE_bn": "REVIEW NEEDED: 'ঢোল' is used in Bengali as well, but specifically the Bihu dhol is an Assamese instrument. Rendering as 'বিহু ঢোল' makes the cultural specificity explicit — verify if this is preferable to simply 'ঢোল'.",
+      "_NOTE_brx": "REVIEW NEEDED: Bodo communities also use the dhol ('खाम' is the Bodo traditional drum, distinct from the Bihu dhol). Using 'ढोल' as the recognisable loanword for the Bihu dhol specifically — verify if 'ढोल' or 'खाम' is more appropriate in context.",
       "translations": {
         "en": "Bihu Dhol",
-        "as": "ঢোল"
+        "as": "ঢোল",
+        "bn": "বিহু ঢোল",
+        "brx": "ढोल",
+        "bengali": "বিহু ঢোল",
+        "bodo": "ढोल"
       }
     },
     {
@@ -51,7 +82,11 @@
       "icon_name": "local_florist",
       "translations": {
         "en": "Lotus Flower",
-        "as": "পদুম ফুল"
+        "as": "পদুম ফুল",
+        "bn": "পদ্ম ফুল",
+        "brx": "पद्म फुल",
+        "bengali": "পদ্ম ফুল",
+        "bodo": "पद्म फुल"
       }
     },
     {
@@ -60,7 +95,11 @@
       "icon_name": "grass",
       "translations": {
         "en": "Bamboo Shoot",
-        "as": "বাঁহৰ গাজ"
+        "as": "বাঁহৰ গাজ",
+        "bn": "বাঁশের কোড়ল",
+        "brx": "बाँसो गाज",
+        "bengali": "বাঁশের কোড়ল",
+        "bodo": "बाँसो गाज"
       }
     },
     {
@@ -69,7 +108,11 @@
       "icon_name": "wb_incandescent",
       "translations": {
         "en": "Earthen Lamp",
-        "as": "মাটিৰ চাকি"
+        "as": "মাটিৰ চাকি",
+        "bn": "মাটির প্রদীপ",
+        "brx": "माटियाव दीया",
+        "bengali": "মাটির প্রদীপ",
+        "bodo": "माटियाव दीया"
       }
     },
     {
@@ -78,7 +121,11 @@
       "icon_name": "circle",
       "translations": {
         "en": "Orange",
-        "as": "কমলা"
+        "as": "কমলা",
+        "bn": "কমলালেবু",
+        "brx": "कमला",
+        "bengali": "কমলালেবু",
+        "bodo": "कमला"
       }
     },
     {
@@ -87,7 +134,11 @@
       "icon_name": "opacity",
       "translations": {
         "en": "Mustard Oil",
-        "as": "সৰিয়হৰ তেল"
+        "as": "সৰিয়হৰ তেল",
+        "bn": "সরিষার তেল",
+        "brx": "सोरिसाव तेल",
+        "bengali": "সরিষার তেল",
+        "bodo": "सोरिसाव तेल"
       }
     }
   ]

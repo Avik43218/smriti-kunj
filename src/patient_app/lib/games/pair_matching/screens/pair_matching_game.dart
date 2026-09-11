@@ -1,8 +1,11 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import '../../../services/app_strings.dart';
+import '../../../services/locale_service.dart';
 import '../../../theme/theme.dart';
 import '../../../games/shared/models/round_telemetry.dart';
+import '../../../games/shared/models/completion_message.dart';
 import '../../../games/shared/services/game_session_repository.dart';
 import '../../../services/difficulty_service.dart';
 import '../../../services/difficulty_database_service.dart';
@@ -57,7 +60,7 @@ class _PairMatchingGameScreenState extends State<PairMatchingGameScreen> {
 
   // Analytics tracking
   late DateTime _sessionStart;
-  final GameTelemetryTracker _telemetryTracker =
+  GameTelemetryTracker _telemetryTracker =
       GameTelemetryTracker(hesitationThresholdMs: 2500.0, errorBurstThreshold: 2);
   DateTime? _turnStartTime;
   DateTime? _firstFlipTime;
@@ -69,21 +72,19 @@ class _PairMatchingGameScreenState extends State<PairMatchingGameScreen> {
   final List<Map<String, dynamic>> _rawTrials = [];
 
   PairMatchingSessionResult? _result;
+  CompletionMessage _completionMessage = CompletionMessage.getRandom();
 
   // ── Localisation helpers ──────────────────────────────────────────────────
-  bool get _isAs => widget.promptLanguage == 'as';
+  AppStrings get _s => AppStrings(AppLangExt.fromCode(widget.promptLanguage));
 
-  String get _appBarTitle => _isAs ? "যোৰ মিলোৱা" : "Pair Matching";
-  String get _instruction =>
-      _isAs ? "মিলন যোৰ বিচাৰিবলৈ কাৰ্ডবোৰ ওলোটাওক" : "Flip cards to find matching pairs";
-  String get _pairsFoundLabel => _isAs ? "মিলিত যোৰ:" : "Pairs found:";
-  String get _summaryHeading => _isAs ? "খেল সম্পূৰ্ণ!" : "Session Complete!";
-  String get _flipsSummaryLabel => _isAs ? "মুঠ ওলোটোৱা:" : "Total flips:";
-  String get _accuracyLabel => _isAs ? "শুদ্ধতা:" : "Accuracy:";
+  String get _appBarTitle => _s.gameAppBarPairMatch;
+  String get _instruction => _s.pairMatchInstruction;
+  String get _pairsFoundLabel => _s.pairsFoundLabel;
+  String get _summaryHeading => _completionMessage.heading(widget.promptLanguage);
+  String get _summarySubheading => _completionMessage.subheading(widget.promptLanguage);
+  String get _playAgainButton => _s.playAgain;
+  String get _doneButton => _s.done;
   late PairDifficulty _activeDifficulty;
-
-  String get _repeatErrorsLabel => _isAs ? "পুনৰাবৃত্তিমূলক ভুল:" : "Repeat errors:";
-  String get _doneButton => _isAs ? "সম্পূৰ্ণ হ'ল" : "Done";
 
   @override
   void initState() {
@@ -94,6 +95,7 @@ class _PairMatchingGameScreenState extends State<PairMatchingGameScreen> {
 
   Future<void> _initGame() async {
     setState(() => _phase = _GamePhase.loading);
+    _completionMessage = CompletionMessage.getRandom();
     _sessionStart = DateTime.now();
     _totalFlips = 0;
     _matchAttempts = 0;
@@ -101,6 +103,8 @@ class _PairMatchingGameScreenState extends State<PairMatchingGameScreen> {
     _firstCorrectMatchAt = null;
     _pairMissCounts.clear();
     _rawTrials.clear();
+    _telemetryTracker =
+        GameTelemetryTracker(hesitationThresholdMs: 2500.0, errorBurstThreshold: 2);
     _firstFlippedIndex = null;
     _secondFlippedIndex = null;
     _isProcessingMismatch = false;
@@ -400,8 +404,13 @@ class _PairMatchingGameScreenState extends State<PairMatchingGameScreen> {
         ? _matchedPairs / _activeDifficulty.pairCount
         : 0.0;
 
+    // Scale horizontal padding by tier density
+    final horizontalPad = _activeDifficulty == PairDifficulty.hard
+        ? 8.0
+        : (_activeDifficulty == PairDifficulty.medium ? 12.0 : 16.0);
+
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: EdgeInsets.symmetric(horizontal: horizontalPad, vertical: 6),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -413,7 +422,7 @@ class _PairMatchingGameScreenState extends State<PairMatchingGameScreen> {
                 child: Text(
                   _instruction,
                   style: const TextStyle(
-                    fontSize: 18,
+                    fontSize: 17,
                     fontWeight: FontWeight.w600,
                     color: AppColors.inkSoft,
                   ),
@@ -421,17 +430,17 @@ class _PairMatchingGameScreenState extends State<PairMatchingGameScreen> {
               ),
               Container(
                 padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
                   color: AppColors.mugaGold.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(14),
                   border: Border.all(
                       color: AppColors.mugaGold.withValues(alpha: 0.4)),
                 ),
                 child: Text(
                   '$_pairsFoundLabel $_matchedPairs/${_activeDifficulty.pairCount}',
                   style: const TextStyle(
-                    fontSize: 16,
+                    fontSize: 15,
                     fontWeight: FontWeight.w700,
                     color: AppColors.terracottaDark,
                   ),
@@ -439,38 +448,58 @@ class _PairMatchingGameScreenState extends State<PairMatchingGameScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
 
           // Progress bar
           ClipRRect(
             borderRadius: BorderRadius.circular(8),
             child: LinearProgressIndicator(
               value: progress,
-              minHeight: 8,
+              minHeight: 6,
               backgroundColor: AppColors.border,
               valueColor:
                   const AlwaysStoppedAnimation<Color>(AppColors.mugaGold),
             ),
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 10),
 
-          // Cards Grid
+          // Cards Grid with LayoutBuilder (Calculates exact zero-scroll aspect ratio)
           Expanded(
-            child: GridView.builder(
-              physics: const BouncingScrollPhysics(),
-              itemCount: _deck.length,
-              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: _activeDifficulty.gridColumns,
-                crossAxisSpacing: 10,
-                mainAxisSpacing: 10,
-                childAspectRatio: 0.82,
-              ),
-              itemBuilder: (context, index) {
-                final itemState = _deck[index];
-                return _CardTile(
-                  state: itemState,
-                  languageCode: widget.promptLanguage,
-                  onTap: () => _onCardTapped(index),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final columns = _activeDifficulty.gridColumns;
+                final rows = (_deck.length / columns).ceil();
+
+                // Spacing scales down with density (Easy: 10, Medium: 8, Hard: 6)
+                final spacing = _activeDifficulty == PairDifficulty.hard
+                    ? 6.0
+                    : (_activeDifficulty == PairDifficulty.medium ? 8.0 : 10.0);
+
+                final availableWidth = constraints.maxWidth;
+                final availableHeight = constraints.maxHeight;
+
+                final cardWidth = (availableWidth - (columns - 1) * spacing) / columns;
+                final cardHeight = (availableHeight - (rows - 1) * spacing) / rows;
+                final aspectRatio = (cardWidth / cardHeight).clamp(0.4, 2.5);
+
+                return GridView.builder(
+                  physics: const NeverScrollableScrollPhysics(), // Zero scrolling guarantee
+                  itemCount: _deck.length,
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: columns,
+                    crossAxisSpacing: spacing,
+                    mainAxisSpacing: spacing,
+                    childAspectRatio: aspectRatio,
+                  ),
+                  itemBuilder: (context, index) {
+                    final itemState = _deck[index];
+                    return _CardTile(
+                      state: itemState,
+                      languageCode: widget.promptLanguage,
+                      difficulty: _activeDifficulty,
+                      onTap: () => _onCardTapped(index),
+                    );
+                  },
                 );
               },
             ),
@@ -482,20 +511,13 @@ class _PairMatchingGameScreenState extends State<PairMatchingGameScreen> {
 
   // ── Summary Screen ─────────────────────────────────────────────────────────
   Widget _buildSummary() {
-    final r = _result;
-    if (r == null) return const SizedBox.shrink();
-
-    final pct = (r.scoreNormalized * 100).round();
-    final accPct = (r.correctMatchRate * 100).round();
-    final repeatPct = (r.repeatErrorRate * 100).round();
-
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Container(
-            padding: const EdgeInsets.all(24),
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
             decoration: BoxDecoration(
               color: AppColors.surface,
               borderRadius: BorderRadius.circular(24),
@@ -510,55 +532,63 @@ class _PairMatchingGameScreenState extends State<PairMatchingGameScreen> {
             ),
             child: Column(
               children: [
-                const Icon(Icons.stars_rounded,
-                    size: 64, color: AppColors.mugaGold),
-                const SizedBox(height: 16),
+                const Icon(
+                  Icons.stars_rounded,
+                  size: 72,
+                  color: AppColors.mugaGold,
+                ),
+                const SizedBox(height: 20),
                 Text(
                   _summaryHeading,
                   style: const TextStyle(
-                    fontSize: 26,
+                    fontSize: 28,
                     fontWeight: FontWeight.w700,
                     color: AppColors.ink,
                   ),
                   textAlign: TextAlign.center,
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: 12),
                 Text(
-                  '$pct%',
+                  _summarySubheading,
                   style: const TextStyle(
-                    fontSize: 48,
-                    fontWeight: FontWeight.w800,
-                    color: AppColors.mugaGold,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.inkSoft,
                   ),
-                ),
-                const SizedBox(height: 24),
-                _StatRow(
-                  label: _flipsSummaryLabel,
-                  value: '${r.totalFlips}',
-                ),
-                const Divider(height: 20, color: AppColors.border),
-                _StatRow(
-                  label: _accuracyLabel,
-                  value: '$accPct%',
-                ),
-                const Divider(height: 20, color: AppColors.border),
-                _StatRow(
-                  label: _repeatErrorsLabel,
-                  value: '$repeatPct%',
+                  textAlign: TextAlign.center,
                 ),
               ],
             ),
           ),
           const SizedBox(height: 28),
           ElevatedButton(
-            onPressed: () => Navigator.of(context).pop(),
+            onPressed: () => _initGame(),
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.mugaGold,
+              backgroundColor: AppColors.terracotta,
               foregroundColor: Colors.white,
               minimumSize: const Size(double.infinity, 88),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(20),
               ),
+              elevation: 2,
+            ),
+            child: Text(
+              _playAgainButton,
+              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+            ),
+          ),
+          const SizedBox(height: 16),
+          ElevatedButton(
+            onPressed: () => Navigator.of(context).maybePop(_result),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.surface,
+              foregroundColor: AppColors.ink,
+              side: const BorderSide(color: AppColors.border, width: 2),
+              minimumSize: const Size(double.infinity, 88),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
+              elevation: 0,
             ),
             child: Text(
               _doneButton,
@@ -577,16 +607,23 @@ class _PairMatchingGameScreenState extends State<PairMatchingGameScreen> {
 class _CardTile extends StatelessWidget {
   final _CardDisplayState state;
   final String languageCode;
+  final PairDifficulty difficulty;
   final VoidCallback onTap;
 
   const _CardTile({
     required this.state,
     required this.languageCode,
+    required this.difficulty,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
+    final isHard = difficulty == PairDifficulty.hard;
+    final isMedium = difficulty == PairDifficulty.medium;
+
+    final radius = isHard ? 12.0 : (isMedium ? 14.0 : 16.0);
+
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
@@ -595,7 +632,7 @@ class _CardTile extends StatelessWidget {
           color: state.isFaceUp || state.isMatched
               ? AppColors.surface
               : AppColors.cream,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(radius),
           border: Border.all(
             color: state.isMatched
                 ? AppColors.sageGreen
@@ -613,24 +650,29 @@ class _CardTile extends StatelessWidget {
           ],
         ),
         child: state.isFaceUp || state.isMatched
-            ? _buildFaceContent()
-            : _buildBackContent(),
+            ? _buildFaceContent(isHard, isMedium)
+            : _buildBackContent(isHard, isMedium),
       ),
     );
   }
 
-  Widget _buildFaceContent() {
+  Widget _buildFaceContent(bool isHard, bool isMedium) {
+    final iconSize = isHard ? 30.0 : (isMedium ? 36.0 : 44.0);
+    final fontSize = isHard ? 13.0 : (isMedium ? 14.5 : 16.0);
+    final checkSize = isHard ? 16.0 : 20.0;
+    final pad = isHard ? 4.0 : (isMedium ? 6.0 : 8.0);
+
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+      padding: EdgeInsets.symmetric(horizontal: pad, vertical: pad),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           if (state.isMatched)
-            const Align(
+            Align(
               alignment: Alignment.topRight,
               child: Icon(
                 Icons.check_circle_rounded,
-                size: 20,
+                size: checkSize,
                 color: AppColors.sageGreen,
               ),
             ),
@@ -643,23 +685,23 @@ class _CardTile extends StatelessWidget {
                     )
                   : Icon(
                       state.card.iconData,
-                      size: 40,
+                      size: iconSize,
                       color: state.isMatched
                           ? AppColors.sageGreen
                           : AppColors.mugaGold,
                     ),
             ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 2),
           Text(
             state.card.getName(languageCode),
             style: TextStyle(
-              fontSize: 16,
+              fontSize: fontSize,
               fontWeight: FontWeight.w600,
               color: state.isMatched ? AppColors.sageGreen : AppColors.ink,
             ),
             textAlign: TextAlign.center,
-            maxLines: 2,
+            maxLines: isHard ? 1 : 2,
             overflow: TextOverflow.ellipsis,
           ),
         ],
@@ -667,22 +709,25 @@ class _CardTile extends StatelessWidget {
     );
   }
 
-  Widget _buildBackContent() {
+  Widget _buildBackContent(bool isHard, bool isMedium) {
+    final iconSize = isHard ? 22.0 : (isMedium ? 24.0 : 26.0);
+    final boxSize = isHard ? 36.0 : (isMedium ? 42.0 : 48.0);
+
     return Center(
       child: Container(
-        width: 48,
-        height: 48,
+        width: boxSize,
+        height: boxSize,
         decoration: BoxDecoration(
           color: AppColors.mugaGold.withValues(alpha: 0.12),
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(isHard ? 8 : 12),
           border: Border.all(
             color: AppColors.mugaGold.withValues(alpha: 0.3),
             width: 1.5,
           ),
         ),
-        child: const Icon(
+        child: Icon(
           Icons.help_outline_rounded,
-          size: 26,
+          size: iconSize,
           color: AppColors.mugaGold,
         ),
       ),
@@ -690,33 +735,4 @@ class _CardTile extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Summary Stat Row
-// ─────────────────────────────────────────────────────────────────────────────
-class _StatRow extends StatelessWidget {
-  final String label;
-  final String value;
 
-  const _StatRow({required this.label, required this.value});
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          label,
-          style: const TextStyle(fontSize: 18, color: AppColors.inkSoft),
-        ),
-        Text(
-          value,
-          style: const TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.w700,
-            color: AppColors.ink,
-          ),
-        ),
-      ],
-    );
-  }
-}

@@ -8,7 +8,6 @@ import '../services/background_music_service.dart';
 import '../services/locale_service.dart';
 import '../services/session_service.dart';
 import '../theme/theme.dart';
-//import '../widgets/mute_toggle.dart';
 import '../widgets/sos_button.dart';
 import 'games_screen.dart';
 import 'memory_gallery_screen.dart';
@@ -81,11 +80,11 @@ class _HomeScreenState extends State<HomeScreen> {
                               ],
                             ),
                           ),
-                          // Controls: Language toggle + Top-Right Dropdown Menu (Sound + Logout)
+                          // Controls: Language dropdown + Top-Right Dropdown Menu (Sound + Logout)
                           Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              _LangToggle(locale: locale),
+                              _LanguageDropdown(locale: locale),
                               const SizedBox(width: 8),
                               _HeaderMenuDropdown(session: session),
                             ],
@@ -163,77 +162,69 @@ class _HomeScreenState extends State<HomeScreen> {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Language toggle widget — two pill chips: EN | অ
+// Language selector dropdown widget — shows full native script names
 // ─────────────────────────────────────────────────────────────────────────────
-class _LangToggle extends StatelessWidget {
+class _LanguageDropdown extends StatelessWidget {
   final LocaleService locale;
-  const _LangToggle({required this.locale});
+  const _LanguageDropdown({required this.locale});
 
   @override
   Widget build(BuildContext context) {
     return Container(
       height: 44,
+      padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(22),
         border: Border.all(color: AppColors.border, width: 1.5),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _LangChip(
-            label: AppLang.english.label,
-            selected: locale.lang == AppLang.english,
-            onTap: () => locale.setLang(AppLang.english),
-          ),
-          _LangChip(
-            label: AppLang.assamese.label,
-            selected: locale.lang == AppLang.assamese,
-            onTap: () => locale.setLang(AppLang.assamese),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.ink.withValues(alpha: 0.04),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
           ),
         ],
       ),
-    );
-  }
-}
-
-class _LangChip extends StatelessWidget {
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  const _LangChip({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      button: true,
-      selected: selected,
-      label: label,
-      child: GestureDetector(
-        onTap: onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          width: 44,
-          height: 44,
-          decoration: BoxDecoration(
-            color: selected ? AppColors.terracotta : Colors.transparent,
-            borderRadius: BorderRadius.circular(22),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<AppLang>(
+          value: locale.lang,
+          icon: const Icon(
+            Icons.keyboard_arrow_down_rounded,
+            color: AppColors.terracotta,
+            size: 24,
           ),
-          child: Center(
-            child: Text(
-              label,
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-                color: selected ? Colors.white : AppColors.inkSoft,
+          dropdownColor: AppColors.surface,
+          borderRadius: BorderRadius.circular(18),
+          elevation: 4,
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w700,
+            color: AppColors.ink,
+          ),
+          onChanged: (AppLang? newLang) {
+            if (newLang != null) {
+              locale.setLang(newLang);
+            }
+          },
+          items: AppLang.values.map((AppLang lang) {
+            final isSelected = lang == locale.lang;
+            return DropdownMenuItem<AppLang>(
+              value: lang,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    lang.fullLabel,
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                      color: isSelected ? AppColors.terracotta : AppColors.ink,
+                    ),
+                  ),
+                ],
               ),
-            ),
-          ),
+            );
+          }).toList(),
         ),
       ),
     );
@@ -472,12 +463,11 @@ class _HomeActionTile extends StatelessWidget {
 class _FloatingSyncButton extends StatefulWidget {
   final SessionService session;
   final AppStrings strings;
-  final double size;
 
   const _FloatingSyncButton({
     required this.session,
     required this.strings,
-  }) : size = 88.0;
+  });
 
   @override
   State<_FloatingSyncButton> createState() => _FloatingSyncButtonState();
@@ -608,8 +598,8 @@ class _FloatingSyncButtonState extends State<_FloatingSyncButton>
       debugPrint('[HomeScreen] Sync error: $e');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Row(
+        const SnackBar(
+          content: Row(
             children: [
               Icon(Icons.cloud_off_rounded, color: Colors.white, size: 20),
               SizedBox(width: 8),
@@ -642,35 +632,37 @@ class _FloatingSyncButtonState extends State<_FloatingSyncButton>
             final count = snapshot.data ?? 0;
             final buttonColor = count > 0 ? AppColors.terracotta : AppColors.sageGreen;
 
+            const buttonSize = 88.0;
             return Semantics(
               button: true,
               label: '${widget.strings.syncButton}. ${count > 0 ? "$count games ready to sync." : "All synced."}',
               child: SizedBox(
-                width: widget.size,
-                height: widget.size,
+                width: buttonSize,
+                height: buttonSize,
                 child: Stack(
                   clipBehavior: Clip.none,
                   children: [
-                    Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        onTap: _isSyncing ? null : _performSync,
-                        borderRadius: BorderRadius.circular(widget.size / 2),
-                        child: Ink(
-                          width: widget.size,
-                          height: widget.size,
-                          decoration: BoxDecoration(
-                            color: buttonColor,
-                            shape: BoxShape.circle,
-                            boxShadow: [
-                              BoxShadow(
-                                color: buttonColor.withValues(alpha: 0.35),
-                                blurRadius: 14,
-                                spreadRadius: 2,
-                                offset: const Offset(0, 4),
-                              ),
-                            ],
+                    Container(
+                      width: buttonSize,
+                      height: buttonSize,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: buttonColor.withValues(alpha: 0.35),
+                            blurRadius: 14,
+                            spreadRadius: 2,
+                            offset: const Offset(0, 4),
                           ),
+                        ],
+                      ),
+                      child: Material(
+                        color: buttonColor,
+                        shape: const CircleBorder(),
+                        clipBehavior: Clip.antiAlias,
+                        child: InkWell(
+                          customBorder: const CircleBorder(),
+                          onTap: _isSyncing ? null : _performSync,
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
