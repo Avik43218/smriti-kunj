@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
 import '../models/patient_activity.dart';
 import '../services/activity_database_service.dart';
@@ -8,7 +9,6 @@ import '../services/background_music_service.dart';
 import '../services/locale_service.dart';
 import '../services/session_service.dart';
 import '../theme/theme.dart';
-import '../widgets/mute_toggle.dart';
 import '../widgets/sos_button.dart';
 import '../widgets/voice_nav_button.dart';
 import 'games_screen.dart';
@@ -45,127 +45,109 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return Scaffold(
       backgroundColor: AppColors.cream,
+      bottomNavigationBar: _PatientBottomNavBar(session: session, strings: s),
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 16.0),
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              return Stack(
+          padding: const EdgeInsets.fromLTRB(20.0, 16.0, 20.0, 8.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // 1. Top Brand row: Logo + App Name (Full width)
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      // Top header row: App title + controls (Language toggle + Mute)
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  s.appName,
-                                  style: textTheme.displayLarge?.copyWith(
-                                    fontWeight: FontWeight.w700,
-                                    color: AppColors.ink,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  s.todayActivity,
-                                  style: textTheme.bodyMedium?.copyWith(
-                                    color: AppColors.inkSoft,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          // Controls: Language dropdown + Top-Right Dropdown Menu (Sound + Logout)
-                          Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              _LanguageDropdown(locale: locale),
-                              const SizedBox(width: 8),
-                              _HeaderMenuDropdown(session: session),
-                            ],
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-
-                      // Main action tiles
-                      Expanded(
-                        child: Column(
-                          children: [
-                            // 1. Games
-                            Expanded(
-                              child: _HomeActionTile(
-                                icon: Icons.extension_rounded,
-                                iconBgColor: AppColors.terracotta,
-                                title: s.brainGames,
-                                subtitle: s.brainGamesSubtitle,
-                                onTap: () => _navigateTo(const GamesScreen()),
-                              ),
-                            ),
-                            const SizedBox(height: 14),
-
-                            // 2. Reminders
-                            Expanded(
-                              child: _HomeActionTile(
-                                icon: Icons.notifications_active_rounded,
-                                iconBgColor: AppColors.sageGreen,
-                                title: s.reminders,
-                                subtitle: s.remindersSubtitle,
-                                onTap: () => _navigateTo(const RemindersScreen()),
-                              ),
-                            ),
-                            const SizedBox(height: 14),
-
-                            // 3. Memory Gallery
-                            Expanded(
-                              child: _HomeActionTile(
-                                icon: Icons.photo_library_rounded,
-                                iconBgColor: AppColors.mugaGold,
-                                title: s.memoryGallery,
-                                subtitle: s.memoryGallerySubtitle,
-                                onTap: () => _navigateTo(const MemoryGalleryScreen()),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                    ],
+                  SvgPicture.asset(
+                    'assets/images/logo.svg',
+                    width: 44,
+                    height: 44,
+                    semanticsLabel: 'Smriti Kunj logo',
                   ),
-
-                  // Floating Sync button — fixed bottom-left (floats above other items, stays only in home screen)
-                  Positioned(
-                    left: 0,
-                    bottom: 0,
-                    child: _FloatingSyncButton(session: session, strings: s),
-                  ),
-
-                  // Voice Navigation button — fixed bottom-center
-                  const Positioned(
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    child: Center(
-                      child: VoiceNavButton(size: 76.0),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      s.appName,
+                      style: textTheme.displayLarge?.copyWith(
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.ink,
+                        height: 1.25,
+                      ),
                     ),
                   ),
+                ],
+              ),
+              const SizedBox(height: 10),
 
-                  // SOS button — fixed bottom-right
-                  const Positioned(
-                    right: 0,
-                    bottom: 0,
-                    child: SosButton(),
+              // 2. Sub-header row: Today's Activities text + Language dropdown & options menu
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Expanded(
+                    child: Text(
+                      s.todayActivity,
+                      style: textTheme.bodyMedium?.copyWith(
+                        fontSize: 22,
+                        color: AppColors.inkSoft,
+                        fontWeight: FontWeight.w600,
+                        height: 1.25,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _LanguageDropdown(locale: locale),
+                      const SizedBox(width: 8),
+                      _HeaderMenuDropdown(session: session),
+                    ],
                   ),
                 ],
-              );
-            },
+              ),
+              const SizedBox(height: 12),
+
+              // Main action tiles (Proportionally distributed)
+              Expanded(
+                child: Column(
+                  children: [
+                    // 1. Brain Games
+                    Expanded(
+                      child: _HomeActionTile(
+                        icon: Icons.extension_rounded,
+                        iconBgColor: AppColors.terracotta,
+                        title: s.brainGames,
+                        subtitle: s.brainGamesSubtitle,
+                        onTap: () => _navigateTo(const GamesScreen()),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+
+                    // 2. Daily Reminders
+                    Expanded(
+                      child: _HomeActionTile(
+                        icon: Icons.notifications_active_rounded,
+                        iconBgColor: AppColors.sageGreen,
+                        title: s.reminders,
+                        subtitle: s.remindersSubtitle,
+                        onTap: () => _navigateTo(const RemindersScreen()),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+
+                    // 3. Memory Gallery
+                    Expanded(
+                      child: _HomeActionTile(
+                        icon: Icons.photo_library_rounded,
+                        iconBgColor: AppColors.mugaGold,
+                        title: s.memoryGallery,
+                        subtitle: s.memoryGallerySubtitle,
+                        onTap: () => _navigateTo(const MemoryGalleryScreen()),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
         ),
       ),
@@ -183,11 +165,11 @@ class _LanguageDropdown extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 44,
-      padding: const EdgeInsets.symmetric(horizontal: 12),
+      height: 48,
+      padding: const EdgeInsets.symmetric(horizontal: 14),
       decoration: BoxDecoration(
         color: AppColors.surface,
-        borderRadius: BorderRadius.circular(22),
+        borderRadius: BorderRadius.circular(24),
         border: Border.all(color: AppColors.border, width: 1.5),
         boxShadow: [
           BoxShadow(
@@ -209,7 +191,7 @@ class _LanguageDropdown extends StatelessWidget {
           borderRadius: BorderRadius.circular(18),
           elevation: 4,
           style: const TextStyle(
-            fontSize: 16,
+            fontSize: 18,
             fontWeight: FontWeight.w700,
             color: AppColors.ink,
           ),
@@ -228,7 +210,7 @@ class _LanguageDropdown extends StatelessWidget {
                   Text(
                     lang.fullLabel,
                     style: TextStyle(
-                      fontSize: 16,
+                      fontSize: 18,
                       fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
                       color: isSelected ? AppColors.terracotta : AppColors.ink,
                     ),
@@ -304,7 +286,7 @@ class _HeaderMenuDropdown extends StatelessWidget {
                       child: Text(
                         isMuted ? 'Sound (Off)' : 'Sound (On)',
                         style: TextStyle(
-                          fontSize: 16,
+                          fontSize: 18,
                           fontWeight: FontWeight.w600,
                           color: isMuted ? AppColors.inkSoft : AppColors.ink,
                         ),
@@ -323,12 +305,12 @@ class _HeaderMenuDropdown extends StatelessWidget {
                       color: AppColors.terracottaDark,
                       size: 24,
                     ),
-                    SizedBox(width: 12),
-                    Expanded(
+                    const SizedBox(width: 12),
+                    const Expanded(
                       child: Text(
                         'Log Out',
                         style: TextStyle(
-                          fontSize: 16,
+                          fontSize: 18,
                           fontWeight: FontWeight.w600,
                           color: AppColors.terracottaDark,
                         ),
@@ -339,11 +321,11 @@ class _HeaderMenuDropdown extends StatelessWidget {
               ),
             ],
             child: Container(
-              height: 44,
+              height: 48,
               padding: const EdgeInsets.symmetric(horizontal: 12),
               decoration: BoxDecoration(
                 color: AppColors.surface,
-                borderRadius: BorderRadius.circular(22),
+                borderRadius: BorderRadius.circular(24),
                 border: Border.all(color: AppColors.border, width: 1.5),
               ),
               child: const Row(
@@ -351,7 +333,7 @@ class _HeaderMenuDropdown extends StatelessWidget {
                 children: [
                   Icon(
                     Icons.more_vert_rounded,
-                    size: 22,
+                    size: 24,
                     color: AppColors.ink,
                   ),
                 ],
@@ -393,7 +375,7 @@ class _HomeActionTile extends StatelessWidget {
           onTap: onTap,
           borderRadius: BorderRadius.circular(20),
           child: Ink(
-            padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 14.0),
+            padding: const EdgeInsets.symmetric(horizontal: 18.0, vertical: 10.0),
             decoration: BoxDecoration(
               color: AppColors.surface,
               borderRadius: BorderRadius.circular(20),
@@ -407,58 +389,55 @@ class _HomeActionTile extends StatelessWidget {
               ],
             ),
             child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Container(
-                  width: 68,
-                  height: 68,
+                  width: 64,
+                  height: 64,
                   decoration: BoxDecoration(
                     color: iconBgColor,
                     shape: BoxShape.circle,
                   ),
-                  child: Icon(icon, size: 36, color: Colors.white),
+                  child: Icon(icon, size: 34, color: Colors.white),
                 ),
-                const SizedBox(width: 18),
+                const SizedBox(width: 16),
                 Expanded(
-                  child: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    alignment: Alignment.centerLeft,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.ink,
-                            height: 1.2,
-                          ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        title,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.ink,
+                          height: 1.25,
                         ),
-                        const SizedBox(height: 4),
-                        Text(
-                          subtitle,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w400,
-                            color: AppColors.inkSoft,
-                            height: 1.3,
-                          ),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        subtitle,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w400,
+                          color: AppColors.inkSoft,
+                          height: 1.3,
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                 ),
                 const SizedBox(width: 8),
                 const Icon(
                   Icons.arrow_forward_ios_rounded,
                   color: AppColors.inkSoft,
-                  size: 24,
+                  size: 22,
                 ),
               ],
             ),
@@ -470,23 +449,74 @@ class _HomeActionTile extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Floating Sync Button in bottom-left corner of Home Screen
+// Dedicated Bottom Navigation Bar for Sync, Voice, and Help
 // ─────────────────────────────────────────────────────────────────────────────
-class _FloatingSyncButton extends StatefulWidget {
+class _PatientBottomNavBar extends StatelessWidget {
   final SessionService session;
   final AppStrings strings;
 
-  const _FloatingSyncButton({
+  const _PatientBottomNavBar({
     required this.session,
     required this.strings,
-    // this.size = 88.0,
   });
 
   @override
-  State<_FloatingSyncButton> createState() => _FloatingSyncButtonState();
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 12.0),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        border: Border.all(color: AppColors.border, width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.ink.withValues(alpha: 0.08),
+            blurRadius: 16,
+            offset: const Offset(0, -4),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        top: false,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: [
+            _NavBarSyncButton(session: session, strings: strings),
+            VoiceNavButton(
+              size: 80.0,
+              inactiveLabel: strings.voiceButton,
+              activeLabel: strings.voiceButton,
+            ),
+            SosButton(
+              size: 80.0,
+              label: strings.helpButton,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
-class _FloatingSyncButtonState extends State<_FloatingSyncButton>
+// ─────────────────────────────────────────────────────────────────────────────
+// Sync Button for Patient Bottom Navigation Bar
+// ─────────────────────────────────────────────────────────────────────────────
+class _NavBarSyncButton extends StatefulWidget {
+  final SessionService session;
+  final AppStrings strings;
+  final double size;
+
+  const _NavBarSyncButton({
+    required this.session,
+    required this.strings,
+    this.size = 80.0,
+  });
+
+  @override
+  State<_NavBarSyncButton> createState() => _NavBarSyncButtonState();
+}
+
+class _NavBarSyncButtonState extends State<_NavBarSyncButton>
     with SingleTickerProviderStateMixin {
   bool _isSyncing = false;
   late AnimationController _animController;
@@ -644,8 +674,8 @@ class _FloatingSyncButtonState extends State<_FloatingSyncButton>
           builder: (context, snapshot) {
             final count = snapshot.data ?? 0;
             final buttonColor = count > 0 ? AppColors.terracotta : AppColors.sageGreen;
+            final buttonSize = widget.size;
 
-            const buttonSize = 88.0;
             return Semantics(
               button: true,
               label: '${widget.strings.syncButton}. ${count > 0 ? "$count games ready to sync." : "All synced."}',
@@ -664,7 +694,7 @@ class _FloatingSyncButtonState extends State<_FloatingSyncButton>
                           BoxShadow(
                             color: buttonColor.withValues(alpha: 0.35),
                             blurRadius: 14,
-                            spreadRadius: 2,
+                            spreadRadius: 1,
                             offset: const Offset(0, 4),
                           ),
                         ],
@@ -681,20 +711,26 @@ class _FloatingSyncButtonState extends State<_FloatingSyncButton>
                             children: [
                               RotationTransition(
                                 turns: _animController,
-                                child: const Icon(
+                                child: Icon(
                                   Icons.sync_rounded,
-                                  size: 34,
+                                  size: buttonSize * 0.38,
                                   color: Colors.white,
                                 ),
                               ),
-                              const SizedBox(height: 3),
-                              Text(
-                                widget.strings.syncButton,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w700,
-                                  letterSpacing: 0.3,
+                              const SizedBox(height: 2),
+                              FittedBox(
+                                fit: BoxFit.scaleDown,
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                                  child: Text(
+                                    widget.strings.syncButton,
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: buttonSize * 0.16,
+                                      fontWeight: FontWeight.w700,
+                                      letterSpacing: 0.2,
+                                    ),
+                                  ),
                                 ),
                               ),
                             ],

@@ -20,6 +20,9 @@ dependencies:
   sqflite: ^2.3.3+1
   path: ^1.9.0
 
+  # SVG rendering — for in-app logo display (flutter_svg)
+  flutter_svg: ^2.0.10+1
+
   tflite_flutter: ^0.10.4
 
 dev_dependencies:
@@ -27,6 +30,7 @@ dev_dependencies:
     sdk: flutter
   flutter_lints: ^4.0.0
   sqflite_common_ffi: ^2.3.3
+  flutter_launcher_icons: ^0.14.1
 
 flutter:
   uses-material-design: true
@@ -46,8 +50,26 @@ flutter:
 
   assets:
     - assets/images/
+    - assets/icon/
     - assets/audio/
     - assets/data/
     - assets/models/
     - agents/difficulty_mlp_ucb1.tflite
 
+
+# ── Launcher Icon Configuration ───────────────────────────────────────────────
+# Run: flutter pub run flutter_launcher_icons
+flutter_launcher_icons:
+  android: true
+  ios: true
+  remove_alpha_ios: true
+  image_path: "assets/icon/logo.png"
+  min_sdk_android: 21
+  adaptive_icon_background: "#B5562F"
+  adaptive_icon_foreground: "assets/icon/logo.png"
+  web:
+    generate: false
+  windows:
+    generate: false
+  macos:
+    generate: false
