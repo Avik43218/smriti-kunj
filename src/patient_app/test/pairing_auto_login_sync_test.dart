@@ -1,5 +1,9 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:provider/provider.dart';
 import 'package:patient_app/models/patient_activity.dart';
+import 'package:patient_app/screens/home_screen.dart';
+import 'package:patient_app/services/locale_service.dart';
 import 'package:patient_app/services/session_service.dart';
 
 void main() {
@@ -174,6 +178,53 @@ void main() {
 
       expect(validToSync.length, 1);
       expect(validToSync.first.clientSessionId, 'valid_sess');
+    });
+  });
+
+  group('Top-Right Dropdown Menu Widget Tests', () {
+    testWidgets('HomeScreen displays dropdown menu with Sound and Log Out items', (WidgetTester tester) async {
+      await tester.binding.setSurfaceSize(const Size(800, 1200));
+
+      final session = SessionService.instance;
+      // Ensure paired for HomeScreen display
+      await session.pairDevice('PAIR-652759');
+
+      await tester.pumpWidget(
+        MultiProvider(
+          providers: [
+            ChangeNotifierProvider.value(value: session),
+            ChangeNotifierProvider.value(value: LocaleService.instance),
+          ],
+          child: const MaterialApp(
+            home: HomeScreen(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Verify the top-right menu button is present
+      final menuButtonFinder = find.byIcon(Icons.more_vert_rounded);
+      expect(menuButtonFinder, findsOneWidget);
+
+      // Open the dropdown menu
+      await tester.tap(menuButtonFinder);
+      await tester.pumpAndSettle();
+
+      // Verify both Sound and Log Out options are in the dropdown
+      expect(find.textContaining('Sound'), findsOneWidget);
+      expect(find.text('Log Out'), findsOneWidget);
+
+      // Tap Log Out option — instantly logs out and switches to PairingScreen
+      await tester.tap(find.text('Log Out'));
+      await tester.pumpAndSettle();
+
+      // Verify screen instantly switched to the "Enter pairing code" screen
+      expect(find.text('Connect with Caregiver'), findsOneWidget);
+      expect(find.text('Pairing Code'), findsOneWidget);
+
+      // Verify session is unpaired
+      expect(session.isPaired, isFalse);
+      expect(session.pairingCode, isNull);
     });
   });
 }

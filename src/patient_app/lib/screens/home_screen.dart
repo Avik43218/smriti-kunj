@@ -12,6 +12,7 @@ import '../widgets/mute_toggle.dart';
 import '../widgets/sos_button.dart';
 import 'games_screen.dart';
 import 'memory_gallery_screen.dart';
+import 'pairing_screen.dart';
 import 'reminders_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -80,13 +81,13 @@ class _HomeScreenState extends State<HomeScreen> {
                               ],
                             ),
                           ),
-                          // Controls: Language toggle, Mute
+                          // Controls: Language toggle + Top-Right Dropdown Menu (Sound + Logout)
                           Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               _LangToggle(locale: locale),
                               const SizedBox(width: 8),
-                              const MuteToggle(),
+                              _HeaderMenuDropdown(session: session),
                             ],
                           ),
                         ],
@@ -235,6 +236,127 @@ class _LangChip extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Top-right dropdown menu containing Sound button and Logout button
+// ─────────────────────────────────────────────────────────────────────────────
+class _HeaderMenuDropdown extends StatelessWidget {
+  final SessionService session;
+
+  const _HeaderMenuDropdown({required this.session});
+
+  Future<void> _handleLogout(BuildContext context) async {
+    await session.unpair();
+    if (context.mounted) {
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const PairingScreen()),
+        (route) => false,
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: BackgroundMusicService.instance,
+      builder: (context, _) {
+        final isMuted = BackgroundMusicService.instance.isMuted;
+
+        return Theme(
+          data: Theme.of(context).copyWith(
+            popupMenuTheme: PopupMenuThemeData(
+              color: AppColors.surface,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(18),
+                side: const BorderSide(color: AppColors.border, width: 1.5),
+              ),
+              elevation: 6,
+            ),
+          ),
+          child: PopupMenuButton<String>(
+            tooltip: 'Options',
+            offset: const Offset(0, 50),
+            onSelected: (value) async {
+              if (value == 'sound') {
+                BackgroundMusicService.instance.toggleMute();
+              } else if (value == 'logout') {
+                await _handleLogout(context);
+              }
+            },
+            itemBuilder: (context) => [
+              PopupMenuItem<String>(
+                value: 'sound',
+                child: Row(
+                  children: [
+                    Icon(
+                      isMuted ? Icons.volume_off_rounded : Icons.volume_up_rounded,
+                      color: isMuted ? AppColors.inkSoft : AppColors.terracotta,
+                      size: 24,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        isMuted ? 'Sound (Off)' : 'Sound (On)',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: isMuted ? AppColors.inkSoft : AppColors.ink,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const PopupMenuDivider(),
+              const PopupMenuItem<String>(
+                value: 'logout',
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.logout_rounded,
+                      color: AppColors.terracottaDark,
+                      size: 24,
+                    ),
+                    SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        'Log Out',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.terracottaDark,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+            child: Container(
+              height: 44,
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                borderRadius: BorderRadius.circular(22),
+                border: Border.all(color: AppColors.border, width: 1.5),
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.more_vert_rounded,
+                    size: 22,
+                    color: AppColors.ink,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }
