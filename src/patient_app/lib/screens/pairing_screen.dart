@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import '../services/session_service.dart';
 import '../theme/theme.dart';
 import 'home_screen.dart';
@@ -88,6 +89,15 @@ class _PairingScreenState extends State<PairingScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  // Brand logo — first thing a new user sees
+                  SvgPicture.asset(
+                    'assets/images/logo.svg',
+                    width: 96,
+                    height: 96,
+                    semanticsLabel: 'Smriti Kunj logo',
+                  ),
+                  const SizedBox(height: 20),
+
                   // App Title & Calm Greeting
                   Text(
                     'Smriti Kunj',

@@ -209,7 +209,7 @@ class GamesScreen extends StatelessWidget {
           style: textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w700),
         ),
       ),
-      floatingActionButton: const VoiceNavButton(size: 64.0),
+      floatingActionButton: const VoiceNavButton(size: 88.0),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
@@ -371,7 +371,9 @@ class _GameCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Row 1: icon + title + subtitle
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
                 width: 60,
@@ -382,51 +384,60 @@ class _GameCard extends StatelessWidget {
                 ),
                 child: Icon(icon, size: 32, color: Colors.white),
               ),
-              const SizedBox(width: 16),
+              const SizedBox(width: 14),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         fontSize: 22,
                         fontWeight: FontWeight.w700,
                         color: AppColors.ink,
-                        height: 1.2,
+                        height: 1.25,
                       ),
                     ),
-                    const SizedBox(height: 2),
+                    const SizedBox(height: 4),
                     Text(
                       subtitle,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                        fontSize: 16,
+                        fontSize: 17,
                         color: AppColors.inkSoft,
-                        height: 1.3,
+                        height: 1.35,
                       ),
                     ),
                   ],
                 ),
               ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                decoration: BoxDecoration(
-                  color: isLive ? iconColor.withValues(alpha: 0.12) : AppColors.cream,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                    color: isLive ? iconColor.withValues(alpha: 0.3) : AppColors.border,
-                  ),
-                ),
-                child: Text(
-                  isLive ? domain : (comingSoonLabel ?? 'Coming soon'),
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: isLive ? iconColor : AppColors.inkSoft,
-                  ),
+            ],
+          ),
+          // Row 2: domain tag badge
+          const SizedBox(height: 10),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+              decoration: BoxDecoration(
+                color: isLive ? iconColor.withValues(alpha: 0.12) : AppColors.cream,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: isLive ? iconColor.withValues(alpha: 0.3) : AppColors.border,
                 ),
               ),
-            ],
+              child: Text(
+                isLive ? domain : (comingSoonLabel ?? 'Coming soon'),
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: isLive ? iconColor : AppColors.inkSoft,
+                ),
+              ),
+            ),
           ),
           if (child != null) child!,
         ],

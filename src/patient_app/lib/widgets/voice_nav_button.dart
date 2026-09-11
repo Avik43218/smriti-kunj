@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import '../services/speech_recognition_service.dart';
 import '../theme/theme.dart';
 
@@ -9,12 +8,16 @@ class VoiceNavButton extends StatefulWidget {
   final double size;
   final String? tooltip;
   final VoidCallback? onCustomTap;
+  final String? activeLabel;
+  final String? inactiveLabel;
 
   const VoiceNavButton({
     super.key,
     this.size = 76.0,
     this.tooltip,
     this.onCustomTap,
+    this.activeLabel,
+    this.inactiveLabel,
   });
 
   @override
@@ -97,28 +100,29 @@ class _VoiceNavButtonState extends State<VoiceNavButton>
                     },
                   ),
 
-                // Primary Button
-                Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    onTap: widget.onCustomTap ??
-                        () => speech.toggleAlwaysActive(context: context),
-                    borderRadius: BorderRadius.circular(size / 2),
-                    child: Ink(
-                      width: size,
-                      height: size,
-                      decoration: BoxDecoration(
-                        color: buttonColor,
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: buttonColor.withValues(alpha: isActive ? 0.55 : 0.35),
-                            blurRadius: isActive ? 16 : 12,
-                            spreadRadius: isActive ? 3 : 1,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
+                // Primary Button with strictly circular container & shadow
+                Container(
+                  width: size,
+                  height: size,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: buttonColor.withValues(alpha: isActive ? 0.50 : 0.30),
+                        blurRadius: isActive ? 16 : 12,
+                        spreadRadius: isActive ? 2 : 1,
+                        offset: const Offset(0, 4),
                       ),
+                    ],
+                  ),
+                  child: Material(
+                    color: buttonColor,
+                    shape: const CircleBorder(),
+                    clipBehavior: Clip.antiAlias,
+                    child: InkWell(
+                      customBorder: const CircleBorder(),
+                      onTap: widget.onCustomTap ??
+                          () => speech.toggleAlwaysActive(context: context),
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
@@ -133,7 +137,9 @@ class _VoiceNavButtonState extends State<VoiceNavButton>
                             child: Padding(
                               padding: const EdgeInsets.symmetric(horizontal: 4.0),
                               child: Text(
-                                isActive ? 'Active' : 'Voice',
+                                isActive
+                                    ? (widget.activeLabel ?? 'Active')
+                                    : (widget.inactiveLabel ?? 'Voice'),
                                 style: TextStyle(
                                   color: Colors.white,
                                   fontSize: size * 0.16,

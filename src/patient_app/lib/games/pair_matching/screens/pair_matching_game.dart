@@ -657,52 +657,63 @@ class _CardTile extends StatelessWidget {
   }
 
   Widget _buildFaceContent(bool isHard, bool isMedium) {
-    final iconSize = isHard ? 30.0 : (isMedium ? 36.0 : 44.0);
-    final fontSize = isHard ? 13.0 : (isMedium ? 14.5 : 16.0);
-    final checkSize = isHard ? 16.0 : 20.0;
-    final pad = isHard ? 4.0 : (isMedium ? 6.0 : 8.0);
+    final iconSize = isHard ? 26.0 : (isMedium ? 34.0 : 42.0);
+    final fontSize = isHard ? 13.5 : (isMedium ? 14.5 : 16.0);
+    final checkSize = isHard ? 16.0 : 18.0;
+    final padH = isHard ? 3.0 : (isMedium ? 5.0 : 8.0);
+    final padV = isHard ? 2.0 : (isMedium ? 4.0 : 6.0);
 
     return Padding(
-      padding: EdgeInsets.symmetric(horizontal: pad, vertical: pad),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+      padding: EdgeInsets.symmetric(horizontal: padH, vertical: padV),
+      child: Stack(
         children: [
           if (state.isMatched)
-            Align(
-              alignment: Alignment.topRight,
+            Positioned(
+              top: 0,
+              right: 0,
               child: Icon(
                 Icons.check_circle_rounded,
                 size: checkSize,
                 color: AppColors.sageGreen,
               ),
             ),
-          Expanded(
-            child: Center(
-              child: state.card.isPhoto && state.card.imagePath != null
-                  ? Image.asset(
+          Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (state.card.isPhoto && state.card.imagePath != null)
+                  SizedBox(
+                    height: iconSize + 4,
+                    child: Image.asset(
                       state.card.imagePath!,
                       fit: BoxFit.contain,
-                    )
-                  : Icon(
-                      state.card.iconData,
-                      size: iconSize,
-                      color: state.isMatched
-                          ? AppColors.sageGreen
-                          : AppColors.mugaGold,
                     ),
+                  )
+                else
+                  Icon(
+                    state.card.iconData,
+                    size: iconSize,
+                    color: state.isMatched
+                        ? AppColors.sageGreen
+                        : AppColors.mugaGold,
+                  ),
+                const SizedBox(height: 2),
+                Text(
+                  state.card.getName(languageCode),
+                  style: TextStyle(
+                    fontSize: fontSize,
+                    fontWeight: FontWeight.w600,
+                    color: state.isMatched ? AppColors.sageGreen : AppColors.ink,
+                    height: 1.15,
+                  ),
+                  textAlign: TextAlign.center,
+                  maxLines: 2,
+                  softWrap: true,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
             ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            state.card.getName(languageCode),
-            style: TextStyle(
-              fontSize: fontSize,
-              fontWeight: FontWeight.w600,
-              color: state.isMatched ? AppColors.sageGreen : AppColors.ink,
-            ),
-            textAlign: TextAlign.center,
-            maxLines: isHard ? 1 : 2,
-            overflow: TextOverflow.ellipsis,
           ),
         ],
       ),

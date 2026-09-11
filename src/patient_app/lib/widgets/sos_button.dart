@@ -5,11 +5,13 @@ import '../theme/theme.dart';
 class SosButton extends StatelessWidget {
   final VoidCallback? onPressed;
   final double size;
+  final String? label;
 
   const SosButton({
     super.key,
     this.onPressed,
-    this.size = 96.0,
+    this.size = 80.0,
+    this.label,
   });
 
   void _triggerSos(BuildContext context) {
@@ -27,6 +29,7 @@ class SosButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final caption = label ?? 'Help';
     return Semantics(
       button: true,
       label: 'Emergency Help Button. Immediately notifies your caregiver.',
@@ -39,7 +42,7 @@ class SosButton extends StatelessWidget {
             BoxShadow(
               color: AppColors.alertRed.withValues(alpha: 0.35),
               blurRadius: 14,
-              spreadRadius: 2,
+              spreadRadius: 1,
               offset: const Offset(0, 4),
             ),
           ],
@@ -51,22 +54,28 @@ class SosButton extends StatelessWidget {
           child: InkWell(
             customBorder: const CircleBorder(),
             onTap: onPressed ?? () => _triggerSos(context),
-            child: const Column(
+            child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Icon(
                   Icons.phone_in_talk_rounded,
                   color: Colors.white,
-                  size: 34,
+                  size: size * 0.38,
                 ),
-                SizedBox(height: 2),
-                Text(
-                  'Help',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0.5,
+                const SizedBox(height: 2),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                    child: Text(
+                      caption,
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: size * 0.18,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.3,
+                      ),
+                    ),
                   ),
                 ),
               ],
