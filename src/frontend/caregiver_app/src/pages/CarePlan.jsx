@@ -36,6 +36,27 @@ import { ConfirmDeleteModal } from '../components/ConfirmDeleteModal';
 import { AlarmOffModal } from '../components/AlarmOffModal';
 import { fetchPatients, getPatientById } from '../services/patientService';
 
+const getStoredSounds = (patientId) => {
+  try {
+    const key = patientId ? `smriti_familiar_sounds_${patientId}` : 'smriti_familiar_sounds_default';
+    const raw = localStorage.getItem(key);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.filter((s) => s.id !== 'sound_demo_1') : [];
+  } catch (err) {
+    return [];
+  }
+};
+
+const saveStoredSounds = (patientId, sounds) => {
+  try {
+    const key = patientId ? `smriti_familiar_sounds_${patientId}` : 'smriti_familiar_sounds_default';
+    localStorage.setItem(key, JSON.stringify(sounds));
+  } catch (err) {
+    console.warn('Could not save familiar sounds to localStorage:', err);
+  }
+};
+
 export const CarePlan = () => {
   const { id: routePatientId } = useParams();
   const [resolvedPatientId, setResolvedPatientId] = useState(routePatientId || '');
@@ -95,14 +116,8 @@ export const CarePlan = () => {
   const [customFormError, setCustomFormError] = useState('');
   const [isSubmittingCustom, setIsSubmittingCustom] = useState(false);
 
-  // Modal 4: Add Familiar Sound
-  const [familiarSounds, setFamiliarSounds] = useState([
-    {
-      id: 'sound_demo_1',
-      caption: "Sarah's Morning Greeting",
-      audioUrl: 'https://actions.google.com/sounds/v1/ambiences/morning_birds.ogg',
-    },
-  ]);
+  // Modal 4: Add Familiar Sound (stored only, no default hardcoded greeting)
+  const [familiarSounds, setFamiliarSounds] = useState(() => getStoredSounds(routePatientId));
   const [isSoundModalOpen, setIsSoundModalOpen] = useState(false);
   const [soundCaption, setSoundCaption] = useState('');
   const [soundAudioUrl, setSoundAudioUrl] = useState('');
@@ -206,6 +221,7 @@ export const CarePlan = () => {
 
       if (isMounted) {
         setResolvedPatientId(targetId || '');
+        setFamiliarSounds(getStoredSounds(targetId));
       }
 
       if (!targetId) {
@@ -475,7 +491,11 @@ export const CarePlan = () => {
         fileName: soundFileName,
       };
 
-      setFamiliarSounds((prev) => [...prev, newSound]);
+      setFamiliarSounds((prev) => {
+        const updated = [...prev, newSound];
+        saveStoredSounds(resolvedPatientId, updated);
+        return updated;
+      });
       setIsSoundModalOpen(false);
       setSoundCaption('');
       setSoundAudioUrl('');
@@ -490,7 +510,11 @@ export const CarePlan = () => {
 
   // Delete Familiar Sound
   const handleDeleteSound = (soundId) => {
-    setFamiliarSounds((prev) => prev.filter((s) => s.id !== soundId));
+    setFamiliarSounds((prev) => {
+      const updated = prev.filter((s) => s.id !== soundId);
+      saveStoredSounds(resolvedPatientId, updated);
+      return updated;
+    });
   };
 
   // Open Edit Modal for a Category (Medication, Hydration, Meals)
