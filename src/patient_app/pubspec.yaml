@@ -9,7 +9,10 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  flutter_tts: ^4.1.0
 
+  
+  
   # State management (Provider — see AGENTS.md §3)
   provider: ^6.1.2
 
@@ -47,6 +50,4 @@ flutter:
     - assets/images/
     - assets/audio/
     - assets/data/
-    - assets/models/
-    - agents/difficulty_mlp_ucb1.tflite
-
+    - agents/
