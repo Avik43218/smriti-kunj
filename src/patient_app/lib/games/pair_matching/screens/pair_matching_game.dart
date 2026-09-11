@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../../../theme/theme.dart';
 import '../../../games/shared/models/round_telemetry.dart';
+import '../../../games/shared/models/completion_message.dart';
 import '../../../games/shared/services/game_session_repository.dart';
 import '../../../services/difficulty_service.dart';
 import '../../../services/difficulty_database_service.dart';
@@ -57,7 +58,7 @@ class _PairMatchingGameScreenState extends State<PairMatchingGameScreen> {
 
   // Analytics tracking
   late DateTime _sessionStart;
-  final GameTelemetryTracker _telemetryTracker =
+  GameTelemetryTracker _telemetryTracker =
       GameTelemetryTracker(hesitationThresholdMs: 2500.0, errorBurstThreshold: 2);
   DateTime? _turnStartTime;
   DateTime? _firstFlipTime;
@@ -69,6 +70,7 @@ class _PairMatchingGameScreenState extends State<PairMatchingGameScreen> {
   final List<Map<String, dynamic>> _rawTrials = [];
 
   PairMatchingSessionResult? _result;
+  CompletionMessage _completionMessage = CompletionMessage.getRandom();
 
   // ── Localisation helpers ──────────────────────────────────────────────────
   bool get _isAs => widget.promptLanguage == 'as';
@@ -77,13 +79,11 @@ class _PairMatchingGameScreenState extends State<PairMatchingGameScreen> {
   String get _instruction =>
       _isAs ? "মিলন যোৰ বিচাৰিবলৈ কাৰ্ডবোৰ ওলোটাওক" : "Flip cards to find matching pairs";
   String get _pairsFoundLabel => _isAs ? "মিলিত যোৰ:" : "Pairs found:";
-  String get _summaryHeading => _isAs ? "খেল সম্পূৰ্ণ!" : "Session Complete!";
-  String get _flipsSummaryLabel => _isAs ? "মুঠ ওলোটোৱা:" : "Total flips:";
-  String get _accuracyLabel => _isAs ? "শুদ্ধতা:" : "Accuracy:";
-  late PairDifficulty _activeDifficulty;
-
-  String get _repeatErrorsLabel => _isAs ? "পুনৰাবৃত্তিমূলক ভুল:" : "Repeat errors:";
+  String get _summaryHeading => _completionMessage.heading(widget.promptLanguage);
+  String get _summarySubheading => _completionMessage.subheading(widget.promptLanguage);
+  String get _playAgainButton => _isAs ? "পুনৰ খেলক" : "Play Again";
   String get _doneButton => _isAs ? "সম্পূৰ্ণ হ'ল" : "Done";
+  late PairDifficulty _activeDifficulty;
 
   @override
   void initState() {
@@ -94,6 +94,7 @@ class _PairMatchingGameScreenState extends State<PairMatchingGameScreen> {
 
   Future<void> _initGame() async {
     setState(() => _phase = _GamePhase.loading);
+    _completionMessage = CompletionMessage.getRandom();
     _sessionStart = DateTime.now();
     _totalFlips = 0;
     _matchAttempts = 0;
@@ -101,6 +102,8 @@ class _PairMatchingGameScreenState extends State<PairMatchingGameScreen> {
     _firstCorrectMatchAt = null;
     _pairMissCounts.clear();
     _rawTrials.clear();
+    _telemetryTracker =
+        GameTelemetryTracker(hesitationThresholdMs: 2500.0, errorBurstThreshold: 2);
     _firstFlippedIndex = null;
     _secondFlippedIndex = null;
     _isProcessingMismatch = false;
@@ -507,20 +510,13 @@ class _PairMatchingGameScreenState extends State<PairMatchingGameScreen> {
 
   // ── Summary Screen ─────────────────────────────────────────────────────────
   Widget _buildSummary() {
-    final r = _result;
-    if (r == null) return const SizedBox.shrink();
-
-    final pct = (r.scoreNormalized * 100).round();
-    final accPct = (r.correctMatchRate * 100).round();
-    final repeatPct = (r.repeatErrorRate * 100).round();
-
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Container(
-            padding: const EdgeInsets.all(24),
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
             decoration: BoxDecoration(
               color: AppColors.surface,
               borderRadius: BorderRadius.circular(24),
@@ -535,55 +531,63 @@ class _PairMatchingGameScreenState extends State<PairMatchingGameScreen> {
             ),
             child: Column(
               children: [
-                const Icon(Icons.stars_rounded,
-                    size: 64, color: AppColors.mugaGold),
-                const SizedBox(height: 16),
+                const Icon(
+                  Icons.stars_rounded,
+                  size: 72,
+                  color: AppColors.mugaGold,
+                ),
+                const SizedBox(height: 20),
                 Text(
                   _summaryHeading,
                   style: const TextStyle(
-                    fontSize: 26,
+                    fontSize: 28,
                     fontWeight: FontWeight.w700,
                     color: AppColors.ink,
                   ),
                   textAlign: TextAlign.center,
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: 12),
                 Text(
-                  '$pct%',
+                  _summarySubheading,
                   style: const TextStyle(
-                    fontSize: 48,
-                    fontWeight: FontWeight.w800,
-                    color: AppColors.mugaGold,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.inkSoft,
                   ),
-                ),
-                const SizedBox(height: 24),
-                _StatRow(
-                  label: _flipsSummaryLabel,
-                  value: '${r.totalFlips}',
-                ),
-                const Divider(height: 20, color: AppColors.border),
-                _StatRow(
-                  label: _accuracyLabel,
-                  value: '$accPct%',
-                ),
-                const Divider(height: 20, color: AppColors.border),
-                _StatRow(
-                  label: _repeatErrorsLabel,
-                  value: '$repeatPct%',
+                  textAlign: TextAlign.center,
                 ),
               ],
             ),
           ),
           const SizedBox(height: 28),
           ElevatedButton(
-            onPressed: () => Navigator.of(context).pop(),
+            onPressed: () => _initGame(),
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.mugaGold,
+              backgroundColor: AppColors.terracotta,
               foregroundColor: Colors.white,
               minimumSize: const Size(double.infinity, 88),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(20),
               ),
+              elevation: 2,
+            ),
+            child: Text(
+              _playAgainButton,
+              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+            ),
+          ),
+          const SizedBox(height: 16),
+          ElevatedButton(
+            onPressed: () => Navigator.of(context).maybePop(_result),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.surface,
+              foregroundColor: AppColors.ink,
+              side: const BorderSide(color: AppColors.border, width: 2),
+              minimumSize: const Size(double.infinity, 88),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
+              elevation: 0,
             ),
             child: Text(
               _doneButton,
@@ -730,33 +734,4 @@ class _CardTile extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Summary Stat Row
-// ─────────────────────────────────────────────────────────────────────────────
-class _StatRow extends StatelessWidget {
-  final String label;
-  final String value;
 
-  const _StatRow({required this.label, required this.value});
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          label,
-          style: const TextStyle(fontSize: 18, color: AppColors.inkSoft),
-        ),
-        Text(
-          value,
-          style: const TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.w700,
-            color: AppColors.ink,
-          ),
-        ),
-      ],
-    );
-  }
-}

@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../../../theme/theme.dart';
 import '../../../games/shared/models/round_telemetry.dart';
+import '../../../games/shared/models/completion_message.dart';
 import '../../../games/shared/services/game_session_repository.dart';
 import '../../../services/difficulty_service.dart';
 import '../../../services/difficulty_database_service.dart';
@@ -52,7 +53,7 @@ class _MarketTripGameScreenState extends State<MarketTripGameScreen> {
   DateTime? _recallStartTime;
   DateTime? _recallEndTime;
   DateTime? _lastSelectionTime;
-  final GameTelemetryTracker _telemetryTracker =
+  GameTelemetryTracker _telemetryTracker =
       GameTelemetryTracker(hesitationThresholdMs: 2500.0, errorBurstThreshold: 2);
   final List<Map<String, dynamic>> _rawTrials = [];
   DateTime? _distractorStartTime;
@@ -62,6 +63,7 @@ class _MarketTripGameScreenState extends State<MarketTripGameScreen> {
 
   late GameDifficulty _activeDifficulty;
   GameSessionResult? _finalResult;
+  CompletionMessage _completionMessage = CompletionMessage.getRandom();
 
   @override
   void initState() {
@@ -75,6 +77,20 @@ class _MarketTripGameScreenState extends State<MarketTripGameScreen> {
     setState(() {
       _currentPhase = MarketGamePhase.loading;
     });
+
+    _completionMessage = CompletionMessage.getRandom();
+    _sessionStartTime = DateTime.now();
+    _recallStartTime = null;
+    _recallEndTime = null;
+    _lastSelectionTime = null;
+    _distractorStartTime = null;
+    _distractorEndTime = null;
+    _distractorTaskCompleted = false;
+    _selectedItemIds.clear();
+    _rawTrials.clear();
+    _telemetryTracker =
+        GameTelemetryTracker(hesitationThresholdMs: 2500.0, errorBurstThreshold: 2);
+    _finalResult = null;
 
     // Check if next-game difficulty was queued in SQLite
     final pending = await DifficultyDatabaseService.instance
@@ -551,120 +567,113 @@ class _MarketTripGameScreenState extends State<MarketTripGameScreen> {
     );
   }
 
-  /// Summary Phase Widget: Displays session results and encouragement.
+  /// Summary Phase Widget: Displays warm completion message and Play Again / Done actions.
   Widget _buildSummaryWidget() {
-    final result = _finalResult;
-    if (result == null) return const SizedBox.shrink();
-
-    final int pct = (result.recallAccuracy * 100).round();
-
-    final String heading = widget.promptLanguage == 'as'
-        ? 'ধন্যবাদ! বজাৰৰ যাত্ৰা সম্পূৰ্ণ হ’ল'
-        : 'Well Done! Market Trip Complete';
-
-    final String scoreMsg = widget.promptLanguage == 'as'
-        ? 'আপুনি ${result.itemsPromptedCount} টা বস্তুৰ ভিতৰত ${result.itemsRecalledCorrect} টা সঠিকভাৱে বাছনি কৰিলে।'
-        : 'You correctly recalled ${result.itemsRecalledCorrect} out of ${result.itemsPromptedCount} items.';
+    final bool isAs = widget.promptLanguage == 'as';
+    final String heading = _completionMessage.heading(widget.promptLanguage);
+    final String subheading = _completionMessage.subheading(widget.promptLanguage);
+    final String playAgainText = isAs ? 'পুনৰ খেলক' : 'Play Again';
+    final String doneText = isAs ? 'সম্পূৰ্ণ হ’ল' : 'Done';
 
     return Container(
       color: AppColors.cream,
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              color: AppColors.surface,
-              borderRadius: BorderRadius.circular(24),
-              border: Border.all(color: AppColors.mugaGold, width: 2.5),
-              boxShadow: [
-                BoxShadow(
-                  color: AppColors.ink.withValues(alpha: 0.08),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
+      child: Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+                decoration: BoxDecoration(
+                  color: AppColors.surface,
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(color: AppColors.mugaGold, width: 2.5),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.ink.withValues(alpha: 0.08),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
                 ),
-              ],
-            ),
-            child: Column(
-              children: [
-                const Icon(
-                  Icons.stars,
-                  size: 64,
-                  color: AppColors.mugaGold,
+                child: Column(
+                  children: [
+                    const Icon(
+                      Icons.stars_rounded,
+                      size: 72,
+                      color: AppColors.mugaGold,
+                    ),
+                    const SizedBox(height: 20),
+                    Text(
+                      heading,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontSize: 28,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.ink,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      subheading,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w500,
+                        color: AppColors.inkSoft,
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 16),
-                Text(
-                  heading,
-                  textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 28),
+              ElevatedButton(
+                onPressed: () => _initGame(),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.terracotta,
+                  foregroundColor: Colors.white,
+                  minimumSize: const Size(double.infinity, 88),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  elevation: 2,
+                ),
+                child: Text(
+                  playAgainText,
                   style: const TextStyle(
-                    fontSize: 24,
+                    fontSize: 22,
                     fontWeight: FontWeight.bold,
-                    color: AppColors.ink,
                   ),
                 ),
-                const SizedBox(height: 16),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                  decoration: BoxDecoration(
-                    color: AppColors.cream,
-                    borderRadius: BorderRadius.circular(16),
+              ),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.of(context).maybePop(_finalResult);
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.surface,
+                  foregroundColor: AppColors.ink,
+                  side: const BorderSide(color: AppColors.border, width: 2),
+                  minimumSize: const Size(double.infinity, 88),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
                   ),
-                  child: Text(
-                    '$pct% Recall Accuracy',
-                    style: const TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.terracotta,
-                    ),
-                  ),
+                  elevation: 0,
                 ),
-                const SizedBox(height: 16),
-                Text(
-                  scoreMsg,
-                  textAlign: TextAlign.center,
+                child: Text(
+                  doneText,
                   style: const TextStyle(
-                    fontSize: 18,
-                    color: AppColors.inkSoft,
-                    height: 1.4,
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
-                if (result.falseSelectionCount > 0) ...[
-                  const SizedBox(height: 8),
-                  Text(
-                    'Extra items selected: ${result.falseSelectionCount}',
-                    style: const TextStyle(
-                      fontSize: 16,
-                      color: AppColors.inkSoft,
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-          const SizedBox(height: 28),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.of(context).maybePop(result);
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.terracotta,
-              foregroundColor: Colors.white,
-              minimumSize: const Size(double.infinity, 88),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20),
               ),
-            ),
-            child: Text(
-              widget.promptLanguage == 'as' ? 'সম্পূৰ্ণ হ’ল (Done)' : 'Done',
-              style: const TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }

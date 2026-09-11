@@ -8,7 +8,6 @@ import '../services/background_music_service.dart';
 import '../services/locale_service.dart';
 import '../services/session_service.dart';
 import '../theme/theme.dart';
-import '../widgets/mute_toggle.dart';
 import '../widgets/sos_button.dart';
 import 'games_screen.dart';
 import 'memory_gallery_screen.dart';
@@ -472,12 +471,10 @@ class _HomeActionTile extends StatelessWidget {
 class _FloatingSyncButton extends StatefulWidget {
   final SessionService session;
   final AppStrings strings;
-  final double size;
 
   const _FloatingSyncButton({
     required this.session,
     required this.strings,
-    this.size = 88.0,
   });
 
   @override
@@ -609,8 +606,8 @@ class _FloatingSyncButtonState extends State<_FloatingSyncButton>
       debugPrint('[HomeScreen] Sync error: $e');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Row(
+        const SnackBar(
+          content: Row(
             children: [
               Icon(Icons.cloud_off_rounded, color: Colors.white, size: 20),
               SizedBox(width: 8),
@@ -643,35 +640,37 @@ class _FloatingSyncButtonState extends State<_FloatingSyncButton>
             final count = snapshot.data ?? 0;
             final buttonColor = count > 0 ? AppColors.terracotta : AppColors.sageGreen;
 
+            const buttonSize = 88.0;
             return Semantics(
               button: true,
               label: '${widget.strings.syncButton}. ${count > 0 ? "$count games ready to sync." : "All synced."}',
               child: SizedBox(
-                width: widget.size,
-                height: widget.size,
+                width: buttonSize,
+                height: buttonSize,
                 child: Stack(
                   clipBehavior: Clip.none,
                   children: [
-                    Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        onTap: _isSyncing ? null : _performSync,
-                        borderRadius: BorderRadius.circular(widget.size / 2),
-                        child: Ink(
-                          width: widget.size,
-                          height: widget.size,
-                          decoration: BoxDecoration(
-                            color: buttonColor,
-                            shape: BoxShape.circle,
-                            boxShadow: [
-                              BoxShadow(
-                                color: buttonColor.withValues(alpha: 0.35),
-                                blurRadius: 14,
-                                spreadRadius: 2,
-                                offset: const Offset(0, 4),
-                              ),
-                            ],
+                    Container(
+                      width: buttonSize,
+                      height: buttonSize,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: buttonColor.withValues(alpha: 0.35),
+                            blurRadius: 14,
+                            spreadRadius: 2,
+                            offset: const Offset(0, 4),
                           ),
+                        ],
+                      ),
+                      child: Material(
+                        color: buttonColor,
+                        shape: const CircleBorder(),
+                        clipBehavior: Clip.antiAlias,
+                        child: InkWell(
+                          customBorder: const CircleBorder(),
+                          onTap: _isSyncing ? null : _performSync,
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [

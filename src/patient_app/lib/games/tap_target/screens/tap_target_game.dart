@@ -4,6 +4,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import '../../../theme/theme.dart';
 import '../../../games/shared/models/round_telemetry.dart';
+import '../../../games/shared/models/completion_message.dart';
 import '../../../games/shared/services/game_session_repository.dart';
 import '../../../services/difficulty_service.dart';
 import '../../../services/difficulty_database_service.dart';
@@ -102,7 +103,7 @@ class _TapTargetGameScreenState extends State<TapTargetGameScreen>
   // Analytics
   late DateTime _sessionStart;
   final List<_TapEvent> _tapEvents = [];
-  final GameTelemetryTracker _telemetryTracker =
+  GameTelemetryTracker _telemetryTracker =
       GameTelemetryTracker(hesitationThresholdMs: 1800.0, errorBurstThreshold: 2);
   int _omissions = 0; // target presentations where patient did not tap
   int _totalTaps = 0; // total taps made
@@ -112,6 +113,7 @@ class _TapTargetGameScreenState extends State<TapTargetGameScreen>
   late Animation<double> _pulseAnim;
 
   TapTargetSessionResult? _result;
+  CompletionMessage _completionMessage = CompletionMessage.getRandom();
 
   // ── Localisation helpers ──────────────────────────────────────────────────
   bool get _isAs => widget.promptLanguage == 'as';
@@ -136,7 +138,13 @@ class _TapTargetGameScreenState extends State<TapTargetGameScreen>
           : 'Tap ONLY when target appears';
 
   String get _summaryHeading =>
-      _isAs ? 'খেল সম্পূৰ্ণ!' : 'Session Complete!';
+      _completionMessage.heading(widget.promptLanguage);
+
+  String get _summarySubheading =>
+      _completionMessage.subheading(widget.promptLanguage);
+
+  String get _playAgainButton =>
+      _isAs ? 'পুনৰ খেলক' : 'Play Again';
 
   String get _doneButton =>
       _isAs ? "সম্পূৰ্ণ হ'ল" : 'Done';
@@ -168,6 +176,20 @@ class _TapTargetGameScreenState extends State<TapTargetGameScreen>
 
   // ─────────────────────────────────────────────────────────────────────────
   Future<void> _initGame() async {
+    _cycleTimer?.cancel();
+    _completionMessage = CompletionMessage.getRandom();
+    _sessionStart = DateTime.now();
+    _tapEvents.clear();
+    _telemetryTracker =
+        GameTelemetryTracker(hesitationThresholdMs: 1800.0, errorBurstThreshold: 2);
+    _omissions = 0;
+    _totalTaps = 0;
+    _falseTaps = 0;
+    _cardTapped = false;
+    _cardReactionTimeMs = null;
+    _currentCardIndex = 0;
+    _result = null;
+
     // Check if next-game difficulty was queued in SQLite
     final pending = await DifficultyDatabaseService.instance
         .consumeLatestDifficultySetting(gameType: 'tap_target');
@@ -741,23 +763,13 @@ class _TapTargetGameScreenState extends State<TapTargetGameScreen>
 
   // ── Summary ───────────────────────────────────────────────────────────────
   Widget _buildSummary() {
-    final r = _result;
-    if (r == null) return const SizedBox.shrink();
-
-    final pct = (r.scoreNormalized * 100).round();
-    final rtDisplay = r.reactionTimeAvg > 0
-        ? '${(r.reactionTimeAvg / 1000).toStringAsFixed(1)}s'
-        : '--';
-
-    final totalTargets = _tapEvents.where((e) => e.isTargetCard).length;
-
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Container(
-            padding: const EdgeInsets.all(24),
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
             decoration: BoxDecoration(
               color: AppColors.surface,
               borderRadius: BorderRadius.circular(24),
@@ -772,54 +784,37 @@ class _TapTargetGameScreenState extends State<TapTargetGameScreen>
             ),
             child: Column(
               children: [
-                const Icon(Icons.stars_rounded,
-                    size: 64, color: AppColors.mugaGold),
-                const SizedBox(height: 16),
+                const Icon(
+                  Icons.stars_rounded,
+                  size: 72,
+                  color: AppColors.mugaGold,
+                ),
+                const SizedBox(height: 20),
                 Text(
                   _summaryHeading,
                   textAlign: TextAlign.center,
                   style: const TextStyle(
-                    fontSize: 24,
+                    fontSize: 28,
                     fontWeight: FontWeight.bold,
                     color: AppColors.ink,
                   ),
                 ),
-                const SizedBox(height: 16),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 20, vertical: 12),
-                  decoration: BoxDecoration(
-                    color: AppColors.cream,
-                    borderRadius: BorderRadius.circular(16),
+                const SizedBox(height: 12),
+                Text(
+                  _summarySubheading,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.inkSoft,
                   ),
-                  child: Text(
-                    '$pct% Score',
-                    style: const TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.terracotta,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 20),
-                _StatRow(
-                  label: _isAs ? 'গড় প্ৰতিক্ৰিয়া সময়' : 'Avg reaction time',
-                  value: rtDisplay,
-                ),
-                _StatRow(
-                  label: _isAs ? 'হেৰুওৱা লক্ষ্য' : 'Missed targets',
-                  value: '$_omissions/$totalTargets',
-                ),
-                _StatRow(
-                  label: _isAs ? 'ভুল টেপ' : 'False taps',
-                  value: '$_falseTaps',
                 ),
               ],
             ),
           ),
           const SizedBox(height: 28),
           ElevatedButton(
-            onPressed: () => Navigator.of(context).maybePop(_result),
+            onPressed: () => _initGame(),
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.terracotta,
               foregroundColor: Colors.white,
@@ -827,11 +822,35 @@ class _TapTargetGameScreenState extends State<TapTargetGameScreen>
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(20),
               ),
+              elevation: 2,
+            ),
+            child: Text(
+              _playAgainButton,
+              style: const TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          ElevatedButton(
+            onPressed: () => Navigator.of(context).maybePop(_result),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.surface,
+              foregroundColor: AppColors.ink,
+              side: const BorderSide(color: AppColors.border, width: 2),
+              minimumSize: const Size(double.infinity, 88),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
+              elevation: 0,
             ),
             child: Text(
               _doneButton,
               style: const TextStyle(
-                  fontSize: 22, fontWeight: FontWeight.bold),
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ),
         ],
@@ -930,38 +949,5 @@ class _SingleCyclingCard extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Stat row for summary screen
-// ─────────────────────────────────────────────────────────────────────────────
-class _StatRow extends StatelessWidget {
-  final String label;
-  final String value;
 
-  const _StatRow({required this.label, required this.value});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            label,
-            style: const TextStyle(
-                fontSize: 17, color: AppColors.inkSoft),
-          ),
-          Text(
-            value,
-            style: const TextStyle(
-              fontSize: 17,
-              fontWeight: FontWeight.bold,
-              color: AppColors.ink,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
 
