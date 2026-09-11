@@ -172,6 +172,7 @@ class ApiService {
     required List<PatientActivityRecord> activities,
     String? token,
     String? patientId,
+    String? pairingCode,
   }) async {
     if (activities.isEmpty) return 0;
 
@@ -179,6 +180,7 @@ class ApiService {
     final body = jsonEncode({
       'patient_id': patientId ?? 'p101',
       'patient_code': patientId ?? 'p101',
+      if (pairingCode != null && pairingCode.isNotEmpty) 'pairing_code': pairingCode,
       'game_sessions': gameSessionsJson,
       'voice_interactions': [],
     });
@@ -188,6 +190,7 @@ class ApiService {
       'Accept': 'application/json',
       if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
       if (patientId != null && patientId.isNotEmpty) 'X-Patient-Id': patientId,
+      if (pairingCode != null && pairingCode.isNotEmpty) 'X-Pairing-Code': pairingCode,
     };
 
     Exception? lastError;

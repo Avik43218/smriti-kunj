@@ -1,4 +1,3 @@
-import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 import 'package:sqflite/sqflite.dart';
@@ -18,6 +17,7 @@ class ActivityDatabaseService extends ChangeNotifier {
 
   static const _dbName = 'smriti_kunj_sessions.db';
   static const _table = 'patient_activities';
+  static const _pairingTable = 'app_pairing_code';
 
   Database? _db;
 
@@ -33,12 +33,17 @@ class ActivityDatabaseService extends ChangeNotifier {
 
     _db = await openDatabase(
       fullPath,
-      version: 4,
+      version: 5,
       onCreate: (db, version) async {
         await _createTables(db);
       },
       onUpgrade: (db, oldVersion, newVersion) async {
         await _createTables(db);
+        if (oldVersion < 5) {
+          try {
+            await db.execute('ALTER TABLE $_table ADD COLUMN pairing_code TEXT;');
+          } catch (_) {}
+        }
       },
     );
     return _db!;
@@ -46,11 +51,22 @@ class ActivityDatabaseService extends ChangeNotifier {
 
   Future<void> _createTables(Database db) async {
     await db.execute('''
+      CREATE TABLE IF NOT EXISTS $_pairingTable (
+        id           INTEGER PRIMARY KEY AUTOINCREMENT,
+        pairing_code TEXT    NOT NULL UNIQUE,
+        patient_id   TEXT,
+        saved_at     TEXT    NOT NULL,
+        is_active    INTEGER NOT NULL DEFAULT 1
+      )
+    ''');
+
+    await db.execute('''
       CREATE TABLE IF NOT EXISTS $_table (
         id                     INTEGER PRIMARY KEY AUTOINCREMENT,
         client_session_id      TEXT    UNIQUE NOT NULL,
         patient_id             TEXT    NOT NULL,
         patient_profile_id     TEXT    NOT NULL,
+        pairing_code           TEXT,
         game_type              TEXT    NOT NULL,
         game_name              TEXT    NOT NULL,
         domain                 TEXT    NOT NULL,
@@ -69,16 +85,112 @@ class ActivityDatabaseService extends ChangeNotifier {
     ''');
   }
 
+  // ── Pairing Code Persistence & Auto-Login ───────────────────────────────────
+
+  /// Saves the active pairing code in SQLite database for automatic login.
+  Future<void> savePairingCode(String code, {String? patientId}) async {
+    final clean = code.trim().toUpperCase();
+    if (clean.isEmpty) return;
+    try {
+      final db = await database;
+      await db.delete(_pairingTable);
+      await db.insert(
+        _pairingTable,
+        {
+          'pairing_code': clean,
+          'patient_id': patientId,
+          'saved_at': DateTime.now().toIso8601String(),
+          'is_active': 1,
+        },
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+      debugPrint('[ActivityDatabaseService] Stored pairing code in SQLite: $clean');
+      notifyListeners();
+    } catch (e) {
+      debugPrint('[ActivityDatabaseService] Error saving pairing code: $e');
+    }
+  }
+
+  /// Retrieves the stored active pairing code from SQLite for auto-login.
+  Future<String?> getActivePairingCode() async {
+    try {
+      final db = await database;
+      final rows = await db.query(
+        _pairingTable,
+        columns: ['pairing_code'],
+        where: 'is_active = 1',
+        orderBy: 'id DESC',
+        limit: 1,
+      );
+      if (rows.isNotEmpty) {
+        return rows.first['pairing_code'] as String?;
+      }
+    } catch (e) {
+      debugPrint('[ActivityDatabaseService] Error fetching active pairing code: $e');
+    }
+    return null;
+  }
+
+  /// Checks if a pairing code exists in the SQLite database.
+  Future<bool> hasPairingCode(String code) async {
+    final clean = code.trim().toUpperCase();
+    if (clean.isEmpty) return false;
+    try {
+      final db = await database;
+      final candidates = <String>{clean};
+      if (clean.startsWith('PAIR-')) {
+        candidates.add(clean.substring(5));
+      } else {
+        candidates.add('PAIR-$clean');
+      }
+
+      final placeholders = List.filled(candidates.length, '?').join(',');
+      final rows = await db.rawQuery(
+        'SELECT COUNT(*) FROM $_pairingTable WHERE UPPER(pairing_code) IN ($placeholders)',
+        candidates.toList(),
+      );
+      final count = Sqflite.firstIntValue(rows) ?? 0;
+      return count > 0;
+    } catch (e) {
+      debugPrint('[ActivityDatabaseService] Error checking pairing code existence: $e');
+      return false;
+    }
+  }
+
+  /// Clears stored pairing code from SQLite database on unpair/logout.
+  Future<void> clearSavedPairingCode() async {
+    try {
+      final db = await database;
+      await db.delete(_pairingTable);
+      debugPrint('[ActivityDatabaseService] Cleared pairing code from SQLite.');
+      notifyListeners();
+    } catch (e) {
+      debugPrint('[ActivityDatabaseService] Error clearing pairing code: $e');
+    }
+  }
+
+  // ── Game Activity Persistence ───────────────────────────────────────────────
+
   /// Inserts a game activity record into local SQLite database.
+  /// If [record.pairingCode] is empty, automatically associates with active pairing code.
   Future<int> recordGameActivity(PatientActivityRecord record) async {
     try {
       final db = await database;
+      var toSave = record;
+      if (toSave.pairingCode == null || toSave.pairingCode!.isEmpty) {
+        final activeCode = await getActivePairingCode();
+        if (activeCode != null && activeCode.isNotEmpty) {
+          toSave = toSave.copyWith(pairingCode: activeCode);
+        }
+      }
+
       final id = await db.insert(
         _table,
-        record.toMap(),
+        toSave.toMap(),
         conflictAlgorithm: ConflictAlgorithm.replace,
       );
-      debugPrint('[ActivityDatabaseService] Recorded game ${record.gameName} (ID: $id, session: ${record.clientSessionId})');
+      debugPrint('[ActivityDatabaseService] Recorded game ${toSave.gameName} '
+          '(ID: $id, session: ${toSave.clientSessionId}, pairingCode: ${toSave.pairingCode})');
       notifyListeners();
       return id;
     } catch (e) {
@@ -169,20 +281,21 @@ class ActivityDatabaseService extends ChangeNotifier {
 
   /// Seed sample activity if local database has no activities yet,
   /// allowing quick testing of sync button functionality.
-  Future<void> seedSampleActivityIfEmpty(String patientId) async {
+  Future<void> seedSampleActivityIfEmpty(String patientId, {String? pairingCode}) async {
     try {
       final db = await database;
       final count = Sqflite.firstIntValue(
         await db.rawQuery('SELECT COUNT(*) FROM $_table'),
       );
       if (count == null || count == 0) {
-        final rand = Random();
         final now = DateTime.now();
+        final effectivePairingCode = pairingCode ?? await getActivePairingCode();
 
         await recordGameActivity(PatientActivityRecord(
           clientSessionId: 'seed_${now.millisecondsSinceEpoch}_1',
           patientId: patientId,
           patientProfileId: patientId,
+          pairingCode: effectivePairingCode,
           gameType: 'market_trip',
           gameName: 'Market Trip',
           domain: 'memory',
@@ -207,6 +320,7 @@ class ActivityDatabaseService extends ChangeNotifier {
           clientSessionId: 'seed_${now.millisecondsSinceEpoch}_2',
           patientId: patientId,
           patientProfileId: patientId,
+          pairingCode: effectivePairingCode,
           gameType: 'pair_matching',
           gameName: 'Pair Matching',
           domain: 'memory',

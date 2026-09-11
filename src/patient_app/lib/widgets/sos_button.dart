@@ -30,26 +30,27 @@ class SosButton extends StatelessWidget {
     return Semantics(
       button: true,
       label: 'Emergency Help Button. Immediately notifies your caregiver.',
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onPressed ?? () => _triggerSos(context),
-          borderRadius: BorderRadius.circular(size / 2),
-          child: Ink(
-            width: size,
-            height: size,
-            decoration: BoxDecoration(
-              color: AppColors.alertRed,
-              shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(
-                  color: AppColors.alertRed.withValues(alpha: 0.35),
-                  blurRadius: 14,
-                  spreadRadius: 2,
-                  offset: const Offset(0, 4),
-                ),
-              ],
+      child: Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.alertRed.withValues(alpha: 0.35),
+              blurRadius: 14,
+              spreadRadius: 2,
+              offset: const Offset(0, 4),
             ),
+          ],
+        ),
+        child: Material(
+          color: AppColors.alertRed,
+          shape: const CircleBorder(),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            customBorder: const CircleBorder(),
+            onTap: onPressed ?? () => _triggerSos(context),
             child: const Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [

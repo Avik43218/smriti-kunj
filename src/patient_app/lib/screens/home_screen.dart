@@ -10,8 +10,10 @@ import '../services/session_service.dart';
 import '../theme/theme.dart';
 import '../widgets/mute_toggle.dart';
 import '../widgets/sos_button.dart';
+import '../widgets/voice_nav_button.dart';
 import 'games_screen.dart';
 import 'memory_gallery_screen.dart';
+import 'pairing_screen.dart';
 import 'reminders_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -80,13 +82,13 @@ class _HomeScreenState extends State<HomeScreen> {
                               ],
                             ),
                           ),
-                          // Controls: Language toggle, Mute
+                          // Controls: Language dropdown + Top-Right Dropdown Menu (Sound + Logout)
                           Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              _LangToggle(locale: locale),
+                              _LanguageDropdown(locale: locale),
                               const SizedBox(width: 8),
-                              const MuteToggle(),
+                              _HeaderMenuDropdown(session: session),
                             ],
                           ),
                         ],
@@ -145,6 +147,16 @@ class _HomeScreenState extends State<HomeScreen> {
                     child: _FloatingSyncButton(session: session, strings: s),
                   ),
 
+                  // Voice Navigation button — fixed bottom-center
+                  const Positioned(
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    child: Center(
+                      child: VoiceNavButton(size: 76.0),
+                    ),
+                  ),
+
                   // SOS button — fixed bottom-right
                   const Positioned(
                     right: 0,
@@ -162,79 +174,192 @@ class _HomeScreenState extends State<HomeScreen> {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Language toggle widget — two pill chips: EN | অ
+// Language selector dropdown widget — shows full native script names
 // ─────────────────────────────────────────────────────────────────────────────
-class _LangToggle extends StatelessWidget {
+class _LanguageDropdown extends StatelessWidget {
   final LocaleService locale;
-  const _LangToggle({required this.locale});
+  const _LanguageDropdown({required this.locale});
 
   @override
   Widget build(BuildContext context) {
     return Container(
       height: 44,
+      padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(22),
         border: Border.all(color: AppColors.border, width: 1.5),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _LangChip(
-            label: AppLang.english.label,
-            selected: locale.lang == AppLang.english,
-            onTap: () => locale.setLang(AppLang.english),
-          ),
-          _LangChip(
-            label: AppLang.assamese.label,
-            selected: locale.lang == AppLang.assamese,
-            onTap: () => locale.setLang(AppLang.assamese),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.ink.withValues(alpha: 0.04),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
           ),
         ],
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<AppLang>(
+          value: locale.lang,
+          icon: const Icon(
+            Icons.keyboard_arrow_down_rounded,
+            color: AppColors.terracotta,
+            size: 24,
+          ),
+          dropdownColor: AppColors.surface,
+          borderRadius: BorderRadius.circular(18),
+          elevation: 4,
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w700,
+            color: AppColors.ink,
+          ),
+          onChanged: (AppLang? newLang) {
+            if (newLang != null) {
+              locale.setLang(newLang);
+            }
+          },
+          items: AppLang.values.map((AppLang lang) {
+            final isSelected = lang == locale.lang;
+            return DropdownMenuItem<AppLang>(
+              value: lang,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    lang.fullLabel,
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                      color: isSelected ? AppColors.terracotta : AppColors.ink,
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }).toList(),
+        ),
       ),
     );
   }
 }
 
-class _LangChip extends StatelessWidget {
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
+// ─────────────────────────────────────────────────────────────────────────────
+// Top-right dropdown menu containing Sound button and Logout button
+// ─────────────────────────────────────────────────────────────────────────────
+class _HeaderMenuDropdown extends StatelessWidget {
+  final SessionService session;
 
-  const _LangChip({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
+  const _HeaderMenuDropdown({required this.session});
+
+  Future<void> _handleLogout(BuildContext context) async {
+    await session.unpair();
+    if (context.mounted) {
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const PairingScreen()),
+        (route) => false,
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Semantics(
-      button: true,
-      selected: selected,
-      label: label,
-      child: GestureDetector(
-        onTap: onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          width: 44,
-          height: 44,
-          decoration: BoxDecoration(
-            color: selected ? AppColors.terracotta : Colors.transparent,
-            borderRadius: BorderRadius.circular(22),
+    return ListenableBuilder(
+      listenable: BackgroundMusicService.instance,
+      builder: (context, _) {
+        final isMuted = BackgroundMusicService.instance.isMuted;
+
+        return Theme(
+          data: Theme.of(context).copyWith(
+            popupMenuTheme: PopupMenuThemeData(
+              color: AppColors.surface,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(18),
+                side: const BorderSide(color: AppColors.border, width: 1.5),
+              ),
+              elevation: 6,
+            ),
           ),
-          child: Center(
-            child: Text(
-              label,
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-                color: selected ? Colors.white : AppColors.inkSoft,
+          child: PopupMenuButton<String>(
+            tooltip: 'Options',
+            offset: const Offset(0, 50),
+            onSelected: (value) async {
+              if (value == 'sound') {
+                BackgroundMusicService.instance.toggleMute();
+              } else if (value == 'logout') {
+                await _handleLogout(context);
+              }
+            },
+            itemBuilder: (context) => [
+              PopupMenuItem<String>(
+                value: 'sound',
+                child: Row(
+                  children: [
+                    Icon(
+                      isMuted ? Icons.volume_off_rounded : Icons.volume_up_rounded,
+                      color: isMuted ? AppColors.inkSoft : AppColors.terracotta,
+                      size: 24,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        isMuted ? 'Sound (Off)' : 'Sound (On)',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: isMuted ? AppColors.inkSoft : AppColors.ink,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const PopupMenuDivider(),
+              const PopupMenuItem<String>(
+                value: 'logout',
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.logout_rounded,
+                      color: AppColors.terracottaDark,
+                      size: 24,
+                    ),
+                    SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        'Log Out',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.terracottaDark,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+            child: Container(
+              height: 44,
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                borderRadius: BorderRadius.circular(22),
+                border: Border.all(color: AppColors.border, width: 1.5),
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.more_vert_rounded,
+                    size: 22,
+                    color: AppColors.ink,
+                  ),
+                ],
               ),
             ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }
@@ -350,12 +475,11 @@ class _HomeActionTile extends StatelessWidget {
 class _FloatingSyncButton extends StatefulWidget {
   final SessionService session;
   final AppStrings strings;
-  final double size;
 
   const _FloatingSyncButton({
     required this.session,
     required this.strings,
-    this.size = 88.0,
+    // this.size = 88.0,
   });
 
   @override
@@ -389,11 +513,28 @@ class _FloatingSyncButtonState extends State<_FloatingSyncButton>
 
     final activityService = ActivityDatabaseService.instance;
     try {
+      // 1. Verify pairing code exists in local SQLite database
+      final activeCode = await activityService.getActivePairingCode();
+      if (activeCode == null || activeCode.isEmpty) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Sync failed: No pairing code found in local database. Please pair your device first.'),
+            backgroundColor: AppColors.terracottaDark,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        return;
+      }
+
       var pending = await activityService.getUnsyncedActivities();
 
       // If nothing pending, seed a starter activity so user/evaluator can test right away
       if (pending.isEmpty) {
-        await activityService.seedSampleActivityIfEmpty(widget.session.patientId);
+        await activityService.seedSampleActivityIfEmpty(
+          widget.session.patientId,
+          pairingCode: widget.session.pairingCode ?? activeCode,
+        );
         pending = await activityService.getUnsyncedActivities();
       }
 
@@ -409,14 +550,41 @@ class _FloatingSyncButtonState extends State<_FloatingSyncButton>
         return;
       }
 
+      // 2. The sync system only works if the pairing code associated with the stored game activities exists in the database
+      final validToSync = <PatientActivityRecord>[];
+      for (final act in pending) {
+        final code = act.pairingCode;
+        if (code != null && code.isNotEmpty && await activityService.hasPairingCode(code)) {
+          validToSync.add(act);
+        } else {
+          debugPrint(
+            '[HomeScreen] Skipping activity ${act.clientSessionId}: associated pairing code ($code) not found in local database.',
+          );
+        }
+      }
+
+      if (validToSync.isEmpty) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Sync rejected: Stored game activities do not have a matching pairing code in the local database.'),
+            backgroundColor: AppColors.terracottaDark,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        return;
+      }
+
+      // 3. Send only game activities over to MongoDB for the patient matching the local pairing code
       final accepted = await ApiService.instance.syncBatchActivities(
-        activities: pending,
+        activities: validToSync,
         token: widget.session.authToken,
         patientId: widget.session.patientId,
+        pairingCode: activeCode,
       );
 
       // CRITICAL REQUIREMENT: Wipe clean transferred activities from SQLite once transferred to MongoDB
-      final sessionIds = pending.map((a) => a.clientSessionId).toList();
+      final sessionIds = validToSync.map((a) => a.clientSessionId).toList();
       await activityService.deleteActivities(sessionIds);
 
       if (!mounted) return;
@@ -443,8 +611,8 @@ class _FloatingSyncButtonState extends State<_FloatingSyncButton>
       debugPrint('[HomeScreen] Sync error: $e');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Row(
+        const SnackBar(
+          content: Row(
             children: [
               Icon(Icons.cloud_off_rounded, color: Colors.white, size: 20),
               SizedBox(width: 8),
@@ -477,35 +645,37 @@ class _FloatingSyncButtonState extends State<_FloatingSyncButton>
             final count = snapshot.data ?? 0;
             final buttonColor = count > 0 ? AppColors.terracotta : AppColors.sageGreen;
 
+            const buttonSize = 88.0;
             return Semantics(
               button: true,
               label: '${widget.strings.syncButton}. ${count > 0 ? "$count games ready to sync." : "All synced."}',
               child: SizedBox(
-                width: widget.size,
-                height: widget.size,
+                width: buttonSize,
+                height: buttonSize,
                 child: Stack(
                   clipBehavior: Clip.none,
                   children: [
-                    Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        onTap: _isSyncing ? null : _performSync,
-                        borderRadius: BorderRadius.circular(widget.size / 2),
-                        child: Ink(
-                          width: widget.size,
-                          height: widget.size,
-                          decoration: BoxDecoration(
-                            color: buttonColor,
-                            shape: BoxShape.circle,
-                            boxShadow: [
-                              BoxShadow(
-                                color: buttonColor.withValues(alpha: 0.35),
-                                blurRadius: 14,
-                                spreadRadius: 2,
-                                offset: const Offset(0, 4),
-                              ),
-                            ],
+                    Container(
+                      width: buttonSize,
+                      height: buttonSize,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: buttonColor.withValues(alpha: 0.35),
+                            blurRadius: 14,
+                            spreadRadius: 2,
+                            offset: const Offset(0, 4),
                           ),
+                        ],
+                      ),
+                      child: Material(
+                        color: buttonColor,
+                        shape: const CircleBorder(),
+                        clipBehavior: Clip.antiAlias,
+                        child: InkWell(
+                          customBorder: const CircleBorder(),
+                          onTap: _isSyncing ? null : _performSync,
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [

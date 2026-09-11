@@ -2,8 +2,11 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 import 'package:flutter/material.dart';
+import '../../../services/app_strings.dart';
+import '../../../services/locale_service.dart';
 import '../../../theme/theme.dart';
 import '../../../games/shared/models/round_telemetry.dart';
+import '../../../games/shared/models/completion_message.dart';
 import '../../../games/shared/services/game_session_repository.dart';
 import '../../../services/difficulty_service.dart';
 import '../../../services/difficulty_database_service.dart';
@@ -47,24 +50,33 @@ class TapTargetGameScreen extends StatefulWidget {
 // ─────────────────────────────────────────────────────────────────────────────
 class _TapEvent {
   final int trialIndex;
-  final String tappedItemId;
-  final bool isCorrectTarget;
-  final int reactionTimeMs; // ms from target appearance to tap
+  final String cardItemId;
+  final String? tappedItemId;
+  final bool isTargetCard;
+  final bool wasTapped;
+  final int? reactionTimeMs;
+  final String eventType; // "target_hit" | "omission" | "false_positive" | "correct_rejection"
   final DateTime timestamp;
 
   const _TapEvent({
     required this.trialIndex,
-    required this.tappedItemId,
-    required this.isCorrectTarget,
-    required this.reactionTimeMs,
+    required this.cardItemId,
+    this.tappedItemId,
+    required this.isTargetCard,
+    required this.wasTapped,
+    this.reactionTimeMs,
+    required this.eventType,
     required this.timestamp,
   });
 
   Map<String, dynamic> toJson() => {
         'trial_index': trialIndex,
+        'card_item_id': cardItemId,
+        'is_target_card': isTargetCard,
+        'was_tapped': wasTapped,
         'tapped_item_id': tappedItemId,
-        'is_correct_target': isCorrectTarget,
         'reaction_time_ms': reactionTimeMs,
+        'event_type': eventType,
         'timestamp': timestamp.toIso8601String(),
       };
 }
@@ -80,58 +92,53 @@ class _TapTargetGameScreenState extends State<TapTargetGameScreen>
   _GamePhase _phase = _GamePhase.loading;
   List<TargetConfig> _bank = [];
   late TargetConfig _target;
-  List<TargetConfig> _currentGrid = []; // target + distractors for this trial
-  int _targetGridIndex = -1; // position of target card in current grid
+  late TapDifficulty _activeDifficulty;
 
-  // Trial tracking
-  int _currentTrial = 0;
-  bool _targetVisible = false; // true when target is in the grid
-  bool _waitingForTarget = false; // distractor-only interlude
-  DateTime? _targetAppearedAt;
-  bool _trialAnswered = false; // prevent double-tap scoring
+  // Single-card cycling sequence
+  List<TargetConfig> _cardSequence = [];
+  int _currentCardIndex = 0;
+  DateTime? _cardAppearedAt;
+  bool _cardTapped = false;
+  int? _cardReactionTimeMs;
+  Timer? _cycleTimer;
 
   // Analytics
   late DateTime _sessionStart;
   final List<_TapEvent> _tapEvents = [];
-  final GameTelemetryTracker _telemetryTracker =
+  GameTelemetryTracker _telemetryTracker =
       GameTelemetryTracker(hesitationThresholdMs: 1800.0, errorBurstThreshold: 2);
-  int _omissions = 0; // trials where target appeared but wasn't tapped in time
-  int _totalTaps = 0;
-  int _falseTaps = 0; // taps on distractors
+  int _omissions = 0; // target presentations where patient did not tap
+  int _totalTaps = 0; // total taps made
+  int _falseTaps = 0; // taps made during non-target cards
 
-  Timer? _trialTimer;
   late AnimationController _pulseController;
   late Animation<double> _pulseAnim;
 
   TapTargetSessionResult? _result;
+  CompletionMessage _completionMessage = CompletionMessage.getRandom();
 
   // ── Localisation helpers ──────────────────────────────────────────────────
-  bool get _isAs => widget.promptLanguage == 'as';
+  AppStrings get _s => AppStrings(AppLangExt.fromCode(widget.promptLanguage));
 
-  String get _appBarTitle =>
-      _isAs ? 'লক্ষ্যত টেপ কৰক' : 'Tap the Target';
+  String get _appBarTitle => _s.gameAppBarTapTarget;
 
-  String get _introHeading =>
-      _isAs ? 'আপোনাৰ লক্ষ্য:' : 'Your target:';
+  String get _introHeading => _s.tapTargetIntroHeading;
 
-  String get _introInstruction =>
-      _isAs
-          ? 'এই বস্তুটো দেখা পালে সোনকালে টেপ কৰক।'
-          : 'Tap this item as soon as you see it appear.';
+  String get _introInstruction => _s.tapTargetIntroInstruction;
 
-  String get _startButton =>
-      _isAs ? 'আৰম্ভ কৰক' : 'Start';
+  String get _startButton => _s.tapTargetStartButton;
 
-  String get _waitText =>
-      _isAs ? 'মনোযোগ ৰাখক...' : 'Stay focused...';
+  String get _playInstruction => _s.tapTargetPlayInstruction;
 
   String get _summaryHeading =>
-      _isAs ? 'খেল সম্পূৰ্ণ!' : 'Session Complete!';
+      _completionMessage.heading(widget.promptLanguage);
 
-  late TapDifficulty _activeDifficulty;
+  String get _summarySubheading =>
+      _completionMessage.subheading(widget.promptLanguage);
 
-  String get _doneButton =>
-      _isAs ? "সম্পূৰ্ণ হ'ল" : 'Done';
+  String get _playAgainButton => _s.playAgain;
+
+  String get _doneButton => _s.done;
 
   // ─────────────────────────────────────────────────────────────────────────
   @override
@@ -153,13 +160,27 @@ class _TapTargetGameScreenState extends State<TapTargetGameScreen>
 
   @override
   void dispose() {
-    _trialTimer?.cancel();
+    _cycleTimer?.cancel();
     _pulseController.dispose();
     super.dispose();
   }
 
   // ─────────────────────────────────────────────────────────────────────────
   Future<void> _initGame() async {
+    _cycleTimer?.cancel();
+    _completionMessage = CompletionMessage.getRandom();
+    _sessionStart = DateTime.now();
+    _tapEvents.clear();
+    _telemetryTracker =
+        GameTelemetryTracker(hesitationThresholdMs: 1800.0, errorBurstThreshold: 2);
+    _omissions = 0;
+    _totalTaps = 0;
+    _falseTaps = 0;
+    _cardTapped = false;
+    _cardReactionTimeMs = null;
+    _currentCardIndex = 0;
+    _result = null;
+
     // Check if next-game difficulty was queued in SQLite
     final pending = await DifficultyDatabaseService.instance
         .consumeLatestDifficultySetting(gameType: 'tap_target');
@@ -168,7 +189,7 @@ class _TapTargetGameScreenState extends State<TapTargetGameScreen>
       if (level == 1) _activeDifficulty = TapDifficulty.easy;
       if (level == 2) _activeDifficulty = TapDifficulty.medium;
       if (level == 3) _activeDifficulty = TapDifficulty.hard;
-      debugPrint('[TapTarget] Applied and removed difficulty from SQLite: level $level');
+      debugPrint('[TapTarget] Applied difficulty from SQLite: level $level');
     }
 
     final bank = await _bankService.loadTargetBank();
@@ -185,166 +206,203 @@ class _TapTargetGameScreenState extends State<TapTargetGameScreen>
   }
 
   void _startSession() {
-    setState(() {
-      _phase = _GamePhase.playing;
-      _currentTrial = 0;
-    });
-    _scheduleNextTrial();
-  }
+    _sessionStart = DateTime.now();
+    _tapEvents.clear();
+    _omissions = 0;
+    _totalTaps = 0;
+    _falseTaps = 0;
 
-  // ── Trial scheduling ──────────────────────────────────────────────────────
-
-  /// Shows distractor-only grid for a randomised "lead-in" delay, then
-  /// inserts the target card. Patient taps target; if missed, records omission.
-  void _scheduleNextTrial() {
-    if (_currentTrial >= _activeDifficulty.trialCount) {
-      _finishSession();
-      return;
-    }
-
-    _trialAnswered = false;
-
-    // Build distractor grid (no target yet).
-    final distractors = _bankService.selectDistractors(
+    // Generate single-card cycle sequence according to difficulty
+    _cardSequence = _bankService.generateCardSequence(
       bank: _bank,
       target: _target,
       difficulty: _activeDifficulty,
     );
 
-    // Randomise lead-in: 0.5× to 1.5× of the configured interval.
-    final intervalMs =
-        (_activeDifficulty.appearanceIntervalSeconds * 1000).round();
-    final leadIn = (intervalMs * (0.5 + _random.nextDouble())).round();
-
     setState(() {
-      _targetVisible = false;
-      _waitingForTarget = true;
-      _currentGrid = List.of(distractors)..shuffle(_random);
-      _targetGridIndex = -1;
+      _phase = _GamePhase.playing;
     });
 
-    _trialTimer = Timer(Duration(milliseconds: leadIn), () {
-      if (!mounted) return;
-      _showTargetInGrid(distractors);
-    });
+    _showCardAtIndex(0);
   }
 
-  void _showTargetInGrid(List<TargetConfig> distractors) {
-    final gridWithTarget = List.of(distractors)..add(_target);
-    gridWithTarget.shuffle(_random);
-    final idx = gridWithTarget.indexOf(_target);
+  // ── Single-card cycling loop ──────────────────────────────────────────────
 
-    // Target is visible for 1.5× the base interval, then counts as omission.
-    final visibleMs =
-        (_activeDifficulty.appearanceIntervalSeconds * 1500).round();
-
-    setState(() {
-      _targetVisible = true;
-      _waitingForTarget = false;
-      _currentGrid = gridWithTarget;
-      _targetGridIndex = idx;
-      _targetAppearedAt = DateTime.now();
-    });
-
-    _trialTimer = Timer(Duration(milliseconds: visibleMs), () {
-      if (!mounted || _trialAnswered) return;
-      // Omission: target disappeared before patient tapped.
-      _omissions++;
-      _rawTrialLog(
-        tappedId: '__omission__',
-        isCorrect: false,
-        reactionMs: visibleMs,
-      );
-      _advanceTrial();
-    });
-  }
-
-  void _onCardTapped(TargetConfig item) {
-    if (!_targetVisible || _trialAnswered) {
-      // Tapping during distractor-only phase or after answer → false positive.
-      _falseTaps++;
-      _totalTaps++;
-      _rawTrialLog(
-        tappedId: item.id,
-        isCorrect: false,
-        reactionMs: _targetAppearedAt != null
-            ? DateTime.now().difference(_targetAppearedAt!).inMilliseconds
-            : 0,
-      );
+  void _showCardAtIndex(int index) {
+    if (index >= _cardSequence.length) {
+      _finishSession();
       return;
     }
 
-    _trialAnswered = true;
-    _trialTimer?.cancel();
-    _totalTaps++;
+    _cycleTimer?.cancel();
 
-    final reactionMs = _targetAppearedAt != null
-        ? DateTime.now().difference(_targetAppearedAt!).inMilliseconds
+    setState(() {
+      _currentCardIndex = index;
+      _cardTapped = false;
+      _cardReactionTimeMs = null;
+      _cardAppearedAt = DateTime.now();
+    });
+
+    final intervalMs =
+        (_activeDifficulty.appearanceIntervalSeconds * 1000).round();
+
+    _cycleTimer = Timer(Duration(milliseconds: intervalMs), _onCardIntervalExpired);
+  }
+
+  void _onCardTapped() {
+    if (_phase != _GamePhase.playing || _currentCardIndex >= _cardSequence.length) {
+      return;
+    }
+
+    // Debounce repeated taps during the same card presentation window
+    if (_cardTapped) return;
+
+    final item = _cardSequence[_currentCardIndex];
+    final isTarget = item.id == _target.id;
+    final rt = _cardAppearedAt != null
+        ? DateTime.now().difference(_cardAppearedAt!).inMilliseconds
         : 0;
 
-    final isCorrect = item.id == _target.id;
-    if (!isCorrect) _falseTaps++;
-
-    _rawTrialLog(
-      tappedId: item.id,
-      isCorrect: isCorrect,
-      reactionMs: reactionMs,
-    );
-
-    _advanceTrial();
-  }
-
-  void _rawTrialLog({
-    required String tappedId,
-    required bool isCorrect,
-    required int reactionMs,
-  }) {
-    _tapEvents.add(_TapEvent(
-      trialIndex: _currentTrial,
-      tappedItemId: tappedId,
-      isCorrectTarget: isCorrect,
-      reactionTimeMs: reactionMs,
-      timestamp: DateTime.now(),
-    ));
-
-    _telemetryTracker.recordRound(
-      latencyMs: reactionMs.toDouble(),
-      isCorrect: isCorrect,
-      eventType: tappedId == '__omission__'
-          ? 'omission'
-          : (isCorrect ? 'target_hit' : 'distractor_tap'),
-      metadata: {
-        'trial_index': _currentTrial,
-        'tapped_item_id': tappedId,
-        'target_id': _target.id,
-      },
-    );
-  }
-
-  void _advanceTrial() {
     setState(() {
-      _targetVisible = false;
-      _currentTrial++;
+      _cardTapped = true;
+      _cardReactionTimeMs = rt;
+      _totalTaps++;
+      if (!isTarget) {
+        _falseTaps++;
+      }
     });
-    // Brief inter-trial blank before next trial
-    _trialTimer = Timer(const Duration(milliseconds: 400), _scheduleNextTrial);
+
+    if (isTarget) {
+      _telemetryTracker.recordRound(
+        latencyMs: rt.toDouble(),
+        isCorrect: true,
+        eventType: 'target_hit',
+        metadata: {
+          'trial_index': _currentCardIndex,
+          'card_item_id': item.id,
+          'target_id': _target.id,
+        },
+      );
+    } else {
+      _telemetryTracker.recordRound(
+        latencyMs: rt.toDouble(),
+        isCorrect: false,
+        eventType: 'false_positive',
+        metadata: {
+          'trial_index': _currentCardIndex,
+          'card_item_id': item.id,
+          'target_id': _target.id,
+        },
+      );
+    }
+  }
+
+  void _onCardIntervalExpired() {
+    if (!mounted || _phase != _GamePhase.playing || _currentCardIndex >= _cardSequence.length) {
+      return;
+    }
+
+    final item = _cardSequence[_currentCardIndex];
+    final isTarget = item.id == _target.id;
+
+    if (isTarget) {
+      if (_cardTapped) {
+        // Correct target hit
+        _tapEvents.add(_TapEvent(
+          trialIndex: _currentCardIndex,
+          cardItemId: item.id,
+          tappedItemId: item.id,
+          isTargetCard: true,
+          wasTapped: true,
+          reactionTimeMs: _cardReactionTimeMs,
+          eventType: 'target_hit',
+          timestamp: DateTime.now(),
+        ));
+      } else {
+        // Target was displayed but never tapped before next card arrived -> Omission
+        _omissions++;
+        _tapEvents.add(_TapEvent(
+          trialIndex: _currentCardIndex,
+          cardItemId: item.id,
+          tappedItemId: null,
+          isTargetCard: true,
+          wasTapped: false,
+          reactionTimeMs: null, // null for omissions per requirement
+          eventType: 'omission',
+          timestamp: DateTime.now(),
+        ));
+
+        _telemetryTracker.recordRound(
+          latencyMs: (_activeDifficulty.appearanceIntervalSeconds * 1000).toDouble(),
+          isCorrect: false,
+          eventType: 'omission',
+          metadata: {
+            'trial_index': _currentCardIndex,
+            'card_item_id': item.id,
+            'target_id': _target.id,
+          },
+        );
+      }
+    } else {
+      if (_cardTapped) {
+        // Non-target was tapped -> False positive
+        _tapEvents.add(_TapEvent(
+          trialIndex: _currentCardIndex,
+          cardItemId: item.id,
+          tappedItemId: item.id,
+          isTargetCard: false,
+          wasTapped: true,
+          reactionTimeMs: _cardReactionTimeMs,
+          eventType: 'false_positive',
+          timestamp: DateTime.now(),
+        ));
+      } else {
+        // Distractor ignored -> Correct rejection
+        _tapEvents.add(_TapEvent(
+          trialIndex: _currentCardIndex,
+          cardItemId: item.id,
+          tappedItemId: null,
+          isTargetCard: false,
+          wasTapped: false,
+          reactionTimeMs: null, // null for correct rejection
+          eventType: 'correct_rejection',
+          timestamp: DateTime.now(),
+        ));
+
+        _telemetryTracker.recordRound(
+          latencyMs: 0.0,
+          isCorrect: true,
+          eventType: 'correct_rejection',
+          metadata: {
+            'trial_index': _currentCardIndex,
+            'card_item_id': item.id,
+            'target_id': _target.id,
+          },
+        );
+      }
+    }
+
+    _showCardAtIndex(_currentCardIndex + 1);
   }
 
   // ── Analytics computation ─────────────────────────────────────────────────
-  void _finishSession() {
+  Future<void> _finishSession() async {
+    _cycleTimer?.cancel();
+
     final sessionDuration =
         DateTime.now().difference(_sessionStart).inMilliseconds / 1000.0;
 
-    // Reaction times for correct taps only.
-    final correctTaps = _tapEvents
-        .where((e) => e.isCorrectTarget)
+    // Reaction times for correct target hits only
+    final correctHits = _tapEvents
+        .where((e) => e.eventType == 'target_hit' && e.reactionTimeMs != null)
         .toList();
 
     double rtAvg = 0;
     double rtStdDev = 0;
 
-    if (correctTaps.isNotEmpty) {
-      final rts = correctTaps.map((e) => e.reactionTimeMs.toDouble()).toList();
+    if (correctHits.isNotEmpty) {
+      final rts =
+          correctHits.map((e) => e.reactionTimeMs!.toDouble()).toList();
       rtAvg = rts.reduce((a, b) => a + b) / rts.length;
       if (rts.length > 1) {
         final variance = rts
@@ -355,33 +413,43 @@ class _TapTargetGameScreenState extends State<TapTargetGameScreen>
       }
     }
 
-    final trialCount = _activeDifficulty.trialCount;
+    final totalCards = _cardSequence.length;
+    final targetTrials = _tapEvents.where((e) => e.isTargetCard).toList();
+    final totalTargets = targetTrials.length;
+
     final omissionRate =
-        trialCount > 0 ? (_omissions / trialCount).clamp(0.0, 1.0) : 0.0;
+        totalTargets > 0 ? (_omissions / totalTargets).clamp(0.0, 1.0) : 0.0;
     final falsePositiveRate =
         _totalTaps > 0 ? (_falseTaps / _totalTaps).clamp(0.0, 1.0) : 0.0;
 
-    // Within-session drift: compare first-half vs second-half correct rate.
-    final half = trialCount ~/ 2;
+    // Within-session drift: compare accuracy across first-half vs second-half cards
+    final half = totalCards ~/ 2;
     final earlyTrials =
         _tapEvents.where((e) => e.trialIndex < half).toList();
     final lateTrials =
         _tapEvents.where((e) => e.trialIndex >= half).toList();
 
-    double earlyRate = earlyTrials.isEmpty
-        ? 0.0
-        : earlyTrials.where((e) => e.isCorrectTarget).length /
-            earlyTrials.length;
-    double lateRate = lateTrials.isEmpty
-        ? 0.0
-        : lateTrials.where((e) => e.isCorrectTarget).length /
-            lateTrials.length;
-    final withinSessionDrift = lateRate - earlyRate; // negative = fatigue
+    int countCorrect(List<_TapEvent> list) {
+      return list.where((e) {
+        if (e.isTargetCard) return e.wasTapped; // target hit
+        return !e.wasTapped; // correct rejection
+      }).length;
+    }
 
-    // Normalised score: correct rate − false positive penalty.
-    final correctRate = 1.0 - omissionRate;
+    final double earlyRate = earlyTrials.isEmpty
+        ? 0.0
+        : countCorrect(earlyTrials) / earlyTrials.length;
+    final double lateRate = lateTrials.isEmpty
+        ? 0.0
+        : countCorrect(lateTrials) / lateTrials.length;
+    final withinSessionDrift = lateRate - earlyRate; // negative = fatigue / drift
+
+    // Normalised score: hit rate - penalty for false positives
+    final hitRate = totalTargets > 0
+        ? ((totalTargets - _omissions) / totalTargets).clamp(0.0, 1.0)
+        : 0.0;
     final score =
-        (correctRate - (falsePositiveRate * 0.5)).clamp(0.0, 1.0);
+        (hitRate - (falsePositiveRate * 0.5)).clamp(0.0, 1.0);
 
     final result = TapTargetSessionResult(
       reactionTimeAvg: rtAvg,
@@ -389,7 +457,7 @@ class _TapTargetGameScreenState extends State<TapTargetGameScreen>
       omissionRate: omissionRate,
       falsePositiveRate: falsePositiveRate,
       withinSessionDrift: withinSessionDrift,
-      trialCount: trialCount,
+      trialCount: totalCards,
       targetItemType: _target.id,
       sessionId: 'tt_${DateTime.now().millisecondsSinceEpoch}',
       patientProfileId: widget.patientProfileId,
@@ -401,14 +469,9 @@ class _TapTargetGameScreenState extends State<TapTargetGameScreen>
       rawTrials: _tapEvents.map((e) => e.toJson()).toList(),
     );
 
-    setState(() {
-      _result = result;
-      _phase = _GamePhase.summary;
-    });
-
     final telemetrySummary = _telemetryTracker.computeSummary();
 
-    // Persist session to local storage for later sync to backend.
+    // Persist session to local storage for later sync to backend
     final now = DateTime.now();
     unawaited(GameSessionRepository.instance.saveSession(StoredGameSession(
       sessionId: result.sessionId,
@@ -434,7 +497,7 @@ class _TapTargetGameScreenState extends State<TapTargetGameScreen>
       createdAt: now,
     )));
 
-    // Spin up TFLite model on raw telemetry JSON and save decision to SQLite database
+    // Dynamic difficulty evaluation
     final rawTelemetryJson = jsonEncode({
       'game_type': result.gameType,
       'reaction_time_avg': result.reactionTimeAvg,
@@ -447,21 +510,26 @@ class _TapTargetGameScreenState extends State<TapTargetGameScreen>
       'telemetry': telemetrySummary.toJson(),
     });
 
-    unawaited(() async {
-      try {
-        final decision = await DynamicDifficultyService.instance.evaluateSessionJson(
-          rawTelemetryJson,
-          currentDifficulty: _activeDifficulty.level,
-          gameType: 'tap_target',
-        );
-        await DifficultyDatabaseService.instance.saveDifficultySettingsForAllGames(
-          decision,
-          rawJson: rawTelemetryJson,
-        );
-      } catch (e) {
-        debugPrint('[TapTarget] Error running TFLite difficulty model: $e');
-      }
-    }());
+    try {
+      final decision = await DynamicDifficultyService.instance.evaluateSessionJson(
+        rawTelemetryJson,
+        currentDifficulty: _activeDifficulty.level,
+        gameType: 'tap_target',
+      );
+      await DifficultyDatabaseService.instance.saveDifficultySettingsForAllGames(
+        decision,
+        rawJson: rawTelemetryJson,
+      );
+      debugPrint('[TapTarget] Evaluated and stored next difficulty: ${decision.action} -> level ${decision.recommendedDifficulty}');
+    } catch (e) {
+      debugPrint('[TapTarget] Error running TFLite difficulty model: $e');
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _result = result;
+      _phase = _GamePhase.summary;
+    });
 
     widget.onGameCompleted?.call(result);
   }
@@ -509,7 +577,6 @@ class _TapTargetGameScreenState extends State<TapTargetGameScreen>
         mainAxisAlignment: MainAxisAlignment.center,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Heading
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
@@ -529,7 +596,6 @@ class _TapTargetGameScreenState extends State<TapTargetGameScreen>
                   ),
                 ),
                 const SizedBox(height: 20),
-                // Target card — large, prominent
                 ScaleTransition(
                   scale: _pulseAnim,
                   child: Container(
@@ -600,20 +666,22 @@ class _TapTargetGameScreenState extends State<TapTargetGameScreen>
     );
   }
 
-  // ── Play area ─────────────────────────────────────────────────────────────
+  // ── Play area (Single-card cycling) ───────────────────────────────────────
   Widget _buildPlayArea() {
-    final trialCount = _activeDifficulty.trialCount;
-    final progress = _currentTrial / trialCount;
+    final totalCards = _cardSequence.length;
+    final progress = totalCards > 0 ? (_currentCardIndex + 1) / totalCards : 0.0;
+    final currentCard = _currentCardIndex < _cardSequence.length
+        ? _cardSequence[_currentCardIndex]
+        : null;
 
-    // Grid column count: 2 for easy (3 cards), 3 for medium (5 cards), 3 for hard.
-    final colCount = _activeDifficulty.distractorCount <= 2 ? 2 : 3;
+    final targetName = _target.getName(widget.promptLanguage);
 
     return Padding(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Progress indicator (no timer shown to patient — just subtle bar)
+          // Progress bar
           ClipRRect(
             borderRadius: BorderRadius.circular(8),
             child: LinearProgressIndicator(
@@ -626,49 +694,59 @@ class _TapTargetGameScreenState extends State<TapTargetGameScreen>
           ),
           const SizedBox(height: 16),
 
-          // Status hint
-          Center(
-            child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 250),
-              child: Text(
-                _waitingForTarget ? _waitText : ' ',
-                key: ValueKey(_waitingForTarget),
-                style: const TextStyle(
-                  fontSize: 18,
-                  color: AppColors.inkSoft,
-                  fontStyle: FontStyle.italic,
+          // Target reminder header
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: AppColors.border),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(_target.iconData, size: 24, color: AppColors.terracotta),
+                const SizedBox(width: 8),
+                Text(
+                  _s.tapTargetLabel(targetName),
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.ink,
+                  ),
                 ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+
+          Center(
+            child: Text(
+              _playInstruction,
+              style: const TextStyle(
+                fontSize: 15,
+                color: AppColors.inkSoft,
+                fontStyle: FontStyle.italic,
               ),
             ),
           ),
           const SizedBox(height: 16),
 
-          // Item grid
+          // Central Single Cycling Card
           Expanded(
-            child: _currentGrid.isEmpty
-                ? const SizedBox.shrink()
-                : GridView.builder(
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: _currentGrid.length,
-                    gridDelegate:
-                        SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: colCount,
-                      crossAxisSpacing: 12,
-                      mainAxisSpacing: 12,
-                      childAspectRatio: 1.0,
+            child: Center(
+              child: currentCard == null
+                  ? const SizedBox.shrink()
+                  : _SingleCyclingCard(
+                      key: ValueKey('card_${_currentCardIndex}_${currentCard.id}'),
+                      item: currentCard,
+                      languageCode: widget.promptLanguage,
+                      wasTapped: _cardTapped,
+                      onTap: _onCardTapped,
                     ),
-                    itemBuilder: (context, i) {
-                      final item = _currentGrid[i];
-                      final isTarget = i == _targetGridIndex && _targetVisible;
-                      return _ItemCard(
-                        item: item,
-                        languageCode: widget.promptLanguage,
-                        isTarget: isTarget,
-                        onTap: () => _onCardTapped(item),
-                      );
-                    },
-                  ),
+            ),
           ),
+          const SizedBox(height: 20),
         ],
       ),
     );
@@ -676,21 +754,13 @@ class _TapTargetGameScreenState extends State<TapTargetGameScreen>
 
   // ── Summary ───────────────────────────────────────────────────────────────
   Widget _buildSummary() {
-    final r = _result;
-    if (r == null) return const SizedBox.shrink();
-
-    final pct = (r.scoreNormalized * 100).round();
-    final rtDisplay = r.reactionTimeAvg > 0
-        ? '${(r.reactionTimeAvg / 1000).toStringAsFixed(1)}s'
-        : '--';
-
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Container(
-            padding: const EdgeInsets.all(24),
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
             decoration: BoxDecoration(
               color: AppColors.surface,
               borderRadius: BorderRadius.circular(24),
@@ -705,55 +775,37 @@ class _TapTargetGameScreenState extends State<TapTargetGameScreen>
             ),
             child: Column(
               children: [
-                const Icon(Icons.stars_rounded,
-                    size: 64, color: AppColors.mugaGold),
-                const SizedBox(height: 16),
+                const Icon(
+                  Icons.stars_rounded,
+                  size: 72,
+                  color: AppColors.mugaGold,
+                ),
+                const SizedBox(height: 20),
                 Text(
                   _summaryHeading,
                   textAlign: TextAlign.center,
                   style: const TextStyle(
-                    fontSize: 24,
+                    fontSize: 28,
                     fontWeight: FontWeight.bold,
                     color: AppColors.ink,
                   ),
                 ),
-                const SizedBox(height: 16),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 20, vertical: 12),
-                  decoration: BoxDecoration(
-                    color: AppColors.cream,
-                    borderRadius: BorderRadius.circular(16),
+                const SizedBox(height: 12),
+                Text(
+                  _summarySubheading,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.inkSoft,
                   ),
-                  child: Text(
-                    '$pct% Score',
-                    style: const TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.terracotta,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 20),
-                _StatRow(
-                  label: _isAs ? 'গড় প্ৰতিক্ৰিয়া সময়' : 'Avg reaction time',
-                  value: rtDisplay,
-                ),
-                _StatRow(
-                  label: _isAs ? 'হেৰুওৱা লক্ষ্য' : 'Missed targets',
-                  value:
-                      '${(_omissions)}/${_activeDifficulty.trialCount}',
-                ),
-                _StatRow(
-                  label: _isAs ? 'ভুল টেপ' : 'False taps',
-                  value: '$_falseTaps',
                 ),
               ],
             ),
           ),
           const SizedBox(height: 28),
           ElevatedButton(
-            onPressed: () => Navigator.of(context).maybePop(_result),
+            onPressed: () => _initGame(),
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.terracotta,
               foregroundColor: Colors.white,
@@ -761,11 +813,35 @@ class _TapTargetGameScreenState extends State<TapTargetGameScreen>
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(20),
               ),
+              elevation: 2,
+            ),
+            child: Text(
+              _playAgainButton,
+              style: const TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          ElevatedButton(
+            onPressed: () => Navigator.of(context).maybePop(_result),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.surface,
+              foregroundColor: AppColors.ink,
+              side: const BorderSide(color: AppColors.border, width: 2),
+              minimumSize: const Size(double.infinity, 88),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
+              elevation: 0,
             ),
             child: Text(
               _doneButton,
               style: const TextStyle(
-                  fontSize: 22, fontWeight: FontWeight.bold),
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ),
         ],
@@ -775,18 +851,19 @@ class _TapTargetGameScreenState extends State<TapTargetGameScreen>
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Item card widget
+// Single cycling card widget
 // ─────────────────────────────────────────────────────────────────────────────
-class _ItemCard extends StatelessWidget {
+class _SingleCyclingCard extends StatelessWidget {
   final TargetConfig item;
   final String languageCode;
-  final bool isTarget;
+  final bool wasTapped;
   final VoidCallback onTap;
 
-  const _ItemCard({
+  const _SingleCyclingCard({
+    super.key,
     required this.item,
     required this.languageCode,
-    required this.isTarget,
+    required this.wasTapped,
     required this.onTap,
   });
 
@@ -799,21 +876,28 @@ class _ItemCard extends StatelessWidget {
         color: Colors.transparent,
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(28),
+          splashColor: AppColors.terracotta.withValues(alpha: 0.15),
+          highlightColor: AppColors.terracotta.withValues(alpha: 0.08),
           child: AnimatedContainer(
-            duration: const Duration(milliseconds: 150),
+            duration: const Duration(milliseconds: 180),
+            width: 250,
+            height: 270,
+            padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
               color: AppColors.surface,
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: BorderRadius.circular(28),
               border: Border.all(
-                color: AppColors.border,
-                width: 1.5,
+                color: wasTapped ? AppColors.mugaGold : AppColors.border,
+                width: wasTapped ? 3.5 : 2.0,
               ),
               boxShadow: [
                 BoxShadow(
-                  color: AppColors.ink.withValues(alpha: 0.06),
-                  blurRadius: 6,
-                  offset: const Offset(0, 3),
+                  color: wasTapped
+                      ? AppColors.mugaGold.withValues(alpha: 0.25)
+                      : AppColors.ink.withValues(alpha: 0.08),
+                  blurRadius: wasTapped ? 16 : 8,
+                  offset: const Offset(0, 4),
                 ),
               ],
             ),
@@ -822,22 +906,31 @@ class _ItemCard extends StatelessWidget {
               children: [
                 Icon(
                   item.iconData,
-                  size: 44,
-                  // All cards look identical — no visual hint that any is the target.
-                  color: AppColors.terracottaDark,
+                  size: 88,
+                  color: wasTapped
+                      ? AppColors.terracottaDark
+                      : AppColors.terracotta,
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 18),
                 Text(
                   item.getName(languageCode),
                   textAlign: TextAlign.center,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
                     color: AppColors.ink,
                   ),
                 ),
+                if (wasTapped) ...[
+                  const SizedBox(height: 10),
+                  const Icon(
+                    Icons.check_circle_rounded,
+                    size: 24,
+                    color: AppColors.mugaGold,
+                  ),
+                ],
               ],
             ),
           ),
@@ -847,37 +940,5 @@ class _ItemCard extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Stat row for summary screen
-// ─────────────────────────────────────────────────────────────────────────────
-class _StatRow extends StatelessWidget {
-  final String label;
-  final String value;
 
-  const _StatRow({required this.label, required this.value});
 
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            label,
-            style: const TextStyle(
-                fontSize: 17, color: AppColors.inkSoft),
-          ),
-          Text(
-            value,
-            style: const TextStyle(
-              fontSize: 17,
-              fontWeight: FontWeight.bold,
-              color: AppColors.ink,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}

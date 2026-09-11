@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:tflite_flutter/tflite_flutter.dart';
@@ -110,10 +111,34 @@ class DynamicDifficultyService {
   bool get isInitialized => _isInitialized;
   bool get isTfliteActive => _interpreter != null && !_useFallback;
 
-  /// Loads the TFLite model asset into memory.
+  /// Loads the TFLite model asset or file into memory.
   Future<void> init() async {
     if (_isInitialized && _interpreter != null) return;
 
+    // 1. Try loading directly from candidate filesystem paths (CLI/desktop/tests)
+    final candidateFiles = [
+      'agents/difficulty_mlp_ucb1.tflite',
+      'src/patient_app/agents/difficulty_mlp_ucb1.tflite',
+      'assets/models/difficulty_mlp_ucb1.tflite',
+    ];
+
+    for (final filePath in candidateFiles) {
+      try {
+        final f = File(filePath);
+        if (f.existsSync()) {
+          _interpreter = Interpreter.fromFile(f);
+          _isInitialized = true;
+          _useFallback = false;
+          debugPrint(
+              '[DynamicDifficultyService] TFLite UCB1 MLP loaded successfully from file $filePath');
+          return;
+        }
+      } catch (e) {
+        debugPrint('[DynamicDifficultyService] Attempting file $filePath: $e');
+      }
+    }
+
+    // 2. Try loading from Flutter asset bundle (mobile runtime)
     final candidateAssets = [
       'assets/models/difficulty_mlp_ucb1.tflite',
       'agents/difficulty_mlp_ucb1.tflite',
@@ -129,7 +154,7 @@ class DynamicDifficultyService {
         return;
       } catch (e) {
         debugPrint(
-            '[DynamicDifficultyService] Attempting $assetPath: $e');
+            '[DynamicDifficultyService] Attempting asset $assetPath: $e');
       }
     }
 
@@ -142,117 +167,177 @@ class DynamicDifficultyService {
   }
 
   /// Extracts the 4-feature vector [norm_latency, accuracy, hesitation, error_burst]
-  /// from any game's raw JSON telemetry map.
-  List<double> extractFeatures(Map<String, dynamic> raw) {
-    // Check if telemetry is nested
-    Map<String, dynamic> data = raw;
+  /// from any game's raw JSON telemetry map in accordance with DIFFICULTY_SELECTION.md.
+  List<double> extractFeatures(Map<String, dynamic> raw, [String fallbackGameType = '']) {
+    // 1. Resolve root metadata and nested telemetry summary (if present)
+    final Map<String, dynamic> root = raw;
+    Map<String, dynamic> tel = {};
     if (raw.containsKey('game_data') && raw['game_data'] is Map) {
       final gd = raw['game_data'] as Map<String, dynamic>;
       if (gd.containsKey('telemetry') && gd['telemetry'] is Map) {
-        data = gd['telemetry'] as Map<String, dynamic>;
+        tel = gd['telemetry'] as Map<String, dynamic>;
       } else {
-        data = gd;
+        tel = gd;
       }
     } else if (raw.containsKey('telemetry') && raw['telemetry'] is Map) {
-      data = raw['telemetry'] as Map<String, dynamic>;
+      tel = raw['telemetry'] as Map<String, dynamic>;
     }
 
-    // 1. Latency (ms) -> normalized against 2500ms ceiling
+    final String gameType = fallbackGameType.isNotEmpty
+        ? fallbackGameType
+        : (root['game_type'] ?? root['gameType'] ?? '').toString();
+
+    // 2. Feature 1: Latency (ms) -> normalized against 2500ms ceiling [0.0 - 1.0]
     double rawLatency = 650.0;
-    if (data.containsKey('reaction_time_ms') && data['reaction_time_ms'] is num) {
-      rawLatency = (data['reaction_time_ms'] as num).toDouble();
-    } else if (data.containsKey('latency_ms') && data['latency_ms'] is num) {
-      rawLatency = (data['latency_ms'] as num).toDouble();
-    } else if (data.containsKey('reaction_time_avg') &&
-        data['reaction_time_avg'] is num) {
-      rawLatency = (data['reaction_time_avg'] as num).toDouble();
-    } else if (data.containsKey('latency') && data['latency'] is Map) {
-      final latMap = data['latency'] as Map<String, dynamic>;
+    if (tel.containsKey('latency') && tel['latency'] is Map) {
+      final latMap = tel['latency'] as Map<String, dynamic>;
       rawLatency = (latMap['avg_ms'] as num?)?.toDouble() ??
           (latMap['median_ms'] as num?)?.toDouble() ??
           650.0;
-    } else if (data.containsKey('time_to_complete_recall') &&
-        data['time_to_complete_recall'] is num) {
-      rawLatency = (data['time_to_complete_recall'] as num).toDouble() * 1000.0;
+    } else if (root.containsKey('reaction_time_avg') && root['reaction_time_avg'] is num) {
+      rawLatency = (root['reaction_time_avg'] as num).toDouble();
+    } else if (root.containsKey('reaction_time_ms') && root['reaction_time_ms'] is num) {
+      rawLatency = (root['reaction_time_ms'] as num).toDouble();
+    } else if (root.containsKey('latency_ms') && root['latency_ms'] is num) {
+      rawLatency = (root['latency_ms'] as num).toDouble();
+    } else if (root.containsKey('time_to_first_correct_match') && root['time_to_first_correct_match'] is num) {
+      rawLatency = (root['time_to_first_correct_match'] as num).toDouble() * 1000.0;
+    } else if (root.containsKey('time_to_complete_recall') && root['time_to_complete_recall'] is num) {
+      rawLatency = (root['time_to_complete_recall'] as num).toDouble() * 1000.0;
     }
     final double normLatency = (rawLatency / 2500.0).clamp(0.0, 1.0);
 
-    // 2. Accuracy [0.0 - 1.0]
+    // 3. Feature 2: Accuracy [0.0 - 1.0]
     double accuracy = 0.75;
-    if (data.containsKey('accuracy') && data['accuracy'] is num) {
-      accuracy = (data['accuracy'] as num).toDouble();
-    } else if (data.containsKey('accuracy') && data['accuracy'] is Map) {
-      final accMap = data['accuracy'] as Map<String, dynamic>;
-      accuracy = (accMap['overall_rate'] as num?)?.toDouble() ?? 0.75;
-    } else if (data.containsKey('recall_accuracy') &&
-        data['recall_accuracy'] is num) {
-      accuracy = (data['recall_accuracy'] as num).toDouble();
-    } else if (data.containsKey('correct_match_rate') &&
-        data['correct_match_rate'] is num) {
-      accuracy = (data['correct_match_rate'] as num).toDouble();
-    } else if (data.containsKey('score_normalized') &&
-        data['score_normalized'] is num) {
-      accuracy = (data['score_normalized'] as num).toDouble();
-    } else if (data.containsKey('omission_rate') &&
-        data['omission_rate'] is num) {
-      accuracy = (1.0 - (data['omission_rate'] as num).toDouble());
+    if (gameType == 'pair_matching') {
+      // Episodic memory: Use genuine match rate / efficiency rather than exploratory guessing penalty
+      if (root.containsKey('correct_match_rate') && root['correct_match_rate'] is num) {
+        accuracy = (root['correct_match_rate'] as num).toDouble();
+      } else if (root.containsKey('score_normalized') && root['score_normalized'] is num) {
+        accuracy = (root['score_normalized'] as num).toDouble();
+      } else if (tel.containsKey('accuracy') && tel['accuracy'] is Map) {
+        final accMap = tel['accuracy'] as Map<String, dynamic>;
+        accuracy = (accMap['overall_rate'] as num?)?.toDouble() ?? 0.75;
+      } else if (root.containsKey('accuracy') && root['accuracy'] is num) {
+        accuracy = (root['accuracy'] as num).toDouble();
+      }
+    } else if (gameType == 'market_trip') {
+      // Working memory / delayed recall: Use recall accuracy of prompted items
+      if (root.containsKey('recall_accuracy') && root['recall_accuracy'] is num) {
+        accuracy = (root['recall_accuracy'] as num).toDouble();
+      } else if (tel.containsKey('accuracy') && tel['accuracy'] is Map) {
+        final accMap = tel['accuracy'] as Map<String, dynamic>;
+        accuracy = (accMap['overall_rate'] as num?)?.toDouble() ?? 0.75;
+      } else if (root.containsKey('score_normalized') && root['score_normalized'] is num) {
+        accuracy = (root['score_normalized'] as num).toDouble();
+      } else if (root.containsKey('accuracy') && root['accuracy'] is num) {
+        accuracy = (root['accuracy'] as num).toDouble();
+      }
+    } else if (gameType == 'tap_target') {
+      // Attention / vigilance: Use hit rate penalized by omissions
+      if (tel.containsKey('accuracy') && tel['accuracy'] is Map) {
+        final accMap = tel['accuracy'] as Map<String, dynamic>;
+        accuracy = (accMap['overall_rate'] as num?)?.toDouble() ?? 0.75;
+      } else if (root.containsKey('omission_rate') && root['omission_rate'] is num) {
+        accuracy = (1.0 - (root['omission_rate'] as num).toDouble());
+      } else if (root.containsKey('score_normalized') && root['score_normalized'] is num) {
+        accuracy = (root['score_normalized'] as num).toDouble();
+      } else if (root.containsKey('accuracy') && root['accuracy'] is num) {
+        accuracy = (root['accuracy'] as num).toDouble();
+      }
+    } else {
+      // General fallback
+      if (root.containsKey('accuracy') && root['accuracy'] is num) {
+        accuracy = (root['accuracy'] as num).toDouble();
+      } else if (root.containsKey('recall_accuracy') && root['recall_accuracy'] is num) {
+        accuracy = (root['recall_accuracy'] as num).toDouble();
+      } else if (root.containsKey('correct_match_rate') && root['correct_match_rate'] is num) {
+        accuracy = (root['correct_match_rate'] as num).toDouble();
+      } else if (tel.containsKey('accuracy') && tel['accuracy'] is Map) {
+        final accMap = tel['accuracy'] as Map<String, dynamic>;
+        accuracy = (accMap['overall_rate'] as num?)?.toDouble() ?? 0.75;
+      } else if (root.containsKey('score_normalized') && root['score_normalized'] is num) {
+        accuracy = (root['score_normalized'] as num).toDouble();
+      }
     }
     accuracy = accuracy.clamp(0.0, 1.0);
 
-    // 3. Hesitation [0.0 - 1.0]
+    // 4. Feature 3: Hesitation [0.0 - 1.0]
     double hesitation = 0.30;
-    if (data.containsKey('hesitation') && data['hesitation'] is num) {
-      hesitation = (data['hesitation'] as num).toDouble();
-    } else if (data.containsKey('hesitation') && data['hesitation'] is Map) {
-      final hesMap = data['hesitation'] as Map<String, dynamic>;
-      if (hesMap.containsKey('hesitation_ratio') &&
-          hesMap['hesitation_ratio'] is num) {
+    if (tel.containsKey('hesitation') && tel['hesitation'] is Map) {
+      final hesMap = tel['hesitation'] as Map<String, dynamic>;
+      if (hesMap.containsKey('hesitation_ratio') && hesMap['hesitation_ratio'] is num) {
         hesitation = (hesMap['hesitation_ratio'] as num).toDouble();
-      } else if (hesMap.containsKey('is_hesitation') &&
-          hesMap['is_hesitation'] is bool) {
+      } else if (hesMap.containsKey('is_hesitation') && hesMap['is_hesitation'] is bool) {
         hesitation = (hesMap['is_hesitation'] as bool) ? 0.70 : 0.15;
       }
-    } else if (data.containsKey('hesitation_ratio') &&
-        data['hesitation_ratio'] is num) {
-      hesitation = (data['hesitation_ratio'] as num).toDouble();
+    } else if (root.containsKey('hesitation_ratio') && root['hesitation_ratio'] is num) {
+      hesitation = (root['hesitation_ratio'] as num).toDouble();
+    } else if (root.containsKey('hesitation') && root['hesitation'] is num) {
+      hesitation = (root['hesitation'] as num).toDouble();
     }
     hesitation = hesitation.clamp(0.0, 1.0);
 
-    // 4. Error Burst [0.0 - 1.0]
+    // 5. Feature 4: Error Burst [0.0 - 1.0]
     double errorBurst = 0.10;
-    if (data.containsKey('error_burst') && data['error_burst'] is num) {
-      errorBurst = (data['error_burst'] as num).toDouble();
-    } else if (data.containsKey('error_burst') && data['error_burst'] is Map) {
-      final ebMap = data['error_burst'] as Map<String, dynamic>;
-      if (ebMap.containsKey('error_burst_rate') &&
-          ebMap['error_burst_rate'] is num) {
-        errorBurst = (ebMap['error_burst_rate'] as num).toDouble();
-      } else if (ebMap.containsKey('is_error_burst') &&
-          ebMap['is_error_burst'] is bool) {
-        errorBurst = (ebMap['is_error_burst'] as bool) ? 0.80 : 0.0;
-      } else if (ebMap.containsKey('burst_detected') &&
-          ebMap['burst_detected'] is bool) {
-        errorBurst = (ebMap['burst_detected'] as bool) ? 0.80 : 0.0;
+    if (gameType == 'pair_matching') {
+      // Repeat error = repeatedly missing already-seen pair (true clinical encoding failure)
+      if (root.containsKey('repeat_error_rate') && root['repeat_error_rate'] is num) {
+        errorBurst = (root['repeat_error_rate'] as num).toDouble();
+      } else if (tel.containsKey('error_burst') && tel['error_burst'] is Map) {
+        final ebMap = tel['error_burst'] as Map<String, dynamic>;
+        errorBurst = (ebMap['error_burst_rate'] as num?)?.toDouble() ?? 0.10;
+      } else if (root.containsKey('error_burst') && root['error_burst'] is num) {
+        errorBurst = (root['error_burst'] as num).toDouble();
       }
-    } else if (data.containsKey('error_burst_rate') &&
-        data['error_burst_rate'] is num) {
-      errorBurst = (data['error_burst_rate'] as num).toDouble();
-    } else if (data.containsKey('repeat_error_rate') &&
-        data['repeat_error_rate'] is num) {
-      errorBurst = (data['repeat_error_rate'] as num).toDouble();
-    } else if (data.containsKey('false_positive_rate') &&
-        data['false_positive_rate'] is num) {
-      errorBurst = (data['false_positive_rate'] as num).toDouble();
+    } else if (gameType == 'tap_target') {
+      // False positives represent impulsivity / response inhibition breakdown
+      if (tel.containsKey('error_burst') && tel['error_burst'] is Map) {
+        final ebMap = tel['error_burst'] as Map<String, dynamic>;
+        errorBurst = (ebMap['error_burst_rate'] as num?)?.toDouble() ?? 0.10;
+      } else if (root.containsKey('false_positive_rate') && root['false_positive_rate'] is num) {
+        errorBurst = (root['false_positive_rate'] as num).toDouble();
+      } else if (root.containsKey('error_burst') && root['error_burst'] is num) {
+        errorBurst = (root['error_burst'] as num).toDouble();
+      }
+    } else if (gameType == 'market_trip') {
+      // False selections during recall
+      if (tel.containsKey('error_burst') && tel['error_burst'] is Map) {
+        final ebMap = tel['error_burst'] as Map<String, dynamic>;
+        errorBurst = (ebMap['error_burst_rate'] as num?)?.toDouble() ?? 0.10;
+      } else if (root.containsKey('false_selection_count') && root['false_selection_count'] is num) {
+        final falseCount = (root['false_selection_count'] as num).toDouble();
+        final promptedCount = (root['items_prompted_count'] as num?)?.toDouble() ?? 3.0;
+        errorBurst = (falseCount / (promptedCount + falseCount)).clamp(0.0, 1.0);
+      } else if (root.containsKey('error_burst') && root['error_burst'] is num) {
+        errorBurst = (root['error_burst'] as num).toDouble();
+      }
+    } else {
+      // General fallback
+      if (tel.containsKey('error_burst') && tel['error_burst'] is Map) {
+        final ebMap = tel['error_burst'] as Map<String, dynamic>;
+        if (ebMap.containsKey('error_burst_rate') && ebMap['error_burst_rate'] is num) {
+          errorBurst = (ebMap['error_burst_rate'] as num).toDouble();
+        } else if (ebMap.containsKey('burst_detected') && ebMap['burst_detected'] is bool) {
+          errorBurst = (ebMap['burst_detected'] as bool) ? 0.80 : 0.0;
+        }
+      } else if (root.containsKey('repeat_error_rate') && root['repeat_error_rate'] is num) {
+        errorBurst = (root['repeat_error_rate'] as num).toDouble();
+      } else if (root.containsKey('false_positive_rate') && root['false_positive_rate'] is num) {
+        errorBurst = (root['false_positive_rate'] as num).toDouble();
+      } else if (root.containsKey('error_burst') && root['error_burst'] is num) {
+        errorBurst = (root['error_burst'] as num).toDouble();
+      }
     }
     errorBurst = errorBurst.clamp(0.0, 1.0);
 
     return [normLatency, accuracy, hesitation, errorBurst];
   }
 
-  /// Evaluates raw JSON string or map, executing on-device inference,
+  /// Evaluates raw telemetry JSON (String or Map), executing on-device inference,
   /// and returns the structured [DifficultyDecision].
-  Future<DifficultyDecision> evaluateSessionJson(
-    String jsonString, {
+  Future<DifficultyDecision> evaluateSessionData(
+    dynamic sessionData, {
     int currentDifficulty = 1,
     String gameType = '',
   }) async {
@@ -260,11 +345,25 @@ class DynamicDifficultyService {
       await init();
     }
 
-    final dynamic parsed = jsonDecode(jsonString);
-    final Map<String, dynamic> data =
-        parsed is Map<String, dynamic> ? parsed : Map<String, dynamic>.from(parsed as Map);
+    final Map<String, dynamic> data;
+    if (sessionData is String) {
+      final dynamic parsed = jsonDecode(sessionData);
+      data = parsed is Map<String, dynamic>
+          ? parsed
+          : Map<String, dynamic>.from(parsed as Map);
+    } else if (sessionData is Map<String, dynamic>) {
+      data = sessionData;
+    } else if (sessionData is Map) {
+      data = Map<String, dynamic>.from(sessionData);
+    } else {
+      throw ArgumentError('sessionData must be a JSON String or Map');
+    }
 
-    final features = extractFeatures(data);
+    final resolvedGameType = gameType.isNotEmpty
+        ? gameType
+        : (data['game_type'] ?? data['gameType'] ?? '').toString();
+
+    final features = extractFeatures(data, resolvedGameType);
     final normLatency = features[0];
     final accuracy = features[1];
     final hesitation = features[2];
@@ -315,15 +414,29 @@ class DynamicDifficultyService {
         _actions[1]: probabilities[1],
         _actions[2]: probabilities[2],
       },
-      gameType: gameType,
+      gameType: resolvedGameType,
       featureVector: features,
     );
 
     debugPrint(
-        '[DynamicDifficultyService] Evaluated $gameType: ${decision.action} '
+        '[DynamicDifficultyService] Evaluated $resolvedGameType: ${decision.action} '
         '(level: $currentDifficulty -> $recommended, confidence: ${(maxProb * 100).toStringAsFixed(1)}%)');
 
     return decision;
+  }
+
+  /// Evaluates raw JSON string, executing on-device inference,
+  /// and returns the structured [DifficultyDecision].
+  Future<DifficultyDecision> evaluateSessionJson(
+    String jsonString, {
+    int currentDifficulty = 1,
+    String gameType = '',
+  }) async {
+    return evaluateSessionData(
+      jsonString,
+      currentDifficulty: currentDifficulty,
+      gameType: gameType,
+    );
   }
 
   /// Algorithmic UCB1 Distillation policy fallback matching agents/train.py.
@@ -343,29 +456,29 @@ class DynamicDifficultyService {
     final cruisingScore =
         accuracy * 0.45 + (1.0 - latency) * 0.25 + (1.0 - hesitation) * 0.15 + (1.0 - errorBurst) * 0.15;
 
-    double rEase = 0.15;
-    double rMaintain = 0.70;
-    double rLevelUp = 0.15;
+    double rEase;
+    double rMaintain;
+    double rLevelUp;
 
     if (strugglingScore > 0.55 || accuracy < 0.50 || errorBurst >= 0.50) {
       // Patient is struggling -> ease up
-      rEase = 0.88;
-      rMaintain = 0.10;
+      rEase = 0.98;
+      rMaintain = 0.18;
       rLevelUp = 0.02;
-    } else if (cruisingScore > 0.75 && accuracy >= 0.85 && errorBurst < 0.20) {
+    } else if (cruisingScore > 0.75 && accuracy >= 0.80 && errorBurst < 0.25) {
       // Patient is cruising -> level up
       rEase = 0.05;
-      rMaintain = 0.25;
-      rLevelUp = 0.70;
+      rMaintain = 0.28;
+      rLevelUp = 0.95;
     } else {
       // Patient in steady flow state -> maintain
       rEase = 0.15;
-      rMaintain = 0.72;
-      rLevelUp = 0.13;
+      rMaintain = 0.92;
+      rLevelUp = 0.20;
     }
 
-    // Softmax with temperature 0.25
-    const double tau = 0.25;
+    // Softmax with temperature 0.18 matching train.py
+    const double tau = 0.18;
     final maxR = max(rEase, max(rMaintain, rLevelUp));
     final e0 = exp((rEase - maxR) / tau);
     final e1 = exp((rMaintain - maxR) / tau);

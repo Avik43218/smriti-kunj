@@ -15,6 +15,7 @@ import '../games/tap_target/services/target_bank_service.dart';
 import '../games/pair_matching/screens/pair_matching_game.dart';
 import '../games/pair_matching/services/pair_bank_service.dart';
 import '../games/pair_matching/models/game_session_result.dart';
+import '../widgets/voice_nav_button.dart';
 
 class GamesScreen extends StatelessWidget {
   const GamesScreen({super.key});
@@ -55,6 +56,7 @@ class GamesScreen extends StatelessWidget {
                 : 'mt_${DateTime.now().millisecondsSinceEpoch}',
             patientId: session.patientId,
             patientProfileId: session.patientId,
+            pairingCode: session.pairingCode,
             gameType: 'market_trip',
             gameName: 'Market Trip',
             domain: 'memory',
@@ -111,6 +113,7 @@ class GamesScreen extends StatelessWidget {
                 : 'tt_${DateTime.now().millisecondsSinceEpoch}',
             patientId: session.patientId,
             patientProfileId: session.patientId,
+            pairingCode: session.pairingCode,
             gameType: 'tap_target',
             gameName: 'Tap Target',
             domain: 'attention',
@@ -166,6 +169,7 @@ class GamesScreen extends StatelessWidget {
                 : 'pm_${DateTime.now().millisecondsSinceEpoch}',
             patientId: session.patientId,
             patientProfileId: session.patientId,
+            pairingCode: session.pairingCode,
             gameType: 'pair_matching',
             gameName: 'Pair Matching',
             domain: 'memory',
@@ -205,6 +209,7 @@ class GamesScreen extends StatelessWidget {
           style: textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w700),
         ),
       ),
+      floatingActionButton: const VoiceNavButton(size: 64.0),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),

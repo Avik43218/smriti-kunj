@@ -1,8 +1,11 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import '../../../services/app_strings.dart';
+import '../../../services/locale_service.dart';
 import '../../../theme/theme.dart';
 import '../../../games/shared/models/round_telemetry.dart';
+import '../../../games/shared/models/completion_message.dart';
 import '../../../games/shared/services/game_session_repository.dart';
 import '../../../services/difficulty_service.dart';
 import '../../../services/difficulty_database_service.dart';
@@ -52,17 +55,17 @@ class _MarketTripGameScreenState extends State<MarketTripGameScreen> {
   DateTime? _recallStartTime;
   DateTime? _recallEndTime;
   DateTime? _lastSelectionTime;
-  final GameTelemetryTracker _telemetryTracker =
+  GameTelemetryTracker _telemetryTracker =
       GameTelemetryTracker(hesitationThresholdMs: 2500.0, errorBurstThreshold: 2);
   final List<Map<String, dynamic>> _rawTrials = [];
   DateTime? _distractorStartTime;
   DateTime? _distractorEndTime;
 
-  int _distractorTapCount = 0;
   bool _distractorTaskCompleted = false;
 
   late GameDifficulty _activeDifficulty;
   GameSessionResult? _finalResult;
+  CompletionMessage _completionMessage = CompletionMessage.getRandom();
 
   @override
   void initState() {
@@ -76,6 +79,20 @@ class _MarketTripGameScreenState extends State<MarketTripGameScreen> {
     setState(() {
       _currentPhase = MarketGamePhase.loading;
     });
+
+    _completionMessage = CompletionMessage.getRandom();
+    _sessionStartTime = DateTime.now();
+    _recallStartTime = null;
+    _recallEndTime = null;
+    _lastSelectionTime = null;
+    _distractorStartTime = null;
+    _distractorEndTime = null;
+    _distractorTaskCompleted = false;
+    _selectedItemIds.clear();
+    _rawTrials.clear();
+    _telemetryTracker =
+        GameTelemetryTracker(hesitationThresholdMs: 2500.0, errorBurstThreshold: 2);
+    _finalResult = null;
 
     // Check if next-game difficulty was queued in SQLite
     final pending = await DifficultyDatabaseService.instance
@@ -120,7 +137,6 @@ class _MarketTripGameScreenState extends State<MarketTripGameScreen> {
     _distractorStartTime = DateTime.now();
     setState(() {
       _currentPhase = MarketGamePhase.distractor;
-      _distractorTapCount = 0;
       _distractorTaskCompleted = false;
     });
   }
@@ -181,7 +197,7 @@ class _MarketTripGameScreenState extends State<MarketTripGameScreen> {
     });
   }
 
-  void _submitRecall() {
+  Future<void> _submitRecall() async {
     _recallEndTime = DateTime.now();
     final recallDurationSeconds = _recallEndTime != null && _recallStartTime != null
         ? _recallEndTime!.difference(_recallStartTime!).inMilliseconds / 1000.0
@@ -194,37 +210,35 @@ class _MarketTripGameScreenState extends State<MarketTripGameScreen> {
       delayDuration = _distractorEndTime!.difference(_distractorStartTime!).inMilliseconds / 1000.0;
     }
 
-    final promptIds = _promptItems.map((e) => e.id).toSet();
+    final bank = await _itemBankService.loadItemBank();
+    final targetItemIds = _promptItems.map((e) => e.id).toSet();
+
     int correctCount = 0;
     int falseCount = 0;
 
-    for (final selectedId in _selectedItemIds) {
-      if (promptIds.contains(selectedId)) {
+    for (final id in _selectedItemIds) {
+      if (targetItemIds.contains(id)) {
         correctCount++;
       } else {
         falseCount++;
       }
     }
 
-    final int promptedCount = _promptItems.length;
-    final double accuracy = promptedCount > 0 ? (correctCount / promptedCount).clamp(0.0, 1.0) : 0.0;
+    final promptedCount = _promptItems.length;
+    final accuracy = promptedCount > 0 ? (correctCount / promptedCount).clamp(0.0, 1.0) : 0.0;
+    final rawScore = promptedCount > 0
+        ? ((correctCount - (falseCount * 0.5)) / promptedCount).clamp(0.0, 1.0)
+        : 0.0;
+    final normalizedScore = rawScore.clamp(0.0, 1.0);
 
-    // Calculate normalized score (0.0 to 1.0) taking intrusion errors into account
-    final double penalty = falseCount * 0.15;
-    final double normalizedScore = (accuracy - penalty).clamp(0.0, 1.0);
-
-    final String langString = widget.promptLanguage == 'as'
-        ? 'assamese'
-        : (widget.promptLanguage == 'bn' ? 'bengali' : 'english');
-
-    // Record distractor tap count into rawTrials for downstream analytics.
-    _rawTrials.add({
-      'event': 'distractor_summary',
-      'tap_count': _distractorTapCount,
-      'completed': _distractorTaskCompleted || _activeDifficulty == GameDifficulty.easy,
-    });
+    final langString = switch (widget.promptLanguage) {
+      'as' => 'as',
+      'bn' => 'bn',
+      _ => 'en',
+    };
 
     final result = GameSessionResult(
+      gameType: 'market_trip',
       itemsPromptedCount: promptedCount,
       itemsRecalledCorrect: correctCount,
       recallAccuracy: accuracy,
@@ -241,11 +255,6 @@ class _MarketTripGameScreenState extends State<MarketTripGameScreen> {
       scoreNormalized: normalizedScore,
       rawTrials: _rawTrials,
     );
-
-    setState(() {
-      _finalResult = result;
-      _currentPhase = MarketGamePhase.summary;
-    });
 
     final telemetrySummary = _telemetryTracker.computeSummary();
 
@@ -292,24 +301,31 @@ class _MarketTripGameScreenState extends State<MarketTripGameScreen> {
       'telemetry': telemetrySummary.toJson(),
     });
 
-    unawaited(() async {
-      try {
-        final decision = await DynamicDifficultyService.instance.evaluateSessionJson(
-          rawTelemetryJson,
-          currentDifficulty: _activeDifficulty.index + 1,
-          gameType: 'market_trip',
-        );
-        await DifficultyDatabaseService.instance.saveDifficultySettingsForAllGames(
-          decision,
-          rawJson: rawTelemetryJson,
-        );
-      } catch (e) {
-        debugPrint('[MarketTrip] Error running TFLite difficulty model: $e');
-      }
-    }());
+    try {
+      final decision = await DynamicDifficultyService.instance.evaluateSessionJson(
+        rawTelemetryJson,
+        currentDifficulty: _activeDifficulty.index + 1,
+        gameType: 'market_trip',
+      );
+      await DifficultyDatabaseService.instance.saveDifficultySettingsForAllGames(
+        decision,
+        rawJson: rawTelemetryJson,
+      );
+      debugPrint('[MarketTrip] Evaluated and stored next difficulty: ${decision.action} -> level ${decision.recommendedDifficulty}');
+    } catch (e) {
+      debugPrint('[MarketTrip] Error running TFLite difficulty model: $e');
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _finalResult = result;
+      _currentPhase = MarketGamePhase.summary;
+    });
 
     widget.onGameCompleted?.call(result);
   }
+
+  AppStrings get _s => AppStrings(AppLangExt.fromCode(widget.promptLanguage));
 
   @override
   Widget build(BuildContext context) {
@@ -320,7 +336,7 @@ class _MarketTripGameScreenState extends State<MarketTripGameScreen> {
         elevation: 0,
         centerTitle: true,
         title: Text(
-          widget.promptLanguage == 'as' ? 'বজাৰৰ যাত্ৰা (Market Trip)' : 'The Market Trip',
+          _s.gameAppBarMarketTrip,
           style: const TextStyle(
             fontSize: 22,
             fontWeight: FontWeight.bold,
@@ -362,12 +378,12 @@ class _MarketTripGameScreenState extends State<MarketTripGameScreen> {
     }
   }
 
-  /// Distractor Phase Widget: Calm 10-second interactive plant watering / counting task.
+  /// Distractor Phase Widget: Interference counting task during memory delay.
   Widget _buildDistractorWidget() {
     return _DistractorTaskWidget(
       languageCode: widget.promptLanguage,
-      onCompleted: (tapsCount, completed) {
-        _distractorTapCount = tapsCount;
+      difficulty: _activeDifficulty,
+      onCompleted: (completed) {
         _distractorTaskCompleted = completed;
         _onDistractorFinished();
       },
@@ -376,13 +392,8 @@ class _MarketTripGameScreenState extends State<MarketTripGameScreen> {
 
   /// Recall Phase Widget: Item card grid with dementia-safe selection state (border + checkmark icon).
   Widget _buildRecallWidget() {
-    final titleText = widget.promptLanguage == 'as'
-        ? 'বজাৰৰ মোনাত কি কি আছিল বাছনি কৰক:'
-        : 'Select the items that were on your shopping list:';
-
-    final submitText = widget.promptLanguage == 'as'
-        ? 'জমা দিয়ক (${_selectedItemIds.length} টা বাছনি কৰা হ’ল)'
-        : 'Submit Shopping Bag (${_selectedItemIds.length} selected)';
+    final titleText = _s.recallTitle;
+    final submitText = _s.recallSubmit(_selectedItemIds.length);
 
     return Container(
       color: AppColors.cream,
@@ -560,132 +571,134 @@ class _MarketTripGameScreenState extends State<MarketTripGameScreen> {
     );
   }
 
-  /// Summary Phase Widget: Displays session results and encouragement.
+  /// Summary Phase Widget: Displays warm completion message and Play Again / Done actions.
   Widget _buildSummaryWidget() {
-    final result = _finalResult;
-    if (result == null) return const SizedBox.shrink();
-
-    final int pct = (result.recallAccuracy * 100).round();
-
-    final String heading = widget.promptLanguage == 'as'
-        ? 'ধন্যবাদ! বজাৰৰ যাত্ৰা সম্পূৰ্ণ হ’ল'
-        : 'Well Done! Market Trip Complete';
-
-    final String scoreMsg = widget.promptLanguage == 'as'
-        ? 'আপুনি ${result.itemsPromptedCount} টা বস্তুৰ ভিতৰত ${result.itemsRecalledCorrect} টা সঠিকভাৱে বাছনি কৰিলে।'
-        : 'You correctly recalled ${result.itemsRecalledCorrect} out of ${result.itemsPromptedCount} items.';
+    final String heading = _completionMessage.heading(widget.promptLanguage);
+    final String subheading = _completionMessage.subheading(widget.promptLanguage);
+    final String playAgainText = _s.playAgain;
+    final String doneText = _s.done;
 
     return Container(
       color: AppColors.cream,
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              color: AppColors.surface,
-              borderRadius: BorderRadius.circular(24),
-              border: Border.all(color: AppColors.mugaGold, width: 2.5),
-              boxShadow: [
-                BoxShadow(
-                  color: AppColors.ink.withValues(alpha: 0.08),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
+      child: Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+                decoration: BoxDecoration(
+                  color: AppColors.surface,
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(color: AppColors.mugaGold, width: 2.5),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.ink.withValues(alpha: 0.08),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
                 ),
-              ],
-            ),
-            child: Column(
-              children: [
-                const Icon(
-                  Icons.stars,
-                  size: 64,
-                  color: AppColors.mugaGold,
+                child: Column(
+                  children: [
+                    const Icon(
+                      Icons.stars_rounded,
+                      size: 72,
+                      color: AppColors.mugaGold,
+                    ),
+                    const SizedBox(height: 20),
+                    Text(
+                      heading,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontSize: 28,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.ink,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      subheading,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w500,
+                        color: AppColors.inkSoft,
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 16),
-                Text(
-                  heading,
-                  textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 28),
+              ElevatedButton(
+                onPressed: () => _initGame(),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.terracotta,
+                  foregroundColor: Colors.white,
+                  minimumSize: const Size(double.infinity, 88),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  elevation: 2,
+                ),
+                child: Text(
+                  playAgainText,
                   style: const TextStyle(
-                    fontSize: 24,
+                    fontSize: 22,
                     fontWeight: FontWeight.bold,
-                    color: AppColors.ink,
                   ),
                 ),
-                const SizedBox(height: 16),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                  decoration: BoxDecoration(
-                    color: AppColors.cream,
-                    borderRadius: BorderRadius.circular(16),
+              ),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.of(context).maybePop(_finalResult);
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.surface,
+                  foregroundColor: AppColors.ink,
+                  side: const BorderSide(color: AppColors.border, width: 2),
+                  minimumSize: const Size(double.infinity, 88),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
                   ),
-                  child: Text(
-                    '$pct% Recall Accuracy',
-                    style: const TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.terracotta,
-                    ),
-                  ),
+                  elevation: 0,
                 ),
-                const SizedBox(height: 16),
-                Text(
-                  scoreMsg,
-                  textAlign: TextAlign.center,
+                child: Text(
+                  doneText,
                   style: const TextStyle(
-                    fontSize: 18,
-                    color: AppColors.inkSoft,
-                    height: 1.4,
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
-                if (result.falseSelectionCount > 0) ...[
-                  const SizedBox(height: 8),
-                  Text(
-                    'Extra items selected: ${result.falseSelectionCount}',
-                    style: const TextStyle(
-                      fontSize: 16,
-                      color: AppColors.inkSoft,
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-          const SizedBox(height: 28),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.of(context).maybePop(result);
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.terracotta,
-              foregroundColor: Colors.white,
-              minimumSize: const Size(double.infinity, 88),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20),
               ),
-            ),
-            child: Text(
-              widget.promptLanguage == 'as' ? 'সম্পূৰ্ণ হ’ল (Done)' : 'Done',
-              style: const TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
 }
 
-/// Simple 10-second distractor interaction widget: Water the garden tea plants.
+class _DistractorShape {
+  final IconData icon;
+  final Color color;
+
+  const _DistractorShape({required this.icon, required this.color});
+}
+
+/// Counting distractor task widget: Shapes appear sequentially during the delay.
+/// Patient taps each shape as it appears to keep attention occupied.
 class _DistractorTaskWidget extends StatefulWidget {
   final String languageCode;
-  final void Function(int tapCount, bool completed) onCompleted;
+  final GameDifficulty difficulty;
+  final void Function(bool completed) onCompleted;
 
   const _DistractorTaskWidget({
     required this.languageCode,
+    required this.difficulty,
     required this.onCompleted,
   });
 
@@ -694,13 +707,34 @@ class _DistractorTaskWidget extends StatefulWidget {
 }
 
 class _DistractorTaskWidgetState extends State<_DistractorTaskWidget> {
-  int _secondsLeft = 10;
-  int _waterTaps = 0;
+  late int _totalDuration;
+  late int _totalShapes;
+  late int _secondsLeft;
+  bool _hasTappedAtLeastOnce = false;
+  final Set<int> _tappedShapeIndices = {};
   Timer? _timer;
+
+  static const List<_DistractorShape> _shapePalette = [
+    _DistractorShape(icon: Icons.star_rounded, color: AppColors.mugaGold),
+    _DistractorShape(icon: Icons.circle, color: AppColors.terracotta),
+    _DistractorShape(icon: Icons.square_rounded, color: AppColors.sageGreen),
+    _DistractorShape(icon: Icons.diamond_rounded, color: AppColors.terracottaDark),
+    _DistractorShape(icon: Icons.spa_rounded, color: AppColors.sageGreen),
+    _DistractorShape(icon: Icons.change_history_rounded, color: AppColors.mugaGold),
+    _DistractorShape(icon: Icons.circle, color: AppColors.inkSoft),
+    _DistractorShape(icon: Icons.star_rounded, color: AppColors.terracotta),
+    _DistractorShape(icon: Icons.hexagon_rounded, color: AppColors.sageGreen),
+    _DistractorShape(icon: Icons.eco_rounded, color: AppColors.mugaGold),
+  ];
 
   @override
   void initState() {
     super.initState();
+    // Medium = 10s (5 shapes), Hard = 20s (10 shapes)
+    _totalDuration = widget.difficulty == GameDifficulty.hard ? 20 : 10;
+    _totalShapes = widget.difficulty == GameDifficulty.hard ? 10 : 5;
+    _secondsLeft = _totalDuration;
+
     _timer = Timer.periodic(const Duration(seconds: 1), (t) {
       if (!mounted) return;
       if (_secondsLeft > 1) {
@@ -709,7 +743,7 @@ class _DistractorTaskWidgetState extends State<_DistractorTaskWidget> {
         });
       } else {
         _timer?.cancel();
-        widget.onCompleted(_waterTaps, true);
+        widget.onCompleted(_hasTappedAtLeastOnce);
       }
     });
   }
@@ -720,21 +754,27 @@ class _DistractorTaskWidgetState extends State<_DistractorTaskWidget> {
     super.dispose();
   }
 
-  void _tapWaterPlant() {
+  int get _currentShapeIndex {
+    final elapsed = _totalDuration - _secondsLeft;
+    final index = (elapsed ~/ 2).clamp(0, _totalShapes - 1);
+    return index;
+  }
+
+  void _tapCurrentShape(int index) {
+    if (_tappedShapeIndices.contains(index)) return;
     setState(() {
-      _waterTaps++;
+      _hasTappedAtLeastOnce = true;
+      _tappedShapeIndices.add(index);
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    final title = widget.languageCode == 'as'
-        ? 'মন স্থিৰ কৰক: কিছু সময় বাগিচাত পানী দিয়ক'
-        : 'Take a short breath: Water the tea leaves';
+    final shapeIndex = _currentShapeIndex;
+    final shape = _shapePalette[shapeIndex % _shapePalette.length];
+    final isTapped = _tappedShapeIndices.contains(shapeIndex);
 
-    final instruction = widget.languageCode == 'as'
-        ? 'গছজোপাত পানী দিবলৈ টেপ কৰক ($_waterTaps বাৰ পানী দিয়া হ’ল)'
-        : 'Tap the plant to water it ($_waterTaps times watered)';
+    final title = AppStrings(AppLangExt.fromCode(widget.languageCode)).distractorTitle;
 
     return Container(
       color: AppColors.cream,
@@ -743,6 +783,7 @@ class _DistractorTaskWidgetState extends State<_DistractorTaskWidget> {
         mainAxisAlignment: MainAxisAlignment.center,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          // Timer and Title header
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
@@ -782,42 +823,44 @@ class _DistractorTaskWidgetState extends State<_DistractorTaskWidget> {
           ),
           const SizedBox(height: 32),
 
-          // Interactive Water Plant Target (Min target 88dp height/width)
-          GestureDetector(
-            onTap: _tapWaterPlant,
-            child: Container(
-              height: 180,
-              decoration: BoxDecoration(
-                color: AppColors.surface,
-                borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: AppColors.sageGreen, width: 3),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppColors.ink.withValues(alpha: 0.08),
-                    blurRadius: 8,
-                    offset: const Offset(0, 4),
+          // Interactive Counting Shape Target (Min target 88dp height/width)
+          Center(
+            child: GestureDetector(
+              onTap: () => _tapCurrentShape(shapeIndex),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 250),
+                width: 180,
+                height: 180,
+                decoration: BoxDecoration(
+                  color: isTapped
+                      ? shape.color.withValues(alpha: 0.15)
+                      : AppColors.surface,
+                  borderRadius: BorderRadius.circular(32),
+                  border: Border.all(
+                    color: isTapped ? shape.color : AppColors.border,
+                    width: isTapped ? 3.5 : 2.0,
                   ),
-                ],
-              ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(
-                    Icons.water_drop,
-                    size: 64,
-                    color: AppColors.sageGreen,
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    instruction,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.ink,
+                  boxShadow: [
+                    BoxShadow(
+                      color: isTapped
+                          ? shape.color.withValues(alpha: 0.25)
+                          : AppColors.ink.withValues(alpha: 0.08),
+                      blurRadius: isTapped ? 16 : 8,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Center(
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 200),
+                    child: Icon(
+                      isTapped ? Icons.check_circle_rounded : shape.icon,
+                      key: ValueKey('shape_${shapeIndex}_$isTapped'),
+                      size: 80,
+                      color: isTapped ? shape.color : shape.color,
                     ),
                   ),
-                ],
+                ),
               ),
             ),
           ),

@@ -51,8 +51,9 @@ class _PairingScreenState extends State<PairingScreen> {
       if (!mounted) return;
 
       if (success) {
-        Navigator.of(context).pushReplacement(
+        Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(builder: (context) => const HomeScreen()),
+          (route) => false,
         );
       } else {
         setState(() {

@@ -6,6 +6,8 @@ import 'services/session_service.dart';
 import 'services/difficulty_service.dart';
 import 'services/locale_service.dart';
 import 'services/api_service.dart';
+import 'services/speech_recognition_service.dart';
+import 'services/voice_navigation_coordinator.dart';
 import 'theme/theme.dart';
 
 void main() async {
@@ -13,6 +15,8 @@ void main() async {
   // Pre-initialize TFLite dynamic difficulty model in background
   ApiService.instance.baseUrl = 'http://192.168.1.240:8000';
   DynamicDifficultyService.instance.init();
+  // Auto-login using pairing code stored in local SQLite database
+  await SessionService.instance.tryAutoLogin();
   runApp(const SmritiKunjApp());
 }
 
@@ -25,13 +29,23 @@ class SmritiKunjApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider(create: (_) => SessionService.instance),
         ChangeNotifierProvider(create: (_) => LocaleService.instance),
+        ChangeNotifierProvider(create: (_) => SpeechRecognitionService.instance),
       ],
       child: MaterialApp(
+        navigatorKey: VoiceNavigationCoordinator.navigatorKey,
         title: 'Smriti Kunj',
         debugShowCheckedModeBanner: false,
         theme: patientTheme,
         home: Consumer<SessionService>(
           builder: (context, session, _) {
+            if (session.isInitializing) {
+              return const Scaffold(
+                backgroundColor: AppColors.cream,
+                body: Center(
+                  child: CircularProgressIndicator(color: AppColors.terracotta),
+                ),
+              );
+            }
             return session.isPaired ? const HomeScreen() : const PairingScreen();
           },
         ),
