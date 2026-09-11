@@ -479,7 +479,7 @@ class _FloatingSyncButton extends StatefulWidget {
   const _FloatingSyncButton({
     required this.session,
     required this.strings,
-    this.size = 88.0,
+    // this.size = 88.0,
   });
 
   @override
