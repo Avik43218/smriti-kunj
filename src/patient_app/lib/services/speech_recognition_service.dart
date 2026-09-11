@@ -36,7 +36,7 @@ class SpeechRecognitionService extends ChangeNotifier {
   Timer? _actionTimer;
   bool _isExecutingAction = false;
 
-  String _currentLanguage = 'en-IN';
+  String _currentLanguage = 'en-US';
   String get currentLanguage => _currentLanguage;
 
   String _partialText = '';
@@ -176,7 +176,7 @@ class SpeechRecognitionService extends ChangeNotifier {
 
   String _determineLanguage() {
     final lang = LocaleService.instance.lang;
-    return lang == AppLang.assamese ? 'bn-IN' : 'en-IN';
+    return lang == AppLang.assamese ? 'bn-IN' : 'en-US';
   }
 
   /// Toggles continuous listening ON / OFF.
@@ -323,7 +323,7 @@ class SpeechRecognitionService extends ChangeNotifier {
   }
 
   /// Starts listening using Android's built-in SpeechRecognizer.
-  Future<bool> startListening({String language = 'en-IN'}) async {
+  Future<bool> startListening({String language = 'en-US'}) async {
     _currentLanguage = language;
     _lastError = null;
     _lastResults = <String>[];

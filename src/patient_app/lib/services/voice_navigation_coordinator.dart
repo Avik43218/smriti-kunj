@@ -15,7 +15,6 @@ import '../games/tap_target/services/target_bank_service.dart';
 import '../games/pair_matching/screens/pair_matching_game.dart';
 import '../games/pair_matching/services/pair_bank_service.dart';
 import '../games/pair_matching/models/game_session_result.dart';
-import '../theme/theme.dart';
 import 'voice_navigation_service.dart';
 
 /// Central coordinator that executes navigation commands identified by the voice system.

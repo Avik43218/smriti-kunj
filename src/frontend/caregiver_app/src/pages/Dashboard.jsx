@@ -120,7 +120,7 @@ export const Dashboard = () => {
               Welcome, {caregiver?.name || 'Caregiver'}
             </h2>
             <p className="text-xs sm:text-sm text-ink-soft dark:text-cream/70 mt-1.5 max-w-2xl leading-relaxed">
-              Monitor active patient cognitive routines, longitudinal trends, and tablet synchronization status from your dashboard roster.
+              Monitor active patient cognitive routines, longitudinal trends, and tablet synchronization status from your dashboard portal.
             </p>
           </div>
 

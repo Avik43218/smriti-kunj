@@ -363,9 +363,9 @@ export const Analytics = () => {
           <div className="h-4 w-96 bg-cream/70 dark:bg-ink-soft/20 rounded" />
         </div>
 
-        {/* 3 Charts Grid Skeleton */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {[1, 2, 3].map((n) => (
+        {/* Charts Grid Skeleton */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {[1, 2].map((n) => (
             <div
               key={n}
               className="h-80 bg-surface/60 dark:bg-ink-soft/10 border border-border/60 dark:border-ink-soft/30 rounded-card p-6"
@@ -451,10 +451,11 @@ export const Analytics = () => {
         </div>
       </div>
 
-      {/* 3 COGNITIVE DOMAIN TREND LINE CHARTS */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      {/* COGNITIVE DOMAIN TREND LINE CHARTS */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {renderDomainChartCard(DOMAINS.MEMORY)}
-        {renderDomainChartCard(DOMAINS.LANGUAGE)}
+        {/* Middle chart temporarily disabled until data parameters are configured */}
+        {/* {renderDomainChartCard(DOMAINS.LANGUAGE)} */}
         {renderDomainChartCard(DOMAINS.ATTENTION)}
       </div>
 

@@ -60,7 +60,9 @@ class AppStrings {
   String get attention          => _t("Attention",                               "মনোযোগ",                               "মনোযোগ",                                   "मनोयोग");
 
   // ── Sync strings ──────────────────────────────────────────────────────────
-  String get syncButton         => _t('Sync',                                    'আপলোড / সংমিশ্ৰণ',                    'সিঙ্ক',                                     'सिंक');
+  String get syncButton         => _t('Sync',                                    'সিংক',                                 'সিঙ্ক',                                     'सिंक');
+  String get helpButton         => _t('Help',                                    'সহায়',                                 'সাহায্য',                                   'नाथाय');
+  String get voiceButton        => _t('Voice',                                   'কণ্ঠ',                                  'ভয়েস',                                     'आवाज');
   String get syncActivities     => _t('Sync Activity',                           'তথ্য যোগ কৰক',                         'কার্যক্রম সিঙ্ক করুন',                      'खামानि सिंक');
   String get syncSubtitle       => _t('Send game progress to caregiver',         'অভিভাৱকৰ সৈতে খেলৰ তথ্য প্ৰেৰণ কৰক',  'পরিচর্যাকারীকে গেমের অগ্রগতি পাঠান',      'थालाय लानायখोনি दाहाय थाখো पाठায');
   String get syncing            => _t('Syncing activity...',                     'তথ্য সংমিশ্ৰণ হৈ আছে...',             'কার্যক্রম সিঙ্ক হচ্ছে...',                  'খামানি সিংক হৈ আছে...');
