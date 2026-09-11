@@ -8,7 +8,7 @@ import '../services/background_music_service.dart';
 import '../services/locale_service.dart';
 import '../services/session_service.dart';
 import '../theme/theme.dart';
-import '../widgets/mute_toggle.dart';
+//import '../widgets/mute_toggle.dart';
 import '../widgets/sos_button.dart';
 import 'games_screen.dart';
 import 'memory_gallery_screen.dart';
@@ -477,8 +477,7 @@ class _FloatingSyncButton extends StatefulWidget {
   const _FloatingSyncButton({
     required this.session,
     required this.strings,
-    this.size = 88.0,
-  });
+  }) : size = 88.0;
 
   @override
   State<_FloatingSyncButton> createState() => _FloatingSyncButtonState();
