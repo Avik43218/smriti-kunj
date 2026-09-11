@@ -216,13 +216,13 @@ class DifficultyDatabaseService {
         }
       }
 
-      // 2. AUTOMATICALLY REMOVE all pending difficulty settings from the database
-      final deletedCount = await db.delete(_table);
-      debugPrint(
-          '[DifficultyDatabaseService] Game "$selectedGameType" selected. '
-          'Automatically removed $deletedCount pending difficulty entries from SQLite.');
-
+      // 2. AUTOMATICALLY REMOVE all pending difficulty settings from the database if present
       if (selectedRow != null) {
+        final deletedCount = await db.delete(_table);
+        debugPrint(
+            '[DifficultyDatabaseService] Game "$selectedGameType" selected. '
+            'Automatically removed $deletedCount pending difficulty entries from SQLite.');
+
         final decision = DifficultyDecision(
           action: selectedRow['action'] as String,
           difficultyDelta: (selectedRow['difficulty_delta'] as num).toInt(),
@@ -239,18 +239,7 @@ class DifficultyDatabaseService {
         return decision;
       }
 
-      // If no pending row was found, return a decision matching current baseline level
-      final currentLevel = await getCurrentLevel(selectedGameType);
-      return DifficultyDecision(
-        action: 'Maintain (0)',
-        difficultyDelta: 0,
-        previousDifficulty: currentLevel,
-        recommendedDifficulty: currentLevel,
-        confidence: 1.0,
-        distribution: {},
-        gameType: selectedGameType,
-        featureVector: const [],
-      );
+      return null;
     } catch (e) {
       debugPrint('[DifficultyDatabaseService] Error consuming and clearing for $selectedGameType: $e');
       return null;

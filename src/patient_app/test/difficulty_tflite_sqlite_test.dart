@@ -164,6 +164,64 @@ void main() {
       expect(decision.recommendedDifficulty, 2); // Maintained at Medium
     });
 
+    test('Pair Matching with high correct_match_rate and zero repeat errors levels up', () async {
+      // Player flipped 10 times to match 4 pairs: correct_match_rate is high (80%),
+      // repeat_error_rate is 0.0, even though exploratory flip trial rate is only 35%.
+      final cruisingPairMatchingJson = {
+        'game_type': 'pair_matching',
+        'total_flips': 10,
+        'correct_match_rate': 0.85,
+        'time_to_first_correct_match': 3.5,
+        'repeat_error_rate': 0.0,
+        'score_normalized': 0.88,
+        'telemetry': {
+          'latency': {'avg_ms': 550.0},
+          'accuracy': {'overall_rate': 0.35}, // Exploratory flips rate
+          'hesitation': {'hesitation_ratio': 0.12},
+          'error_burst': {'error_burst_rate': 0.50}, // Exploratory mismatches
+        },
+      };
+
+      final features = difficultyService.extractFeatures(cruisingPairMatchingJson);
+      expect(features[1], 0.85); // Evaluates correct_match_rate, NOT exploratory trial rate
+      expect(features[3], 0.0);  // Evaluates repeat_error_rate (0 repeat errors)
+
+      final decision = await difficultyService.evaluateSessionJson(
+        jsonEncode(cruisingPairMatchingJson),
+        currentDifficulty: 1, // Easy
+        gameType: 'pair_matching',
+      );
+
+      expect(decision.action, 'Level Up (+1)');
+      expect(decision.recommendedDifficulty, 2);
+    });
+
+    test('Pair Matching with high repeat errors triggers Ease Up (-1)', () async {
+      final strugglingPairMatchingJson = {
+        'game_type': 'pair_matching',
+        'total_flips': 32,
+        'correct_match_rate': 0.30,
+        'time_to_first_correct_match': 18.0,
+        'repeat_error_rate': 0.75, // Severe encoding failure
+        'score_normalized': 0.28,
+        'telemetry': {
+          'latency': {'avg_ms': 1800.0},
+          'accuracy': {'overall_rate': 0.25},
+          'hesitation': {'hesitation_ratio': 0.75},
+          'error_burst': {'error_burst_rate': 0.75},
+        },
+      };
+
+      final decision = await difficultyService.evaluateSessionJson(
+        jsonEncode(strugglingPairMatchingJson),
+        currentDifficulty: 2, // Medium
+        gameType: 'pair_matching',
+      );
+
+      expect(decision.action, 'Ease Up (-1)');
+      expect(decision.recommendedDifficulty, 1);
+    });
+
     test('Difficulty level clamping bounds (min 1, max 3)', () async {
       // Ease up from Level 1 -> should stay 1
       final struggling = jsonEncode({'accuracy': 0.2, 'reaction_time_ms': 2000.0, 'hesitation': 0.9, 'error_burst': 0.9});

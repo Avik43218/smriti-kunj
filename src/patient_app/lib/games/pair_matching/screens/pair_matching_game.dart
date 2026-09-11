@@ -225,7 +225,7 @@ class _PairMatchingGameScreenState extends State<PairMatchingGameScreen> {
         _firstFlipTime = null;
       });
 
-      if (_matchedPairs >= widget.difficulty.pairCount) {
+      if (_matchedPairs >= _activeDifficulty.pairCount) {
         _completeGame();
       }
     } else {
