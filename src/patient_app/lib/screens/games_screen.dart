@@ -7,47 +7,191 @@ import '../services/difficulty_database_service.dart';
 import '../services/locale_service.dart';
 import '../services/session_service.dart';
 import '../theme/theme.dart';
-
-// Game screens
 import '../games/market_trip/screens/market_trip_game.dart';
-import '../games/tap_target/screens/tap_target_game.dart';
-import '../games/pair_matching/screens/pair_matching_game.dart';
-
-// Game models & service imports (Fixes Undefined name 'GameDifficulty', 'TapDifficulty', 'PairDifficulty')
 import '../games/market_trip/services/item_bank_service.dart';
 import '../games/market_trip/models/game_session_result.dart';
+import '../games/tap_target/screens/tap_target_game.dart';
 import '../games/tap_target/services/target_bank_service.dart';
+import '../games/pair_matching/screens/pair_matching_game.dart';
 import '../games/pair_matching/services/pair_bank_service.dart';
 import '../games/pair_matching/models/game_session_result.dart';
-
-// ── Top-Level Launcher Helpers ─────────────────────────────────────────────
-
-void launchMarketTrip(BuildContext context, String currentLangCode) {
-  final session = Provider.of<SessionService>(context, listen: false);
-  final locale = Provider.of<LocaleService>(context, listen: false);
-  _GamesScreenState._launchMarketTripStatic(context, session, locale);
-}
-
-void launchPairMatching(BuildContext context, String currentLangCode) {
-  final session = Provider.of<SessionService>(context, listen: false);
-  final locale = Provider.of<LocaleService>(context, listen: false);
-  _GamesScreenState._launchPairMatchingStatic(context, session, locale);
-}
-
-void launchTapTarget(BuildContext context, String currentLangCode) {
-  final session = Provider.of<SessionService>(context, listen: false);
-  final locale = Provider.of<LocaleService>(context, listen: false);
-  _GamesScreenState._launchTapTargetStatic(context, session, locale);
-}
-
-// ── Main UI Widget ──────────────────────────────────────────────────────────
+import '../widgets/voice_nav_button.dart';
 
 class GamesScreen extends StatelessWidget {
   const GamesScreen({super.key});
 
+  Future<void> _launchMarketTrip(
+    BuildContext context,
+    SessionService session,
+    LocaleService locale,
+  ) async {
+    // Consume setting for Market Trip and automatically remove all pending settings from SQLite
+    final decision = await DifficultyDatabaseService.instance
+        .consumeAndClearForSelectedGame('market_trip');
+
+    final level = decision?.recommendedDifficulty ??
+        await DifficultyDatabaseService.instance.getCurrentLevel('market_trip');
+
+    final difficulty = switch (level) {
+      1 => GameDifficulty.easy,
+      2 => GameDifficulty.medium,
+      3 => GameDifficulty.hard,
+      _ => GameDifficulty.easy,
+    };
+
+    debugPrint('[GamesScreen] Launching Market Trip at auto-adjusted difficulty: $difficulty');
+
+    if (!context.mounted) return;
+    await Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => MarketTripGameScreen(
+        difficulty: difficulty,
+        promptLanguage: locale.code,
+        patientProfileId: session.patientId,
+        onGameCompleted: (GameSessionResult result) {
+          debugPrint('[MarketTrip] accuracy=${result.recallAccuracy}, '
+              'score=${result.scoreNormalized}');
+          ActivityDatabaseService.instance.recordGameActivity(PatientActivityRecord(
+            clientSessionId: result.sessionId.isNotEmpty
+                ? result.sessionId
+                : 'mt_${DateTime.now().millisecondsSinceEpoch}',
+            patientId: session.patientId,
+            patientProfileId: session.patientId,
+            pairingCode: session.pairingCode,
+            gameType: 'market_trip',
+            gameName: 'Market Trip',
+            domain: 'memory',
+            difficultyLevel: level,
+            scoreNormalized: result.scoreNormalized,
+            sessionDuration: result.sessionDuration.toInt(),
+            accuracy: result.recallAccuracy,
+            avgLatencyMs: (result.timeToCompleteRecall * 1000).clamp(0, 100000),
+            errorRate: result.itemsPromptedCount > 0
+                ? (result.falseSelectionCount / (result.itemsPromptedCount + result.falseSelectionCount)).clamp(0.0, 1.0)
+                : 0.0,
+            sessionDate: result.sessionDate,
+            status: result.status,
+            rawPayload: result.toJson(),
+          ));
+        },
+      ),
+    ));
+  }
+
+  Future<void> _launchTapTarget(
+    BuildContext context,
+    SessionService session,
+    LocaleService locale,
+  ) async {
+    // Consume setting for Tap Target and automatically remove all pending settings from SQLite
+    final decision = await DifficultyDatabaseService.instance
+        .consumeAndClearForSelectedGame('tap_target');
+
+    final level = decision?.recommendedDifficulty ??
+        await DifficultyDatabaseService.instance.getCurrentLevel('tap_target');
+
+    final difficulty = switch (level) {
+      1 => TapDifficulty.easy,
+      2 => TapDifficulty.medium,
+      3 => TapDifficulty.hard,
+      _ => TapDifficulty.easy,
+    };
+
+    debugPrint('[GamesScreen] Launching Tap Target at auto-adjusted difficulty: level $level');
+
+    if (!context.mounted) return;
+    await Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => TapTargetGameScreen(
+        difficulty: difficulty,
+        promptLanguage: locale.code,
+        patientProfileId: session.patientId,
+        onGameCompleted: (result) {
+          debugPrint('[TapTarget] score=${result.scoreNormalized}, '
+              'rt=${result.reactionTimeAvg}ms');
+          ActivityDatabaseService.instance.recordGameActivity(PatientActivityRecord(
+            clientSessionId: result.sessionId.isNotEmpty
+                ? result.sessionId
+                : 'tt_${DateTime.now().millisecondsSinceEpoch}',
+            patientId: session.patientId,
+            patientProfileId: session.patientId,
+            pairingCode: session.pairingCode,
+            gameType: 'tap_target',
+            gameName: 'Tap Target',
+            domain: 'attention',
+            difficultyLevel: level,
+            scoreNormalized: result.scoreNormalized,
+            sessionDuration: result.sessionDuration.toInt(),
+            accuracy: (1.0 - result.omissionRate).clamp(0.0, 1.0),
+            avgLatencyMs: result.reactionTimeAvg,
+            errorRate: result.falsePositiveRate,
+            sessionDate: result.sessionDate,
+            status: result.status,
+            rawPayload: result.toJson(),
+          ));
+        },
+      ),
+    ));
+  }
+
+  Future<void> _launchPairMatching(
+    BuildContext context,
+    SessionService session,
+    LocaleService locale,
+  ) async {
+    // Consume setting for Pair Matching and automatically remove all pending settings from SQLite
+    final decision = await DifficultyDatabaseService.instance
+        .consumeAndClearForSelectedGame('pair_matching');
+
+    final level = decision?.recommendedDifficulty ??
+        await DifficultyDatabaseService.instance.getCurrentLevel('pair_matching');
+
+    final difficulty = switch (level) {
+      1 => PairDifficulty.easy,
+      2 => PairDifficulty.medium,
+      3 => PairDifficulty.hard,
+      _ => PairDifficulty.easy,
+    };
+
+    debugPrint('[GamesScreen] Launching Pair Matching at auto-adjusted difficulty: level $level');
+
+    if (!context.mounted) return;
+    await Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => PairMatchingGameScreen(
+        difficulty: difficulty,
+        promptLanguage: locale.code,
+        patientProfileId: session.patientId,
+        onGameCompleted: (PairMatchingSessionResult result) {
+          debugPrint('[PairMatching] flips=${result.totalFlips}, '
+              'score=${result.scoreNormalized}, '
+              'usedPhotos=${result.usedFaceNameVariant}');
+          ActivityDatabaseService.instance.recordGameActivity(PatientActivityRecord(
+            clientSessionId: result.sessionId.isNotEmpty
+                ? result.sessionId
+                : 'pm_${DateTime.now().millisecondsSinceEpoch}',
+            patientId: session.patientId,
+            patientProfileId: session.patientId,
+            pairingCode: session.pairingCode,
+            gameType: 'pair_matching',
+            gameName: 'Pair Matching',
+            domain: 'memory',
+            difficultyLevel: level,
+            scoreNormalized: result.scoreNormalized,
+            sessionDuration: result.sessionDuration.toInt(),
+            accuracy: result.correctMatchRate,
+            avgLatencyMs: (result.timeToFirstCorrectMatch * 1000).clamp(0, 100000),
+            errorRate: result.repeatErrorRate,
+            sessionDate: result.sessionDate,
+            status: result.status,
+            rawPayload: result.toJson(),
+          ));
+        },
+      ),
+    ));
+  }
+
   @override
   Widget build(BuildContext context) {
     final locale = context.watch<LocaleService>();
+    final session = context.watch<SessionService>();
     final s = AppStrings(locale.lang);
     final textTheme = Theme.of(context).textTheme;
 
@@ -65,6 +209,7 @@ class GamesScreen extends StatelessWidget {
           style: textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w700),
         ),
       ),
+      floatingActionButton: const VoiceNavButton(size: 64.0),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
@@ -82,7 +227,7 @@ class GamesScreen extends StatelessWidget {
                 children: [
                   const SizedBox(height: 16),
                   ElevatedButton.icon(
-                    onPressed: () => launchMarketTrip(context, locale.code),
+                    onPressed: () => _launchMarketTrip(context, session, locale),
                     icon: const Icon(Icons.play_arrow_rounded, size: 28),
                     label: Text(
                       s.playNow,
@@ -113,7 +258,7 @@ class GamesScreen extends StatelessWidget {
                 children: [
                   const SizedBox(height: 16),
                   ElevatedButton.icon(
-                    onPressed: () => launchTapTarget(context, locale.code),
+                    onPressed: () => _launchTapTarget(context, session, locale),
                     icon: const Icon(Icons.play_arrow_rounded, size: 28),
                     label: Text(
                       s.playNow,
@@ -144,7 +289,7 @@ class GamesScreen extends StatelessWidget {
                 children: [
                   const SizedBox(height: 16),
                   ElevatedButton.icon(
-                    onPressed: () => launchPairMatching(context, locale.code),
+                    onPressed: () => _launchPairMatching(context, session, locale),
                     icon: const Icon(Icons.play_arrow_rounded, size: 28),
                     label: Text(
                       s.playNow,
@@ -180,163 +325,8 @@ class GamesScreen extends StatelessWidget {
   }
 }
 
-// Private static logic handler for launcher routing
-abstract class _GamesScreenState {
-  static Future<void> _launchMarketTripStatic(
-    BuildContext context,
-    SessionService session,
-    LocaleService locale,
-  ) async {
-    final decision = await DifficultyDatabaseService.instance
-        .consumeAndClearForSelectedGame('market_trip');
-
-    final level = decision?.recommendedDifficulty ??
-        await DifficultyDatabaseService.instance.getCurrentLevel('market_trip');
-
-    final difficulty = switch (level) {
-      1 => GameDifficulty.easy,
-      2 => GameDifficulty.medium,
-      3 => GameDifficulty.hard,
-      _ => GameDifficulty.easy,
-    };
-
-    if (!context.mounted) return;
-    await Navigator.of(context).push(MaterialPageRoute(
-      builder: (_) => MarketTripGameScreen(
-        difficulty: difficulty,
-        promptLanguage: locale.code,
-        patientProfileId: session.patientId,
-        onGameCompleted: (GameSessionResult result) {
-          ActivityDatabaseService.instance.recordGameActivity(PatientActivityRecord(
-            clientSessionId: result.sessionId.isNotEmpty
-                ? result.sessionId
-                : 'mt_${DateTime.now().millisecondsSinceEpoch}',
-            patientId: session.patientId,
-            patientProfileId: session.patientId,
-            pairingCode: session.pairingCode,
-            gameType: 'market_trip',
-            gameName: 'Market Trip',
-            domain: 'memory',
-            difficultyLevel: level,
-            scoreNormalized: result.scoreNormalized,
-            sessionDuration: result.sessionDuration.toInt(),
-            accuracy: result.recallAccuracy,
-            avgLatencyMs: (result.timeToCompleteRecall * 1000).clamp(0, 100000),
-            errorRate: result.itemsPromptedCount > 0
-                ? (result.falseSelectionCount / (result.itemsPromptedCount + result.falseSelectionCount)).clamp(0.0, 1.0)
-                : 0.0,
-            sessionDate: result.sessionDate,
-            status: result.status,
-            rawPayload: result.toJson(),
-          ));
-        },
-      ),
-    ));
-  }
-
-  static Future<void> _launchTapTargetStatic(
-    BuildContext context,
-    SessionService session,
-    LocaleService locale,
-  ) async {
-    final decision = await DifficultyDatabaseService.instance
-        .consumeAndClearForSelectedGame('tap_target');
-
-    final level = decision?.recommendedDifficulty ??
-        await DifficultyDatabaseService.instance.getCurrentLevel('tap_target');
-
-    final difficulty = switch (level) {
-      1 => TapDifficulty.easy,
-      2 => TapDifficulty.medium,
-      3 => TapDifficulty.hard,
-      _ => TapDifficulty.easy,
-    };
-
-    if (!context.mounted) return;
-    await Navigator.of(context).push(MaterialPageRoute(
-      builder: (_) => TapTargetGameScreen(
-        difficulty: difficulty,
-        promptLanguage: locale.code,
-        patientProfileId: session.patientId,
-        onGameCompleted: (result) {
-          ActivityDatabaseService.instance.recordGameActivity(PatientActivityRecord(
-            clientSessionId: result.sessionId.isNotEmpty
-                ? result.sessionId
-                : 'tt_${DateTime.now().millisecondsSinceEpoch}',
-            patientId: session.patientId,
-            patientProfileId: session.patientId,
-            pairingCode: session.pairingCode,
-            gameType: 'tap_target',
-            gameName: 'Tap Target',
-            domain: 'attention',
-            difficultyLevel: level,
-            scoreNormalized: result.scoreNormalized,
-            sessionDuration: result.sessionDuration.toInt(),
-            accuracy: (1.0 - result.omissionRate).clamp(0.0, 1.0),
-            avgLatencyMs: result.reactionTimeAvg,
-            errorRate: result.falsePositiveRate,
-            sessionDate: result.sessionDate,
-            status: result.status,
-            rawPayload: result.toJson(),
-          ));
-        },
-      ),
-    ));
-  }
-
-  static Future<void> _launchPairMatchingStatic(
-    BuildContext context,
-    SessionService session,
-    LocaleService locale,
-  ) async {
-    final decision = await DifficultyDatabaseService.instance
-        .consumeAndClearForSelectedGame('pair_matching');
-
-    final level = decision?.recommendedDifficulty ??
-        await DifficultyDatabaseService.instance.getCurrentLevel('pair_matching');
-
-    final difficulty = switch (level) {
-      1 => PairDifficulty.easy,
-      2 => PairDifficulty.medium,
-      3 => PairDifficulty.hard,
-      _ => PairDifficulty.easy,
-    };
-
-    if (!context.mounted) return;
-    await Navigator.of(context).push(MaterialPageRoute(
-      builder: (_) => PairMatchingGameScreen(
-        difficulty: difficulty,
-        promptLanguage: locale.code,
-        patientProfileId: session.patientId,
-        onGameCompleted: (PairMatchingSessionResult result) {
-          ActivityDatabaseService.instance.recordGameActivity(PatientActivityRecord(
-            clientSessionId: result.sessionId.isNotEmpty
-                ? result.sessionId
-                : 'pm_${DateTime.now().millisecondsSinceEpoch}',
-            patientId: session.patientId,
-            patientProfileId: session.patientId,
-            pairingCode: session.pairingCode,
-            gameType: 'pair_matching',
-            gameName: 'Pair Matching',
-            domain: 'memory',
-            difficultyLevel: level,
-            scoreNormalized: result.scoreNormalized,
-            sessionDuration: result.sessionDuration.toInt(),
-            accuracy: result.correctMatchRate,
-            avgLatencyMs: (result.timeToFirstCorrectMatch * 1000).clamp(0, 100000),
-            errorRate: result.repeatErrorRate,
-            sessionDate: result.sessionDate,
-            status: result.status,
-            rawPayload: result.toJson(),
-          ));
-        },
-      ),
-    ));
-  }
-}
-
 // ─────────────────────────────────────────────────────────────────────────────
-// Game Card Widget
+// Game Card
 // ─────────────────────────────────────────────────────────────────────────────
 class _GameCard extends StatelessWidget {
   final IconData icon;

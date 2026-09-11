@@ -1,6 +1,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.INTERNET"/>
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+    <uses-permission android:name="android.permission.RECORD_AUDIO"/>
     <application
         android:label="patient_app"
         android:name="${applicationName}"
@@ -45,7 +46,10 @@
             <data android:mimeType="text/plain"/>
         </intent>
         <intent>
-            <action android:name="android.intent.action.TTS_SERVICE" />
+            <action android:name="android.speech.RecognitionService"/>
         </intent>
+        <package android:name="com.google.android.googlequicksearchbox"/>
+        <package android:name="com.samsung.android.bixby.agent"/>
+        <package android:name="com.samsung.android.svoiceime"/>
     </queries>
 </manifest>

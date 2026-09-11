@@ -8,7 +8,9 @@ import '../services/background_music_service.dart';
 import '../services/locale_service.dart';
 import '../services/session_service.dart';
 import '../theme/theme.dart';
+import '../widgets/mute_toggle.dart';
 import '../widgets/sos_button.dart';
+import '../widgets/voice_nav_button.dart';
 import 'games_screen.dart';
 import 'memory_gallery_screen.dart';
 import 'pairing_screen.dart';
@@ -143,6 +145,16 @@ class _HomeScreenState extends State<HomeScreen> {
                     left: 0,
                     bottom: 0,
                     child: _FloatingSyncButton(session: session, strings: s),
+                  ),
+
+                  // Voice Navigation button — fixed bottom-center
+                  const Positioned(
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    child: Center(
+                      child: VoiceNavButton(size: 76.0),
+                    ),
                   ),
 
                   // SOS button — fixed bottom-right
@@ -467,6 +479,7 @@ class _FloatingSyncButton extends StatefulWidget {
   const _FloatingSyncButton({
     required this.session,
     required this.strings,
+    this.size = 88.0,
   });
 
   @override
