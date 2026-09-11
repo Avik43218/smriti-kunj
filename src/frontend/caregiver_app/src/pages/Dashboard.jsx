@@ -87,10 +87,10 @@ export const Dashboard = () => {
           <div>
             <div className="flex items-baseline gap-2.5">
               <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-ink dark:text-cream">
-                Smriti Setu
+                Smriti Kunj
               </h1>
               <span className="text-sm font-medium text-ink-soft dark:text-cream/60">
-                স্মৃতি সেতু
+                স্মৃতি কুঞ্জ
               </span>
             </div>
             <p className="text-xs text-ink-soft dark:text-cream/60">

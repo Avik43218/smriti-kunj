@@ -1,20 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
 import {
   Shield,
   FileText,
   X,
   ExternalLink,
-  LogOut,
+  ArrowLeft,
 } from 'lucide-react';
 
 const APP_VERSION = 'v0.1.0';
 
-export const SettingsDropdown = ({ isOpen, onClose }) => {
+export const SettingsDropdown = ({ isOpen, onClose, onBack }) => {
   const dropdownRef = useRef(null);
-  const navigate = useNavigate();
-  const { logout } = useAuth();
   const [activeModal, setActiveModal] = useState(null); // 'privacy' | 'terms' | null
 
   // Handle outside clicks to close dropdown
@@ -54,12 +50,6 @@ export const SettingsDropdown = ({ isOpen, onClose }) => {
     };
   }, [isOpen, activeModal, onClose]);
 
-  const handleLogout = async () => {
-    onClose();
-    await logout();
-    navigate('/login', { replace: true });
-  };
-
   if (!isOpen && !activeModal) return null;
 
   return (
@@ -68,15 +58,27 @@ export const SettingsDropdown = ({ isOpen, onClose }) => {
       {isOpen && (
         <div
           ref={dropdownRef}
-          className="absolute right-0 top-full mt-2.5 w-64 bg-surface dark:bg-ink border border-border dark:border-ink-soft/40 rounded-card shadow-card p-3 z-50 transition-all font-sans animate-in fade-in zoom-in-95 duration-150"
+          className="absolute right-0 top-full mt-2 w-64 bg-surface dark:bg-ink border border-border dark:border-ink-soft/40 rounded-card shadow-card p-3 z-50 transition-all font-sans animate-in fade-in zoom-in-95 duration-150"
         >
-          {/* Header Title */}
-          <div className="px-2 pt-0.5 pb-2 flex items-center justify-between border-b border-border/60 dark:border-ink-soft/30 mb-2">
-            <span className="text-xs font-bold uppercase tracking-wider text-ink dark:text-cream">
-              Preferences
-            </span>
+          {/* Header Title with Back Button */}
+          <div className="px-1 pt-0.5 pb-2 flex items-center justify-between border-b border-border/60 dark:border-ink-soft/30 mb-2">
+            <div className="flex items-center gap-1.5">
+              {onBack && (
+                <button
+                  type="button"
+                  onClick={onBack}
+                  aria-label="Back to profile menu"
+                  className="p-1 -ml-1 rounded-full text-ink-soft dark:text-cream/70 hover:text-ink dark:hover:text-cream hover:bg-cream dark:hover:bg-ink-soft/20 transition-colors"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5" />
+                </button>
+              )}
+              <span className="text-xs font-bold uppercase tracking-wider text-ink dark:text-cream">
+                Preferences
+              </span>
+            </div>
             <span className="text-[10px] text-ink-soft dark:text-cream/50 font-medium">
-              Smriti Setu
+              Smriti Kunj
             </span>
           </div>
 
@@ -113,19 +115,6 @@ export const SettingsDropdown = ({ isOpen, onClose }) => {
               <span>App Version</span>
               <span className="font-mono text-xs font-semibold text-ink dark:text-cream">{APP_VERSION}</span>
             </div>
-
-            {/* 4. Divider */}
-            <div className="my-1.5 border-t border-border/60 dark:border-ink-soft/30" />
-
-            {/* 5. Logout Option */}
-            <button
-              type="button"
-              onClick={handleLogout}
-              className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs text-terracotta hover:bg-cream dark:hover:bg-ink-soft/20 font-medium flex items-center gap-2 transition-colors"
-            >
-              <LogOut className="w-3.5 h-3.5 text-terracotta" />
-              <span>Sign Out</span>
-            </button>
           </div>
         </div>
       )}
@@ -140,7 +129,7 @@ export const SettingsDropdown = ({ isOpen, onClose }) => {
                   {activeModal === 'privacy' ? 'Privacy Policy' : 'Terms of Service'}
                 </h3>
                 <p className="text-[11px] text-ink-soft dark:text-cream/60">
-                  Smriti Setu • Cognitive Assist Platform
+                  Smriti Kunj • Cognitive Assist Platform
                 </p>
               </div>
               <button
@@ -156,8 +145,8 @@ export const SettingsDropdown = ({ isOpen, onClose }) => {
             <div className="py-4 text-xs sm:text-sm text-ink-soft dark:text-cream/80 space-y-2.5 leading-relaxed">
               <p>
                 {activeModal === 'privacy'
-                  ? 'The Smriti Setu Privacy Policy outlines how caregiver profiles, patient metrics, and longitudinal clinical data are secured using strict role-based access control and encrypted storage.'
-                  : 'The Smriti Setu Terms of Service govern clinical oversight, device pairing protocols, emergency alert responsibilities, and caregiver delegation.'}
+                  ? 'The Smriti Kunj Privacy Policy outlines how caregiver profiles, patient metrics, and longitudinal clinical data are secured using strict role-based access control and encrypted storage.'
+                  : 'The Smriti Kunj Terms of Service govern clinical oversight, device pairing protocols, emergency alert responsibilities, and caregiver delegation.'}
               </p>
               <div className="p-2.5 bg-cream dark:bg-ink-soft/20 border border-border dark:border-ink-soft/30 rounded-lg text-xs">
                 <span className="font-semibold text-ink dark:text-cream">Note:</span> Full clinical and legal compliance documentation is active for v0.1.

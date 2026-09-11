@@ -1,0 +1,94 @@
+{
+  "items": [
+    {
+      "id": "japi",
+      "category": "cultural",
+      "icon_name": "style",
+      "translations": {
+        "en": "Traditional Japi",
+        "as": "জাপি"
+      }
+    },
+    {
+      "id": "gamusa",
+      "category": "cultural",
+      "icon_name": "texture",
+      "translations": {
+        "en": "Gamosa",
+        "as": "গামোচা"
+      }
+    },
+    {
+      "id": "tea_leaf",
+      "category": "nature",
+      "icon_name": "eco",
+      "translations": {
+        "en": "Tea Leaves",
+        "as": "চাহ পাত"
+      }
+    },
+    {
+      "id": "rhino",
+      "category": "nature",
+      "icon_name": "pets",
+      "translations": {
+        "en": "Rhino",
+        "as": "গঁড়"
+      }
+    },
+    {
+      "id": "dhol",
+      "category": "music",
+      "icon_name": "music_note",
+      "translations": {
+        "en": "Bihu Dhol",
+        "as": "ঢোল"
+      }
+    },
+    {
+      "id": "lotus",
+      "category": "flower",
+      "icon_name": "local_florist",
+      "translations": {
+        "en": "Lotus Flower",
+        "as": "পদুম ফুল"
+      }
+    },
+    {
+      "id": "bamboo_shoot",
+      "category": "food",
+      "icon_name": "grass",
+      "translations": {
+        "en": "Bamboo Shoot",
+        "as": "বাঁহৰ গাজ"
+      }
+    },
+    {
+      "id": "earthen_lamp",
+      "category": "household",
+      "icon_name": "wb_incandescent",
+      "translations": {
+        "en": "Earthen Lamp",
+        "as": "মাটিৰ চাকি"
+      }
+    },
+    {
+      "id": "orange",
+      "category": "fruit",
+      "icon_name": "circle",
+      "translations": {
+        "en": "Orange",
+        "as": "কমলা"
+      }
+    },
+    {
+      "id": "mustard_oil",
+      "category": "household",
+      "icon_name": "opacity",
+      "translations": {
+        "en": "Mustard Oil",
+        "as": "সৰিয়হৰ তেল"
+      }
+    }
+  ]
+}

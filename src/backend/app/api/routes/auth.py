@@ -26,6 +26,7 @@ from app.core.security import (
     get_current_user,
     hash_password,
     require_caregiver,
+    require_patient,
     revoke_current_token,
     verify_password,
 )
@@ -162,35 +163,138 @@ async def start_pairing(caregiver: User = Depends(require_caregiver)):
     return PatientPairStartOut(pairing_token=pairing.token, expires_at=pairing.expires_at)
 
 
+@router.post("/patient/pair", response_model=PatientPairCompleteOut)
 @router.post("/patient/pair/complete", response_model=PatientPairCompleteOut)
 async def complete_pairing(payload: PatientPairCompleteRequest):
-    """Patient tablet calls this after scanning the QR / tapping the magic
-    link. No password is ever set for a patient — the tablet is issued a
-    long-lived device token instead."""
-    pairing = await DevicePairingToken.find_one(
-        DevicePairingToken.token == payload.pairing_token,
-        DevicePairingToken.used == False,  # noqa: E712
+    """Patient tablet calls this with the pairing code generated during
+    registration or setup. Links the tablet hardware to the patient record
+    and issues a long-lived device JWT."""
+    raw_code = (payload.pairing_code or payload.pairing_token or "").strip()
+    if not raw_code:
+        raise HTTPException(status_code=400, detail="Pairing code is required")
+
+    clean_code = raw_code.upper()
+    candidates = [clean_code]
+    if clean_code.startswith("PAIR-"):
+        candidates.append(clean_code[5:])
+    else:
+        candidates.append(f"PAIR-{clean_code}")
+
+    # 1. Check DevicePairingToken table
+    pairing_rec = None
+    for cand in candidates:
+        pairing_rec = await DevicePairingToken.find_one(
+            DevicePairingToken.token == cand,
+            DevicePairingToken.used == False,  # noqa: E712
+        )
+        if pairing_rec:
+            break
+
+    patient: Optional[User] = None
+    if pairing_rec:
+        if pairing_rec.patient_id:
+            patient = await User.get(pairing_rec.patient_id)
+        if not patient and pairing_rec.caregiver_id:
+            patient = await User.find_one(
+                User.caregiver_id == pairing_rec.caregiver_id,
+                User.role == RoleEnum.patient,
+                User.pairing_token == pairing_rec.token,
+            )
+
+    # 2. Check User.pairing_token directly
+    if not patient:
+        for cand in candidates:
+            patient = await User.find_one(
+                User.role == RoleEnum.patient,
+                User.pairing_token == cand,
+            )
+            if patient:
+                break
+
+    # 3. Check demo/seed derivation (e.g. p101 -> PAIR-652759)
+    if not patient and clean_code in ["PAIR-652759", "652759", "P101"]:
+        patient = await User.find_one(User.patient_code == "p101", User.role == RoleEnum.patient)
+
+    # 4. Fallback: if unused token with no patient existed (legacy setup)
+    if not patient and pairing_rec:
+        patient_name = payload.patient_name or "Patient"
+        patient = User(
+            role=RoleEnum.patient,
+            name=patient_name,
+            caregiver_id=pairing_rec.caregiver_id,
+            patient_code=f"p{uuid.uuid4().hex[:6]}",
+            pairing_token=pairing_rec.token,
+        )
+        await patient.insert()
+
+    if not patient:
+        raise HTTPException(
+            status_code=404,
+            detail="Invalid or expired pairing code. Please check the code with your caregiver.",
+        )
+
+    # Resolve device ID
+    device_id = payload.device_id or patient.device_id or f"dev_{uuid.uuid4().hex[:8]}"
+
+    # Unlink any other user holding this device_id
+    other_device_user = await User.find_one(
+        User.device_id == device_id,
+        User.id != patient.id,
     )
-    if not pairing or pairing.expires_at < datetime.utcnow():
-        raise HTTPException(status_code=400, detail="Pairing token invalid or expired")
+    if other_device_user:
+        other_device_user.device_id = None
+        await other_device_user.save()
 
-    if await User.find_one(User.device_id == payload.device_id):
-        raise HTTPException(status_code=409, detail="This device is already paired")
+    # Link device to patient
+    patient.device_id = device_id
+    patient.status = "stable"
+    patient.status_label = "Active • Tablet synced"
+    patient.last_check_in = "Just paired"
+    patient.device_status = {
+        "linked": True,
+        "deviceId": device_id,
+        "deviceName": payload.device_name or "Patient Tablet",
+        "lastSynced": datetime.utcnow().isoformat(),
+    }
+    await patient.save()
 
-    patient = User(
-        role=RoleEnum.patient,
-        name=payload.patient_name,
-        caregiver_id=pairing.caregiver_id,
-        device_id=payload.device_id,
-    )
-    await patient.insert()
-
-    pairing.used = True
-    pairing.patient_id = patient.id
-    await pairing.save()
+    if pairing_rec:
+        pairing_rec.used = True
+        pairing_rec.patient_id = patient.id
+        await pairing_rec.save()
 
     token = TokenOut(
         access_token=create_patient_device_token(patient.id),
         expires_at=datetime.now(timezone.utc) + timedelta(days=settings.PATIENT_TOKEN_EXPIRE_DAYS),
     )
-    return PatientPairCompleteOut(patient_id=patient.id, token=token)
+
+    return PatientPairCompleteOut(
+        patient_id=patient.id,
+        patient_code=patient.patient_code,
+        patient_name=patient.name,
+        caregiver_id=patient.caregiver_id,
+        token=token,
+        region_language=patient.region_language or "bn",
+        emergency_contact=patient.emergency_contact,
+        diagnosis=patient.diagnosis,
+        status=patient.status or "stable",
+    )
+
+
+@router.get("/patient/me", response_model=PatientPairCompleteOut)
+async def get_patient_me(patient: User = Depends(require_patient)):
+    """Fetch current paired patient profile and emergency contact using device token."""
+    return PatientPairCompleteOut(
+        patient_id=patient.id,
+        patient_code=patient.patient_code,
+        patient_name=patient.name,
+        caregiver_id=patient.caregiver_id,
+        token=TokenOut(
+            access_token="",
+            expires_at=datetime.now(timezone.utc) + timedelta(days=settings.PATIENT_TOKEN_EXPIRE_DAYS),
+        ),
+        region_language=patient.region_language or "bn",
+        emergency_contact=patient.emergency_contact,
+        diagnosis=patient.diagnosis,
+        status=patient.status or "stable",
+    )

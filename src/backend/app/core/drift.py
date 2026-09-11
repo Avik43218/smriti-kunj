@@ -43,7 +43,7 @@ def compute_drift(scores: List[float]) -> DriftResult:
         intercept=float(beta_0),
         r_squared=r_squared,
         sample_count=n,
-        declining=beta_1 < -0.01,  # tune this threshold against real cohort data
+        declining=bool(beta_1 < -0.01),  # tune this threshold against real cohort data
     )
 
 

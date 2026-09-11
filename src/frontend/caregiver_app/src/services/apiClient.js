@@ -9,8 +9,13 @@ const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 export const apiClient = async (endpoint, options = {}) => {
   const token = localStorage.getItem('token') || localStorage.getItem('caregiver_auth_token'); 
 
+  // Fast abort signal to prevent long hanging when running frontend-only
+  const controller = new AbortController();
+  // const timeoutId = setTimeout(() => controller.abort(), 1200);
+
   const config = {
     ...options,
+    signal: options.signal || controller.signal,
     headers: {
       'Content-Type': 'application/json',
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -20,6 +25,7 @@ export const apiClient = async (endpoint, options = {}) => {
 
   try {
     const response = await fetch(`${BASE_URL}${endpoint}`, config);
+    // clearTimeout(timeoutId);
     
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
@@ -28,24 +34,8 @@ export const apiClient = async (endpoint, options = {}) => {
     
     return await response.json();
   } catch (error) {
+    // clearTimeout(timeoutId);
     console.warn("API Call Notice (Mock Fallback):", error.message);
-    
-    // Fallbacks for auth endpoints when real backend is not running
-    if (endpoint === '/api/auth/login' || endpoint === '/api/auth/request-otp') {
-      return { success: true, requiresOtp: true };
-    }
-    if (endpoint === '/api/auth/verify-otp') {
-      const email = JSON.parse(options.body || '{}').email || 'caregiver@example.com';
-      const name = email.split('@')[0];
-      return {
-        token: 'mock_jwt_token_' + Date.now(),
-        caregiver: { id: 'cg_101', name: name.charAt(0).toUpperCase() + name.slice(1), email },
-      };
-    }
-    if (endpoint === '/api/auth/logout') {
-      return { success: true };
-    }
-
     throw error;
   }
 };

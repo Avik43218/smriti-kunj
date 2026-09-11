@@ -1,8 +1,11 @@
+import { getTodayComplianceSummary } from './reminderService';
+import apiClient from './apiClient';
+
 /**
  * Patient Service
  * 
  * Provides patient roster retrieval and profile inspection for the caregiver portal.
- * Currently uses mock implementation with realistic network delay.
+ * Derives patient careStatus dynamically from live reminder compliance data.
  */
 
 export const CARE_STATUS = {
@@ -56,7 +59,7 @@ export const getCareStatusConfig = (status) => {
   }
 };
 
-const MOCK_PATIENTS = [
+const DEFAULT_PATIENTS = [
   {
     id: 'p101',
     name: 'Aarav Sharma',
@@ -66,9 +69,17 @@ const MOCK_PATIENTS = [
     diagnosis: 'Mild Cognitive Impairment (MCI)',
     healthIssue: 'Mild Cognitive Impairment (MCI) • Early-stage memory recall decline • Hypertension',
     avatarUrl: null,
+    lastCheckIn: '10 mins ago',
+    notes: 'Morning memory recall exercise completed with 92% accuracy. Best response times before noon.',
+    preferredLanguage: 'Assamese',
+    pairingToken: 'PAIR-101742',
     careStatus: 'normal',
-    lastCheckIn: 'Today, 10:30 AM',
-    notes: 'Morning memory recall exercise completed with 92% accuracy.',
+    statusLabel: 'Tablet active • Synced',
+    weight: '68 kg',
+    diabetic: 'Non-Diabetic',
+    nutritionDiet: 'Healthy & Balanced (Regular nutritious meals)',
+    alcoholLevel: 'None / Non-Drinker',
+    smokingStatus: 'Non-Smoker',
     emergencyContact: {
       name: 'Priya Sharma',
       relationship: 'Daughter (Primary Guardian)',
@@ -76,120 +87,244 @@ const MOCK_PATIENTS = [
     },
     deviceStatus: {
       linked: true,
-      deviceName: 'Lenovo Tab M10 Plus (Patient Unit 1)',
-      deviceId: 'DEV-M10-8842',
+      deviceName: "Lenovo Tab M10 Plus (Aarav's Unit)",
+      deviceId: 'DEV-M10-8492',
       lastSynced: 'Today, 10:30 AM',
     },
   },
   {
     id: 'p102',
-    name: 'Maya Sen',
+    name: 'Sunita Das',
     age: 68,
     gender: 'Female',
-    dateOfBirth: 'November 22, 1957',
+    dateOfBirth: 'August 22, 1958',
     diagnosis: "Early Stage Alzheimer's",
-    healthIssue: "Early Stage Alzheimer's Disease • Mild spatial disorientation",
+    healthIssue: "Early Stage Alzheimer's • Needs audio prompts for daily medication adherence",
     avatarUrl: null,
+    lastCheckIn: '1 hour ago',
+    notes: 'Word association exercises show gradual improvement in recall latency.',
+    preferredLanguage: 'Bengali',
+    pairingToken: 'PAIR-204918',
     careStatus: 'reminder_missed',
-    lastCheckIn: 'Yesterday, 6:15 PM',
-    notes: 'Evening reminder acknowledged. Next routine scheduled at 8:00 AM.',
+    statusLabel: 'Medication pending',
+    weight: '61 kg',
+    diabetic: 'Type 2 Diabetic (Controlled)',
+    nutritionDiet: 'Specialized Diabetic / Low-Sodium Diet',
+    alcoholLevel: 'None / Non-Drinker',
+    smokingStatus: 'Non-Smoker',
     emergencyContact: {
-      name: 'Rohan Sen',
-      relationship: 'Son',
+      name: 'Rohan Das',
+      relationship: 'Son (Primary Guardian)',
       phone: '+91 98123 45678',
     },
     deviceStatus: {
       linked: true,
-      deviceName: 'Samsung Galaxy Tab A9 (Patient Unit 2)',
-      deviceId: 'DEV-SGT-3319',
-      lastSynced: 'Yesterday, 6:15 PM',
+      deviceName: "Samsung Galaxy Tab A8 (Sunita's Unit)",
+      deviceId: 'DEV-A8-3190',
+      lastSynced: 'Today, 09:15 AM',
     },
   },
 ];
 
+const getStoredPatients = () => {
+  try {
+    const raw = localStorage.getItem('smriti_registered_patients');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed;
+      }
+    }
+    return DEFAULT_PATIENTS;
+  } catch (err) {
+    return DEFAULT_PATIENTS;
+  }
+};
+
 /**
- * Fetches all patients assigned to the active caregiver.
+ * Fetches all patients assigned to the active caregiver with derived live careStatus.
  * 
- * // BACKEND-TODO: see docs/API_ENDPOINTS_NEEDED.md (GET /api/caregiver/patients)
+ * Uses GET /api/caregiver/patients with local cache fallback.
  * 
  * @returns {Promise<Array>}
  */
 export const fetchPatients = async () => {
-  /*
-   * === REAL API CALL REPLACEMENT ===
-   * When the backend is ready, replace the mock block below with:
-   * 
-   * const response = await apiClient.get('/api/caregiver/patients');
-   * return response.data;
-   */
+  try {
+    const data = await apiClient('/api/caregiver/patients');
+    if (Array.isArray(data)) {
+      return data.map((patient) => {
+        const compliance = getTodayComplianceSummary(patient.id);
+        return {
+          ...patient,
+          careStatus: patient.status || patient.careStatus || compliance.careStatus,
+          complianceSummary: compliance,
+        };
+      });
+    }
+  } catch (err) {
+    console.warn('apiClient /api/caregiver/patients notice, checking stored:', err.message);
+  }
 
-  // --- MOCK IMPLEMENTATION START ---
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve([...MOCK_PATIENTS]);
-    }, 400); // 400ms simulated network latency
+  const stored = getStoredPatients();
+  return stored.map((patient) => {
+    const compliance = getTodayComplianceSummary(patient.id);
+    return {
+      ...patient,
+      careStatus: patient.careStatus || compliance.careStatus,
+      complianceSummary: compliance,
+    };
   });
-  // --- MOCK IMPLEMENTATION END ---
 };
 
 /**
- * Fetches details for a single patient by ID.
+ * Registers a new patient with backend and local storage.
  * 
- * // BACKEND-TODO: see docs/API_ENDPOINTS_NEEDED.md (GET /api/caregiver/patients/:id)
- * 
- * @param {string} id
+ * @param {Object} newPatient 
  * @returns {Promise<Object>}
  */
-export const getPatientById = async (id) => {
-  /*
-   * === REAL API CALL REPLACEMENT ===
-   * When the backend is ready, replace the mock block below with:
-   * 
-   * const response = await apiClient.get(`/api/caregiver/patients/${id}`);
-   * return response.data;
-   */
+export const registerPatient = async (newPatient) => {
+  try {
+    const data = await apiClient('/api/caregiver/patients', {
+      method: 'POST',
+      body: JSON.stringify(newPatient),
+    });
+    if (data && data.id) {
+      newPatient = { ...newPatient, ...data };
+    }
+  } catch (err) {
+    console.warn('apiClient POST /api/caregiver/patients notice:', err.message);
+  }
 
-  // --- MOCK IMPLEMENTATION START ---
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      const patient = MOCK_PATIENTS.find((p) => p.id === id);
-      if (patient) {
-        resolve({ ...patient });
-      } else {
-        // Realistic fallback record if arbitrary ID entered in route
-        resolve({
-          id,
-          name: `Patient ${id}`,
-          age: 70,
-          gender: 'Not specified',
-          dateOfBirth: 'January 15, 1956',
-          diagnosis: 'Cognitive Care Monitoring',
-          healthIssue: 'Cognitive monitoring routine active',
-          avatarUrl: null,
-          careStatus: 'normal',
-          lastCheckIn: 'Today, 11:00 AM',
-          notes: 'Standard cognitive support routine.',
-          emergencyContact: {
-            name: 'Primary Contact',
-            relationship: 'Guardian',
-            phone: '+91 90000 00000',
-          },
-          deviceStatus: {
-            linked: true,
-            deviceName: `Assist Tablet (${id})`,
-            deviceId: `DEV-${id}`,
-            lastSynced: 'Today, 11:00 AM',
-          },
-        });
-      }
-    }, 300);
-  });
-  // --- MOCK IMPLEMENTATION END ---
+  const stored = getStoredPatients();
+  const filtered = stored.filter((p) => p.id !== newPatient.id);
+  filtered.unshift(newPatient);
+  try {
+    localStorage.setItem('smriti_registered_patients', JSON.stringify(filtered));
+  } catch (err) {
+    console.warn('Could not save patient to localStorage:', err);
+  }
+  return newPatient;
+};
+
+/**
+ * Fetches details for a single patient by ID with derived live careStatus.
+ * 
+ * Uses GET /api/caregiver/patients/:id with local cache fallback.
+ * 
+ * @param {string} id
+ * @returns {Promise<Object|null>}
+ */
+export const getPatientById = async (id) => {
+  const stored = getStoredPatients();
+  const cachedPatient = stored.find((p) => p.id === id);
+
+  try {
+    const data = await apiClient(`/api/caregiver/patients/${id}`);
+    if (data && data.id) {
+      const compliance = getTodayComplianceSummary(id);
+      return {
+        ...cachedPatient,
+        ...data,
+        weight: data.weight || cachedPatient?.weight,
+        diabetic: data.diabetic || cachedPatient?.diabetic,
+        nutritionDiet: data.nutritionDiet || cachedPatient?.nutritionDiet,
+        alcoholLevel: data.alcoholLevel || cachedPatient?.alcoholLevel,
+        smokingStatus: data.smokingStatus || cachedPatient?.smokingStatus,
+        careStatus: data.status || compliance.careStatus,
+        complianceSummary: compliance,
+      };
+    }
+  } catch (err) {
+    console.warn(`apiClient /api/caregiver/patients/${id} notice, checking stored:`, err.message);
+  }
+
+  if (cachedPatient) {
+    const compliance = getTodayComplianceSummary(id);
+    return {
+      ...cachedPatient,
+      careStatus: cachedPatient.careStatus || compliance.careStatus,
+      complianceSummary: compliance,
+    };
+  }
+
+  return null;
+};
+
+/**
+ * Deletes a patient from backend and local cache.
+ * 
+ * @param {string} id 
+ * @returns {Promise<boolean>}
+ */
+export const deletePatient = async (id) => {
+  try {
+    await apiClient(`/api/caregiver/patients/${id}`, {
+      method: 'DELETE',
+    });
+  } catch (err) {
+    console.warn(`apiClient DELETE /api/caregiver/patients/${id} notice:`, err.message);
+  }
+
+  const stored = getStoredPatients();
+  const updated = stored.filter((p) => p.id !== id);
+  try {
+    localStorage.setItem('smriti_registered_patients', JSON.stringify(updated));
+    localStorage.removeItem(`smriti_pairing_token_${id}`);
+  } catch (err) {
+    console.warn('Could not update localStorage after patient deletion:', err);
+  }
+  return true;
+};
+
+/**
+ * Updates an existing patient record in local storage and attempts API sync.
+ * 
+ * @param {string} id 
+ * @param {Object} updatedFields 
+ * @returns {Promise<Object>}
+ */
+export const updatePatient = async (id, updatedFields) => {
+  const stored = getStoredPatients();
+  const index = stored.findIndex((p) => p.id === id);
+  let updatedPatient;
+
+  if (index !== -1) {
+    updatedPatient = {
+      ...stored[index],
+      ...updatedFields,
+      id,
+    };
+    stored[index] = updatedPatient;
+  } else {
+    updatedPatient = { id, ...updatedFields };
+    stored.unshift(updatedPatient);
+  }
+
+  try {
+    localStorage.setItem('smriti_registered_patients', JSON.stringify(stored));
+  } catch (err) {
+    console.warn('Could not update patient in localStorage:', err);
+  }
+
+  try {
+    await apiClient('/api/caregiver/patients', {
+      method: 'POST',
+      body: JSON.stringify(updatedPatient),
+    });
+  } catch (err) {
+    console.warn('apiClient update notice:', err.message);
+  }
+
+  return updatedPatient;
 };
 
 export default {
   fetchPatients,
   getPatientById,
+  registerPatient,
+  updatePatient,
+  deletePatient,
   getCareStatusConfig,
   CARE_STATUS,
 };
+

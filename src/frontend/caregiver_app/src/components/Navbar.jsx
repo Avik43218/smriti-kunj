@@ -86,7 +86,7 @@ export const Navbar = () => {
       aria-label="Patient Navigation Dock"
       // Only wire mouse events when the device can hover
       onMouseLeave={isFinePointer ? () => setHoveredIndex(null) : undefined}
-      className="fixed top-3.5 sm:top-5 left-1/2 -translate-x-1/2 z-40 flex items-end gap-4 sm:gap-6 px-4 py-2 sm:px-6 sm:py-2.5 bg-surface/90 dark:bg-ink/90 backdrop-blur-md border border-border/80 dark:border-ink-soft/40 rounded-full shadow-xl transition-colors duration-200 select-none"
+      className="fixed bottom-4 sm:bottom-auto sm:top-5 left-1/2 -translate-x-1/2 z-40 flex items-end gap-4 sm:gap-6 px-4 py-2 sm:px-6 sm:py-2.5 bg-surface/90 dark:bg-ink/90 backdrop-blur-md border border-border/80 dark:border-ink-soft/40 rounded-full shadow-xl transition-colors duration-200 select-none"
     >
       {DOCK_ITEMS.map((item, index) => {
         const isActive = item.matchExact
@@ -141,7 +141,7 @@ export const Navbar = () => {
             {isFinePointer && (
               <div
                 role="tooltip"
-                className="absolute top-full mt-1.5 left-1/2 -translate-x-1/2 px-2.5 py-0.5 bg-ink/90 dark:bg-surface/95 text-surface dark:text-ink text-xs font-medium rounded-full shadow-md whitespace-nowrap opacity-0 -translate-y-1 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-150 pointer-events-none z-50"
+                className="absolute bottom-full sm:bottom-auto sm:top-full mb-2 sm:mb-0 sm:mt-1.5 left-1/2 -translate-x-1/2 px-2.5 py-0.5 bg-ink/90 dark:bg-surface/95 text-surface dark:text-ink text-xs font-medium rounded-full shadow-md whitespace-nowrap opacity-0 translate-y-1 sm:-translate-y-1 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-150 pointer-events-none z-50"
               >
                 {item.name}
               </div>

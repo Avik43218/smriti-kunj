@@ -1,136 +1,127 @@
+import apiClient from './apiClient';
+
 /**
- * Reminder Service
+ * Reminder & Compliance Service
  * 
- * Manages Health & Wellness reminders (Medication, Hydration, Meals, Custom) per patient.
- * Currently uses mock implementation with realistic network delay.
+ * Manages Health & Wellness reminders and daily patient compliance tracking.
+ * Acts as the canonical single source of truth for patient reminder status ('normal' vs 'reminder_missed').
  */
 
-// Initial mock dataset for patient reminders, keyed by patientId
-const MOCK_REMINDERS = {
-  p1: {
-    medication: [
-      { id: 'med_1', label: 'Morning Dose', time: '8:00 AM' },
-      { id: 'med_2', label: 'Evening Pills', time: '8:00 PM' },
-    ],
-    hydration: {
-      id: 'hyd_1',
-      label: 'Hourly Water Intake',
-      schedule: '8 AM – 8 PM',
-      status: 'Active',
-    },
-    meals: [
-      { id: 'meal_1', label: 'Breakfast', time: '8:30 AM' },
-      { id: 'meal_2', label: 'Lunch', time: '1:00 PM' },
-      { id: 'meal_3', label: 'Dinner', time: '7:30 PM' },
-    ],
-    custom: [
-      { id: 'cust_1', label: 'Evening Walk & Stretch', time: '5:00 PM', frequency: 'Daily' },
-    ],
-  },
-  p2: {
-    medication: [
-      { id: 'med_201', label: 'BP Medicine', time: '9:00 AM' },
-    ],
-    hydration: {
-      id: 'hyd_201',
-      label: 'Regular Hydration',
-      schedule: '9 AM – 7 PM',
-      status: 'Active',
-    },
-    meals: [
-      { id: 'meal_201', label: 'Breakfast', time: '9:00 AM' },
-      { id: 'meal_202', label: 'Lunch', time: '1:30 PM' },
-      { id: 'meal_203', label: 'Dinner', time: '8:00 PM' },
-    ],
-    custom: [],
-  },
+// In-memory store for active session
+let remindersStore = {};
+let complianceStore = {};
+
+/**
+ * Normalizes patient ID string
+ */
+const normalizePatientId = (patientId) => {
+  return patientId ? String(patientId).trim() : '';
 };
 
-// In-memory store initialized with mock data
-let remindersStore = JSON.parse(JSON.stringify(MOCK_REMINDERS));
+/**
+ * Helper to get or initialize reminders for a patient
+ */
+const getPatientRemindersRaw = (patientId) => {
+  const normId = normalizePatientId(patientId);
+  if (!remindersStore[normId]) {
+    remindersStore[normId] = {
+      medication: [],
+      hydration: {},
+      meals: [],
+      custom: [],
+    };
+  }
+  return remindersStore[normId];
+};
+
+/**
+ * Helper to get or initialize compliance status for a patient
+ */
+const getPatientComplianceRaw = (patientId) => {
+  const normId = normalizePatientId(patientId);
+  if (!complianceStore[normId]) {
+    complianceStore[normId] = {
+      today: {},
+      pastDays: [],
+    };
+  }
+  return complianceStore[normId];
+};
 
 /**
  * Fetches all Health & Wellness reminders for a specific patient.
  * 
- * // BACKEND-TODO: see docs/API_ENDPOINTS_NEEDED.md (GET /api/patients/:patientId/reminders)
+ * Uses GET /api/patients/:patientId/reminders with local fallback.
  * 
  * @param {string} patientId 
  * @returns {Promise<{ medication: Array, hydration: Object, meals: Array, custom: Array }>}
  */
-export const fetchReminders = async (patientId = 'p1') => {
-  /*
-   * === REAL API CALL REPLACEMENT ===
-   * When the backend is ready, replace the mock block below with:
-   * 
-   * const response = await apiClient.get(`/api/patients/${patientId}/reminders`);
-   * return response.data;
-   */
+export const fetchReminders = async (patientId = 'p101') => {
+  try {
+    const data = await apiClient(`/api/patients/${patientId}/reminders`);
+    if (data && (data.medication || data.hydration || data.meals || data.custom)) {
+      const normId = normalizePatientId(patientId);
+      remindersStore[normId] = data;
+      return JSON.parse(JSON.stringify(data));
+    }
+  } catch (err) {
+    console.warn(`apiClient /api/patients/${patientId}/reminders notice, using local cache:`, err.message);
+  }
 
-  // --- MOCK IMPLEMENTATION START ---
   return new Promise((resolve) => {
     setTimeout(() => {
-      if (!remindersStore[patientId]) {
-        // Initialize default structure if patientId has no data yet
-        remindersStore[patientId] = {
-          medication: [{ id: `med_${Date.now()}`, label: 'Morning Dose', time: '8:00 AM' }],
-          hydration: { id: `hyd_${Date.now()}`, label: 'Hourly Water Intake', schedule: '8 AM – 8 PM', status: 'Active' },
-          meals: [
-            { id: `meal_1_${Date.now()}`, label: 'Breakfast', time: '8:30 AM' },
-            { id: `meal_2_${Date.now()}`, label: 'Lunch', time: '1:00 PM' },
-            { id: `meal_3_${Date.now()}`, label: 'Dinner', time: '7:30 PM' },
-          ],
-          custom: [],
-        };
-      }
-      resolve(JSON.parse(JSON.stringify(remindersStore[patientId])));
-    }, 400); // 400ms simulated latency
+      const data = getPatientRemindersRaw(patientId);
+      resolve(JSON.parse(JSON.stringify(data)));
+    }, 250);
   });
-  // --- MOCK IMPLEMENTATION END ---
 };
 
 /**
  * Updates existing labels/times for a fixed category (medication, hydration, or meals).
- * Does NOT allow adding or deleting entries in these fixed categories.
  * 
- * // BACKEND-TODO: see docs/API_ENDPOINTS_NEEDED.md (PUT /api/patients/:patientId/reminders/:category)
+ * Uses PUT /api/patients/:patientId/reminders/:category with local fallback.
  * 
  * @param {string} patientId 
  * @param {'medication' | 'hydration' | 'meals'} category 
  * @param {Array|Object} updatedData 
  * @returns {Promise<{ success: boolean, data: any }>}
  */
-export const updateCategoryReminders = async (patientId = 'p1', category, updatedData) => {
-  /*
-   * === REAL API CALL REPLACEMENT ===
-   * When the backend is ready, replace the mock block below with:
-   * 
-   * const response = await apiClient.put(`/api/patients/${patientId}/reminders/${category}`, updatedData);
-   * return response.data;
-   */
+export const updateCategoryReminders = async (patientId = 'p101', category, updatedData) => {
+  try {
+    const data = await apiClient(`/api/patients/${patientId}/reminders/${category}`, {
+      method: 'PUT',
+      body: JSON.stringify(updatedData),
+    });
+    if (data !== undefined) {
+      const normId = normalizePatientId(patientId);
+      const patientReminders = getPatientRemindersRaw(normId);
+      patientReminders[category] = data;
+      return { success: true, data };
+    }
+  } catch (err) {
+    console.warn(`apiClient PUT /api/patients/${patientId}/reminders/${category} notice, using local cache:`, err.message);
+  }
 
-  // --- MOCK IMPLEMENTATION START ---
   return new Promise((resolve, reject) => {
     setTimeout(() => {
-      if (!remindersStore[patientId]) {
-        reject(new Error(`Patient ${patientId} not found.`));
-        return;
-      }
+      const normId = normalizePatientId(patientId);
+      const patientReminders = getPatientRemindersRaw(normId);
+
       if (!['medication', 'hydration', 'meals'].includes(category)) {
         reject(new Error(`Invalid reminder category: ${category}`));
         return;
       }
 
-      remindersStore[patientId][category] = updatedData;
-      resolve({ success: true, data: remindersStore[patientId][category] });
-    }, 400);
+      patientReminders[category] = updatedData;
+      resolve({ success: true, data: patientReminders[category] });
+    }, 300);
   });
-  // --- MOCK IMPLEMENTATION END ---
 };
 
 /**
  * Adds a new custom reminder for a patient.
  * 
- * // BACKEND-TODO: see docs/API_ENDPOINTS_NEEDED.md (POST /api/patients/:patientId/reminders/custom)
+ * Uses POST /api/patients/:patientId/reminders/custom with local fallback.
  * 
  * @param {Object} reminderData
  * @param {string} reminderData.patientId
@@ -139,16 +130,25 @@ export const updateCategoryReminders = async (patientId = 'p1', category, update
  * @param {string} reminderData.frequency
  * @returns {Promise<{ id: string, label: string, time: string, frequency: string }>}
  */
-export const addCustomReminder = async ({ patientId = 'p1', label, time, frequency = 'Daily' }) => {
-  /*
-   * === REAL API CALL REPLACEMENT ===
-   * When the backend is ready, replace the mock block below with:
-   * 
-   * const response = await apiClient.post(`/api/patients/${patientId}/reminders/custom`, { label, time, frequency });
-   * return response.data;
-   */
+export const addCustomReminder = async ({ patientId = 'p101', label, time, frequency = 'Daily' }) => {
+  try {
+    const data = await apiClient(`/api/patients/${patientId}/reminders/custom`, {
+      method: 'POST',
+      body: JSON.stringify({ label, time, frequency }),
+    });
+    if (data && data.id) {
+      const normId = normalizePatientId(patientId);
+      const patientReminders = getPatientRemindersRaw(normId);
+      if (!Array.isArray(patientReminders.custom)) {
+        patientReminders.custom = [];
+      }
+      patientReminders.custom.push(data);
+      return data;
+    }
+  } catch (err) {
+    console.warn(`apiClient POST /api/patients/${patientId}/reminders/custom notice, using local cache:`, err.message);
+  }
 
-  // --- MOCK IMPLEMENTATION START ---
   return new Promise((resolve, reject) => {
     setTimeout(() => {
       if (!label || !label.trim()) {
@@ -160,26 +160,198 @@ export const addCustomReminder = async ({ patientId = 'p1', label, time, frequen
         return;
       }
 
-      if (!remindersStore[patientId]) {
-        remindersStore[patientId] = { medication: [], hydration: {}, meals: [], custom: [] };
-      }
+      const normId = normalizePatientId(patientId);
+      const patientReminders = getPatientRemindersRaw(normId);
 
       const newCustomItem = {
         id: `cust_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
         label: label.trim(),
         time: time.trim(),
         frequency: frequency || 'Daily',
+        active: true,
       };
 
-      remindersStore[patientId].custom.push(newCustomItem);
+      if (!Array.isArray(patientReminders.custom)) {
+        patientReminders.custom = [];
+      }
+      patientReminders.custom.push(newCustomItem);
       resolve(newCustomItem);
-    }, 500);
+    }, 350);
   });
-  // --- MOCK IMPLEMENTATION END ---
+};
+
+/**
+ * Computes live compliance summary for a patient for today.
+ * Synchronously derived to serve as canonical source of truth for patientService.
+ *
+ * @param {string} patientId
+ * @returns {{
+ *   hasMissedToday: boolean,
+ *   careStatus: 'normal' | 'reminder_missed',
+ *   completedCount: number,
+ *   missedCount: number,
+ *   pendingCount: number,
+ *   totalCount: number,
+ *   summaryText: string,
+ *   completionRate: number
+ * }}
+ */
+export const getTodayComplianceSummary = (patientId = 'p101') => {
+  const normId = normalizePatientId(patientId);
+  const reminders = getPatientRemindersRaw(normId);
+  const compliance = getPatientComplianceRaw(normId);
+
+  // Flatten all active reminders
+  const allItems = [];
+  if (Array.isArray(reminders.medication)) {
+    reminders.medication.forEach((m) => allItems.push({ id: m.id, label: m.label, type: 'medication' }));
+  }
+  if (reminders.hydration && reminders.hydration.label) {
+    allItems.push({ id: reminders.hydration.id, label: reminders.hydration.label, type: 'hydration' });
+  }
+  if (Array.isArray(reminders.meals)) {
+    reminders.meals.forEach((m) => allItems.push({ id: m.id, label: m.label, type: 'meals' }));
+  }
+  if (Array.isArray(reminders.custom)) {
+    reminders.custom.forEach((c) => allItems.push({ id: c.id, label: c.label, type: 'custom' }));
+  }
+
+  let completedCount = 0;
+  let missedCount = 0;
+  let pendingCount = 0;
+
+  allItems.forEach((item) => {
+    const status = compliance.today[item.id] || 'pending';
+    if (status === 'completed') completedCount += 1;
+    else if (status === 'missed') missedCount += 1;
+    else pendingCount += 1;
+  });
+
+  const totalCount = allItems.length;
+  const hasMissedToday = missedCount > 0;
+  const careStatus = hasMissedToday ? 'reminder_missed' : 'normal';
+  const completionRate = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 100;
+
+  return {
+    hasMissedToday,
+    careStatus,
+    completedCount,
+    missedCount,
+    pendingCount,
+    totalCount,
+    summaryText: `${completedCount} of ${totalCount} completed today`,
+    completionRate,
+  };
+};
+
+/**
+ * Fetches detailed compliance items for today and the 5-day history for the Care Plan page.
+ *
+ * @param {string} patientId
+ * @returns {Promise<{
+ *   summary: Object,
+ *   todayItems: Array<{ id: string, label: string, time: string, category: string, status: 'completed'|'missed'|'pending' }>,
+ *   pastDays: Array<{ dateLabel: string, completed: number, total: number, missed: number, rate: number }>
+ * }>}
+ */
+export const getPatientComplianceDetails = async (patientId = 'p101') => {
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      const normId = normalizePatientId(patientId);
+      const reminders = getPatientRemindersRaw(normId);
+      const compliance = getPatientComplianceRaw(normId);
+      const summary = getTodayComplianceSummary(normId);
+
+      // Build today items list
+      const todayItems = [];
+
+      if (Array.isArray(reminders.medication)) {
+        reminders.medication.forEach((med) => {
+          todayItems.push({
+            id: med.id,
+            label: med.label,
+            time: med.time,
+            category: 'Medication',
+            categoryKey: 'medication',
+            status: compliance.today[med.id] || 'pending',
+          });
+        });
+      }
+
+      if (reminders.hydration && reminders.hydration.label) {
+        todayItems.push({
+          id: reminders.hydration.id,
+          label: reminders.hydration.label,
+          time: reminders.hydration.schedule || '8 AM – 8 PM',
+          category: 'Hydration',
+          categoryKey: 'hydration',
+          status: compliance.today[reminders.hydration.id] || 'pending',
+        });
+      }
+
+      if (Array.isArray(reminders.meals)) {
+        reminders.meals.forEach((meal) => {
+          todayItems.push({
+            id: meal.id,
+            label: meal.label,
+            time: meal.time,
+            category: 'Meal',
+            categoryKey: 'meals',
+            status: compliance.today[meal.id] || 'pending',
+          });
+        });
+      }
+
+      if (Array.isArray(reminders.custom)) {
+        reminders.custom.forEach((cust) => {
+          todayItems.push({
+            id: cust.id,
+            label: cust.label,
+            time: cust.time,
+            category: 'Custom Routine',
+            categoryKey: 'custom',
+            status: compliance.today[cust.id] || 'pending',
+          });
+        });
+      }
+
+      const pastDaysWithRate = (compliance.pastDays || []).map((day) => ({
+        ...day,
+        rate: day.total > 0 ? Math.round((day.completed / day.total) * 100) : 100,
+      }));
+
+      resolve({
+        summary,
+        todayItems,
+        pastDays: pastDaysWithRate,
+      });
+    }, 300);
+  });
+};
+
+/**
+ * Updates or toggles a reminder status for today (useful for simulation / testing)
+ *
+ * @param {string} patientId
+ * @param {string} reminderId
+ * @param {'completed' | 'missed' | 'pending'} newStatus
+ */
+export const setReminderComplianceStatus = async (patientId, reminderId, newStatus) => {
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      const normId = normalizePatientId(patientId);
+      const compliance = getPatientComplianceRaw(normId);
+      compliance.today[reminderId] = newStatus;
+      resolve(getTodayComplianceSummary(normId));
+    }, 200);
+  });
 };
 
 export default {
   fetchReminders,
   updateCategoryReminders,
   addCustomReminder,
+  getTodayComplianceSummary,
+  getPatientComplianceDetails,
+  setReminderComplianceStatus,
 };

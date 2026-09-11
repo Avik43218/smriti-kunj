@@ -9,7 +9,7 @@ import {
 const AuthContext = createContext(null);
 
 const STORAGE_KEYS = {
-  TOKEN: 'token', 
+  TOKEN: 'token',
   USER: 'caregiver_user_data',
 };
 
@@ -37,7 +37,7 @@ export const AuthProvider = ({ children }) => {
   // ===== DEV BYPASS — REMOVE/COMMENT BEFORE BACKEND INTEGRATION =====
   //  Uncomment this block to skip login during frontend-only development.
   //  Comment it out (or delete) once the real backend login flow is being tested.
-  
+
   // useEffect(() => {
   //   if (!token) {
   //     const fakeToken = 'dev-bypass-token';
@@ -46,7 +46,7 @@ export const AuthProvider = ({ children }) => {
   //     setCaregiver(fakeCaregiver);
   //   }
   // }, []);
-  
+
   //  ===== END DEV BYPASS =====
 
   // Syncs the User data whenever it changes

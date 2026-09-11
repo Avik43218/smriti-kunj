@@ -30,3 +30,109 @@ Thumbs.db
 assets/file-structure.md
 src/backend/.env.example
 src/frontend/caregiver_app/frontend_structure.md
+
+# Agents & Training data
+*.tflite
+src/patient_app/agents/generate_synthetic_data.py
+src/patient_app/agents/ucb1_distilled_dataset.npz
+
+# Miscellaneous
+*.class
+*.log
+*.pyc
+*.swp
+.DS_Store
+.atom/
+.build/
+.buildlog/
+.history
+.svn/
+.swiftpm/
+migrate_working_dir/
+
+# IntelliJ related
+*.iml
+*.ipr
+*.iws
+.idea/
+
+# The .vscode folder contains launch configuration and tasks you configure in
+# VS Code which you may wish to be included in version control, so this line
+# is commented out by default.
+#.vscode/
+
+# Flutter/Dart/Pub related
+**/doc/api/
+**/ios/Flutter/.last_build_id
+.dart_tool/
+.flutter-plugins-dependencies
+.pub-cache/
+.pub/
+build/
+coverage/
+
+# Symbolication related
+app.*.symbols
+
+# Obfuscation related
+app.*.map.json
+
+# Android Studio will place build artifacts here
+android/app/debug
+android/app/profile
+android/app/release
+
+# Widget Preview related
+.widget_preview/
+
+# Miscellaneous
+**/dgph
+*.mode1v3
+*.mode2v3
+*.moved-aside
+*.pbxuser
+*.perspectivev3
+**/*sync/
+.sconsign.dblite
+.tags*
+**/.vagrant/
+**/DerivedData/
+Icon?
+**/Pods/
+**/.symlinks/
+profile
+xcuserdata
+**/.generated/
+src/patient_app/ios/Flutter/App.framework
+src/patient_app/ios/Flutter/Flutter.framework
+src/patient_app/ios/Flutter/Flutter.podspec
+src/patient_app/ios/Flutter/Generated.xcconfig
+src/patient_app/ios/Flutter/ephemeral/
+src/patient_app/ios/Flutter/app.flx
+src/patient_app/ios/Flutter/app.zip
+src/patient_app/ios/Flutter/flutter_assets/
+src/patient_app/ios/Flutter/flutter_export_environment.sh
+ServiceDefinitions.json
+src/patient_app/ios/Runner/GeneratedPluginRegistrant.*
+
+# Exceptions to above rules.
+!default.mode1v3
+!default.mode2v3
+!default.pbxuser
+!default.perspectivev3
+
+# Android
+gradle-wrapper.jar
+.gradle
+captures/
+gradlew
+gradlew.bat
+local.properties
+GeneratedPluginRegistrant.java
+.cxx/
+
+# Remember to never publicly share your keystore.
+# See https://flutter.dev/to/reference-keystore
+key.properties
+**/*.keystore
+**/*.jks
