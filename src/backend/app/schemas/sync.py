@@ -32,6 +32,7 @@ class SyncBatchIn(BaseModel):
 
     patient_id: Optional[str] = None
     patient_code: Optional[str] = None
+    pairing_code: Optional[str] = None
     game_sessions: List[GameSessionIn] = []
     voice_interactions: List[VoiceInteractionIn] = []
 

@@ -389,11 +389,28 @@ class _FloatingSyncButtonState extends State<_FloatingSyncButton>
 
     final activityService = ActivityDatabaseService.instance;
     try {
+      // 1. Verify pairing code exists in local SQLite database
+      final activeCode = await activityService.getActivePairingCode();
+      if (activeCode == null || activeCode.isEmpty) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Sync failed: No pairing code found in local database. Please pair your device first.'),
+            backgroundColor: AppColors.terracottaDark,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        return;
+      }
+
       var pending = await activityService.getUnsyncedActivities();
 
       // If nothing pending, seed a starter activity so user/evaluator can test right away
       if (pending.isEmpty) {
-        await activityService.seedSampleActivityIfEmpty(widget.session.patientId);
+        await activityService.seedSampleActivityIfEmpty(
+          widget.session.patientId,
+          pairingCode: widget.session.pairingCode ?? activeCode,
+        );
         pending = await activityService.getUnsyncedActivities();
       }
 
@@ -409,14 +426,41 @@ class _FloatingSyncButtonState extends State<_FloatingSyncButton>
         return;
       }
 
+      // 2. The sync system only works if the pairing code associated with the stored game activities exists in the database
+      final validToSync = <PatientActivityRecord>[];
+      for (final act in pending) {
+        final code = act.pairingCode;
+        if (code != null && code.isNotEmpty && await activityService.hasPairingCode(code)) {
+          validToSync.add(act);
+        } else {
+          debugPrint(
+            '[HomeScreen] Skipping activity ${act.clientSessionId}: associated pairing code ($code) not found in local database.',
+          );
+        }
+      }
+
+      if (validToSync.isEmpty) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Sync rejected: Stored game activities do not have a matching pairing code in the local database.'),
+            backgroundColor: AppColors.terracottaDark,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        return;
+      }
+
+      // 3. Send only game activities over to MongoDB for the patient matching the local pairing code
       final accepted = await ApiService.instance.syncBatchActivities(
-        activities: pending,
+        activities: validToSync,
         token: widget.session.authToken,
         patientId: widget.session.patientId,
+        pairingCode: activeCode,
       );
 
       // CRITICAL REQUIREMENT: Wipe clean transferred activities from SQLite once transferred to MongoDB
-      final sessionIds = pending.map((a) => a.clientSessionId).toList();
+      final sessionIds = validToSync.map((a) => a.clientSessionId).toList();
       await activityService.deleteActivities(sessionIds);
 
       if (!mounted) return;

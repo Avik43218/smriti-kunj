@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:patient_app/services/difficulty_service.dart';
+import 'package:patient_app/services/difficulty_database_service.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();

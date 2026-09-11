@@ -7,6 +7,7 @@ class PatientActivityRecord {
   final String clientSessionId;
   final String patientId;
   final String patientProfileId;
+  final String? pairingCode;
   final String gameType; // 'market_trip' | 'tap_target' | 'pair_matching' | 'word_association' | 'visual_search'
   final String gameName; // Display name, e.g. 'Market Trip', 'Tap the Target', 'Pair Matching'
   final String domain; // 'memory' | 'working_memory' | 'attention' | 'language'
@@ -27,6 +28,7 @@ class PatientActivityRecord {
     required this.clientSessionId,
     required this.patientId,
     required this.patientProfileId,
+    this.pairingCode,
     required this.gameType,
     required this.gameName,
     required this.domain,
@@ -49,6 +51,7 @@ class PatientActivityRecord {
       'client_session_id': clientSessionId,
       'patient_id': patientId,
       'patient_profile_id': patientProfileId,
+      if (pairingCode != null) 'pairing_code': pairingCode,
       'game_type': gameType,
       'game_name': gameName,
       'domain': domain,
@@ -83,6 +86,7 @@ class PatientActivityRecord {
       clientSessionId: map['client_session_id'] as String? ?? '',
       patientId: map['patient_id'] as String? ?? '',
       patientProfileId: map['patient_profile_id'] as String? ?? '',
+      pairingCode: map['pairing_code'] as String?,
       gameType: map['game_type'] as String? ?? '',
       gameName: map['game_name'] as String? ?? '',
       domain: map['domain'] as String? ?? 'memory',
@@ -99,6 +103,50 @@ class PatientActivityRecord {
       rawPayload: parsedRawPayload,
       isSynced: (map['is_synced'] as int? ?? 0) == 1,
       syncedAt: map['synced_at'] != null ? DateTime.tryParse(map['synced_at'].toString()) : null,
+    );
+  }
+
+  PatientActivityRecord copyWith({
+    int? id,
+    String? clientSessionId,
+    String? patientId,
+    String? patientProfileId,
+    String? pairingCode,
+    String? gameType,
+    String? gameName,
+    String? domain,
+    int? difficultyLevel,
+    double? scoreNormalized,
+    int? sessionDuration,
+    double? accuracy,
+    double? avgLatencyMs,
+    double? errorRate,
+    DateTime? sessionDate,
+    String? status,
+    Map<String, dynamic>? rawPayload,
+    bool? isSynced,
+    DateTime? syncedAt,
+  }) {
+    return PatientActivityRecord(
+      id: id ?? this.id,
+      clientSessionId: clientSessionId ?? this.clientSessionId,
+      patientId: patientId ?? this.patientId,
+      patientProfileId: patientProfileId ?? this.patientProfileId,
+      pairingCode: pairingCode ?? this.pairingCode,
+      gameType: gameType ?? this.gameType,
+      gameName: gameName ?? this.gameName,
+      domain: domain ?? this.domain,
+      difficultyLevel: difficultyLevel ?? this.difficultyLevel,
+      scoreNormalized: scoreNormalized ?? this.scoreNormalized,
+      sessionDuration: sessionDuration ?? this.sessionDuration,
+      accuracy: accuracy ?? this.accuracy,
+      avgLatencyMs: avgLatencyMs ?? this.avgLatencyMs,
+      errorRate: errorRate ?? this.errorRate,
+      sessionDate: sessionDate ?? this.sessionDate,
+      status: status ?? this.status,
+      rawPayload: rawPayload ?? this.rawPayload,
+      isSynced: isSynced ?? this.isSynced,
+      syncedAt: syncedAt ?? this.syncedAt,
     );
   }
 

@@ -226,6 +226,38 @@ class TestSyncPipelineAndPersistence(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(doc.completion_time, 45.5)
             self.assertEqual(doc.trial_count, 10)
 
+    async def test_resolve_sync_patient_by_pairing_code(self):
+        # Patient with pairing code
+        paired_patient = User(
+            id=uuid.uuid4(),
+            role=RoleEnum.patient,
+            name="Paired Patient",
+            patient_code="p202",
+            pairing_token="PAIR-998877",
+        )
+
+        with patch("app.models.user.DevicePairingToken.find_one", new_callable=AsyncMock) as mock_tok_find, \
+             patch("app.models.user.User.find_one", new_callable=AsyncMock) as mock_user_find:
+
+            mock_tok_find.return_value = None
+            mock_user_find.return_value = paired_patient
+
+            # Resolve using X-Pairing-Code header
+            payload = SyncBatchIn(game_sessions=[], voice_interactions=[])
+            resolved = await sync.resolve_sync_patient(
+                payload=payload,
+                x_pairing_code="PAIR-998877",
+            )
+            self.assertEqual(resolved.id, paired_patient.id)
+            self.assertEqual(resolved.patient_code, "p202")
+
+            # Resolve using payload.pairing_code
+            payload_with_code = SyncBatchIn(pairing_code="998877", game_sessions=[], voice_interactions=[])
+            resolved_from_payload = await sync.resolve_sync_patient(
+                payload=payload_with_code,
+            )
+            self.assertEqual(resolved_from_payload.id, paired_patient.id)
+
 
 if __name__ == "__main__":
     unittest.main()
