@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 import { registerPatient } from '../services/patientService';
 import { addFamilyMember } from '../services/carePlanService';
+import { StyledSelect } from '../components/StyledSelect';
 
 const DIAGNOSIS_OPTIONS = [
   'Mild Cognitive Impairment (MCI)',
@@ -74,6 +75,7 @@ const LANGUAGE_OPTIONS = [
   { value: 'Assamese', label: 'Assamese (অসমীয়া)' },
   { value: 'Bengali', label: 'Bengali (বাংলা)' },
   { value: 'Manipuri', label: 'Manipuri (মৈতৈলোন্)' },
+  { value: 'Bodo', label: "Bodo (বর')" },
   { value: 'English', label: 'English' },
   { value: 'Hindi', label: 'Hindi (हिन्दी)' },
 ];
@@ -197,8 +199,8 @@ export const RegisterPatient = () => {
       const firstField = Object.keys(newErrors)[0];
       const targetId =
         firstField === 'name' ? 'patient-name' :
-        firstField === 'age' ? 'patient-age' :
-        firstField === 'emergency_phone' ? 'emergency-phone' : null;
+          firstField === 'age' ? 'patient-age' :
+            firstField === 'emergency_phone' ? 'emergency-phone' : null;
       if (targetId) {
         const el = document.getElementById(targetId);
         if (el) {
@@ -585,9 +587,8 @@ export const RegisterPatient = () => {
                   value={formData.name}
                   onChange={(e) => handleChange('name', e.target.value)}
                   placeholder="e.g. Aarav Sharma"
-                  className={`w-full px-3.5 py-2.5 bg-cream/40 dark:bg-ink-soft/20 border rounded-xl text-sm text-ink dark:text-cream placeholder:text-ink-soft/50 dark:placeholder:text-cream/30 focus:outline-none focus:ring-2 focus:ring-terracotta/40 transition-colors shadow-xs ${
-                    errors.name ? 'border-alert focus:border-alert' : 'border-border/80 dark:border-ink-soft/40 focus:border-terracotta'
-                  }`}
+                  className={`w-full px-3.5 py-2.5 bg-cream/40 dark:bg-ink-soft/20 border rounded-xl text-sm text-ink dark:text-cream placeholder:text-ink-soft/50 dark:placeholder:text-cream/30 focus:outline-none focus:ring-2 focus:ring-terracotta/40 transition-colors shadow-xs ${errors.name ? 'border-alert focus:border-alert' : 'border-border/80 dark:border-ink-soft/40 focus:border-terracotta'
+                    }`}
                   aria-invalid={Boolean(errors.name)}
                 />
                 {errors.name && (
@@ -630,9 +631,8 @@ export const RegisterPatient = () => {
                   value={formData.age}
                   onChange={(e) => handleChange('age', e.target.value)}
                   placeholder="e.g. 72"
-                  className={`w-full px-3.5 py-2.5 bg-cream/40 dark:bg-ink-soft/20 border rounded-xl text-sm text-ink dark:text-cream placeholder:text-ink-soft/50 dark:placeholder:text-cream/30 focus:outline-none focus:ring-2 focus:ring-terracotta/40 transition-colors shadow-xs ${
-                    errors.age ? 'border-alert focus:border-alert' : 'border-border/80 dark:border-ink-soft/40 focus:border-terracotta'
-                  }`}
+                  className={`w-full px-3.5 py-2.5 bg-cream/40 dark:bg-ink-soft/20 border rounded-xl text-sm text-ink dark:text-cream placeholder:text-ink-soft/50 dark:placeholder:text-cream/30 focus:outline-none focus:ring-2 focus:ring-terracotta/40 transition-colors shadow-xs ${errors.age ? 'border-alert focus:border-alert' : 'border-border/80 dark:border-ink-soft/40 focus:border-terracotta'
+                    }`}
                   aria-invalid={Boolean(errors.age)}
                 />
                 {errors.age && (
@@ -648,18 +648,12 @@ export const RegisterPatient = () => {
                 <label htmlFor="patient-gender" className="block text-xs font-semibold text-ink-soft dark:text-cream/80 mb-1.5">
                   Gender
                 </label>
-                <select
+                <StyledSelect
                   id="patient-gender"
                   value={formData.gender}
-                  onChange={(e) => handleChange('gender', e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-cream/40 dark:bg-ink-soft/20 border border-border/80 dark:border-ink-soft/40 rounded-xl text-sm text-ink dark:text-cream focus:outline-none focus:ring-2 focus:ring-terracotta/40 focus:border-terracotta transition-colors shadow-xs cursor-pointer"
-                >
-                  {GENDER_OPTIONS.map((g) => (
-                    <option key={g} value={g} className="bg-surface dark:bg-ink text-ink dark:text-cream">
-                      {g}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(val) => handleChange('gender', val)}
+                  options={GENDER_OPTIONS}
+                />
               </div>
 
               {/* Preferred Language / Regional Dialect */}
@@ -667,18 +661,12 @@ export const RegisterPatient = () => {
                 <label htmlFor="patient-language" className="block text-xs font-semibold text-ink-soft dark:text-cream/80 mb-1.5">
                   Preferred Language (Voice Prompts)
                 </label>
-                <select
+                <StyledSelect
                   id="patient-language"
                   value={formData.preferredLanguage}
-                  onChange={(e) => handleChange('preferredLanguage', e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-cream/40 dark:bg-ink-soft/20 border border-border/80 dark:border-ink-soft/40 rounded-xl text-sm text-ink dark:text-cream focus:outline-none focus:ring-2 focus:ring-terracotta/40 focus:border-terracotta transition-colors shadow-xs cursor-pointer"
-                >
-                  {LANGUAGE_OPTIONS.map((lang) => (
-                    <option key={lang.value} value={lang.value} className="bg-surface dark:bg-ink text-ink dark:text-cream">
-                      {lang.label}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(val) => handleChange('preferredLanguage', val)}
+                  options={LANGUAGE_OPTIONS}
+                />
                 <span className="text-[11px] text-ink-soft dark:text-cream/60 block mt-1">
                   Used for speech-to-text & conversational check-ins.
                 </span>
@@ -706,18 +694,12 @@ export const RegisterPatient = () => {
                 <label htmlFor="patient-diagnosis" className="block text-xs font-semibold text-ink-soft dark:text-cream/80 mb-1.5">
                   Primary Cognitive Diagnosis <span className="text-terracotta">*</span>
                 </label>
-                <select
+                <StyledSelect
                   id="patient-diagnosis"
                   value={formData.diagnosis}
-                  onChange={(e) => handleChange('diagnosis', e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-cream/40 dark:bg-ink-soft/20 border border-border/80 dark:border-ink-soft/40 rounded-xl text-sm text-ink dark:text-cream focus:outline-none focus:ring-2 focus:ring-terracotta/40 focus:border-terracotta transition-colors shadow-xs cursor-pointer"
-                >
-                  {DIAGNOSIS_OPTIONS.map((opt) => (
-                    <option key={opt} value={opt} className="bg-surface dark:bg-ink text-ink dark:text-cream">
-                      {opt}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(val) => handleChange('diagnosis', val)}
+                  options={DIAGNOSIS_OPTIONS}
+                />
               </div>
 
               {/* Health Issue / Condition Summary */}
@@ -731,9 +713,8 @@ export const RegisterPatient = () => {
                   value={formData.healthIssue}
                   onChange={(e) => handleChange('healthIssue', e.target.value)}
                   placeholder="e.g. Mild Cognitive Impairment (MCI) • Early-stage memory recall decline • Hypertension"
-                  className={`w-full px-3.5 py-2.5 bg-cream/40 dark:bg-ink-soft/20 border rounded-xl text-sm text-ink dark:text-cream placeholder:text-ink-soft/50 dark:placeholder:text-cream/30 focus:outline-none focus:ring-2 focus:ring-terracotta/40 transition-colors shadow-xs ${
-                    errors.healthIssue ? 'border-alert focus:border-alert' : 'border-border/80 dark:border-ink-soft/40 focus:border-terracotta'
-                  }`}
+                  className={`w-full px-3.5 py-2.5 bg-cream/40 dark:bg-ink-soft/20 border rounded-xl text-sm text-ink dark:text-cream placeholder:text-ink-soft/50 dark:placeholder:text-cream/30 focus:outline-none focus:ring-2 focus:ring-terracotta/40 transition-colors shadow-xs ${errors.healthIssue ? 'border-alert focus:border-alert' : 'border-border/80 dark:border-ink-soft/40 focus:border-terracotta'
+                    }`}
                   aria-invalid={Boolean(errors.healthIssue)}
                 />
                 {errors.healthIssue ? (
@@ -811,18 +792,12 @@ export const RegisterPatient = () => {
                 <label htmlFor="patient-diabetic" className="block text-xs font-semibold text-ink-soft dark:text-cream/80 mb-1.5">
                   Diabetic Status
                 </label>
-                <select
+                <StyledSelect
                   id="patient-diabetic"
                   value={formData.diabetic}
-                  onChange={(e) => handleChange('diabetic', e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-cream/40 dark:bg-ink-soft/20 border border-border/80 dark:border-ink-soft/40 rounded-xl text-sm text-ink dark:text-cream focus:outline-none focus:ring-2 focus:ring-terracotta/40 focus:border-terracotta transition-colors shadow-xs cursor-pointer"
-                >
-                  {DIABETIC_OPTIONS.map((opt) => (
-                    <option key={opt} value={opt} className="bg-surface dark:bg-ink text-ink dark:text-cream">
-                      {opt}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(val) => handleChange('diabetic', val)}
+                  options={DIABETIC_OPTIONS}
+                />
                 <span className="text-[11px] text-ink-soft dark:text-cream/60 block mt-1">
                   Affects medication scheduling and vascular risk assessment.
                 </span>
@@ -834,32 +809,25 @@ export const RegisterPatient = () => {
                   <label htmlFor="patient-nutrition-diet" className="block text-xs font-semibold text-ink-soft dark:text-cream/80">
                     Nutrition & Diet (Healthy Eating Assessment)
                   </label>
-                  <span className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full ${
-                    formData.nutritionDiet.toLowerCase().includes('healthy') || formData.nutritionDiet.toLowerCase().includes('balanced')
+                  <span className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full ${formData.nutritionDiet.toLowerCase().includes('healthy') || formData.nutritionDiet.toLowerCase().includes('balanced')
                       ? 'bg-sage/15 text-sage border border-sage/30'
                       : formData.nutritionDiet.toLowerCase().includes('specialized')
-                      ? 'bg-terracotta/15 text-terracotta border border-terracotta/30'
-                      : 'bg-gold/15 text-gold border border-gold/30'
-                  }`}>
+                        ? 'bg-terracotta/15 text-terracotta border border-terracotta/30'
+                        : 'bg-gold/15 text-gold border border-gold/30'
+                    }`}>
                     {formData.nutritionDiet.toLowerCase().includes('healthy') || formData.nutritionDiet.toLowerCase().includes('balanced')
                       ? '✓ Healthy Adherence'
                       : formData.nutritionDiet.toLowerCase().includes('specialized')
-                      ? '★ Specialized Clinical Diet'
-                      : '⚠ Needs Monitoring'}
+                        ? '★ Specialized Clinical Diet'
+                        : '⚠ Needs Monitoring'}
                   </span>
                 </div>
-                <select
+                <StyledSelect
                   id="patient-nutrition-diet"
                   value={formData.nutritionDiet}
-                  onChange={(e) => handleChange('nutritionDiet', e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-cream/40 dark:bg-ink-soft/20 border border-border/80 dark:border-ink-soft/40 rounded-xl text-sm text-ink dark:text-cream focus:outline-none focus:ring-2 focus:ring-terracotta/40 focus:border-terracotta transition-colors shadow-xs cursor-pointer"
-                >
-                  {NUTRITION_DIET_OPTIONS.map((opt) => (
-                    <option key={opt} value={opt} className="bg-surface dark:bg-ink text-ink dark:text-cream">
-                      {opt}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(val) => handleChange('nutritionDiet', val)}
+                  options={NUTRITION_DIET_OPTIONS}
+                />
                 <span className="text-[11px] text-ink-soft dark:text-cream/60 block mt-1">
                   Records whether patient maintains regular, balanced, nutritious meals for cognitive vitality.
                 </span>
@@ -870,18 +838,12 @@ export const RegisterPatient = () => {
                 <label htmlFor="patient-alcohol" className="block text-xs font-semibold text-ink-soft dark:text-cream/80 mb-1.5">
                   Alcohol Level / Intake
                 </label>
-                <select
+                <StyledSelect
                   id="patient-alcohol"
                   value={formData.alcoholLevel}
-                  onChange={(e) => handleChange('alcoholLevel', e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-cream/40 dark:bg-ink-soft/20 border border-border/80 dark:border-ink-soft/40 rounded-xl text-sm text-ink dark:text-cream focus:outline-none focus:ring-2 focus:ring-terracotta/40 focus:border-terracotta transition-colors shadow-xs cursor-pointer"
-                >
-                  {ALCOHOL_OPTIONS.map((opt) => (
-                    <option key={opt} value={opt} className="bg-surface dark:bg-ink text-ink dark:text-cream">
-                      {opt}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(val) => handleChange('alcoholLevel', val)}
+                  options={ALCOHOL_OPTIONS}
+                />
                 <span className="text-[11px] text-ink-soft dark:text-cream/60 block mt-1">
                   Baseline intake frequency for cognitive health monitoring.
                 </span>
@@ -892,18 +854,12 @@ export const RegisterPatient = () => {
                 <label htmlFor="patient-smoking" className="block text-xs font-semibold text-ink-soft dark:text-cream/80 mb-1.5">
                   Smoking Status
                 </label>
-                <select
+                <StyledSelect
                   id="patient-smoking"
                   value={formData.smokingStatus}
-                  onChange={(e) => handleChange('smokingStatus', e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-cream/40 dark:bg-ink-soft/20 border border-border/80 dark:border-ink-soft/40 rounded-xl text-sm text-ink dark:text-cream focus:outline-none focus:ring-2 focus:ring-terracotta/40 focus:border-terracotta transition-colors shadow-xs cursor-pointer"
-                >
-                  {SMOKING_OPTIONS.map((opt) => (
-                    <option key={opt} value={opt} className="bg-surface dark:bg-ink text-ink dark:text-cream">
-                      {opt}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(val) => handleChange('smokingStatus', val)}
+                  options={SMOKING_OPTIONS}
+                />
                 <span className="text-[11px] text-ink-soft dark:text-cream/60 block mt-1">
                   Cardiovascular and cognitive health risk factor.
                 </span>
@@ -937,9 +893,8 @@ export const RegisterPatient = () => {
                   value={formData.emergencyContact.name}
                   onChange={(e) => handleEmergencyChange('name', e.target.value)}
                   placeholder="e.g. Priya Sharma"
-                  className={`w-full px-3.5 py-2.5 bg-cream/40 dark:bg-ink-soft/20 border rounded-xl text-sm text-ink dark:text-cream placeholder:text-ink-soft/50 dark:placeholder:text-cream/30 focus:outline-none focus:ring-2 focus:ring-terracotta/40 transition-colors shadow-xs ${
-                    errors.emergency_name ? 'border-alert focus:border-alert' : 'border-border/80 dark:border-ink-soft/40 focus:border-terracotta'
-                  }`}
+                  className={`w-full px-3.5 py-2.5 bg-cream/40 dark:bg-ink-soft/20 border rounded-xl text-sm text-ink dark:text-cream placeholder:text-ink-soft/50 dark:placeholder:text-cream/30 focus:outline-none focus:ring-2 focus:ring-terracotta/40 transition-colors shadow-xs ${errors.emergency_name ? 'border-alert focus:border-alert' : 'border-border/80 dark:border-ink-soft/40 focus:border-terracotta'
+                    }`}
                   aria-invalid={Boolean(errors.emergency_name)}
                 />
                 {errors.emergency_name && (
@@ -961,9 +916,8 @@ export const RegisterPatient = () => {
                   value={formData.emergencyContact.relationship}
                   onChange={(e) => handleEmergencyChange('relationship', e.target.value)}
                   placeholder="e.g. Daughter (Primary Guardian)"
-                  className={`w-full px-3.5 py-2.5 bg-cream/40 dark:bg-ink-soft/20 border rounded-xl text-sm text-ink dark:text-cream placeholder:text-ink-soft/50 dark:placeholder:text-cream/30 focus:outline-none focus:ring-2 focus:ring-terracotta/40 transition-colors shadow-xs ${
-                    errors.emergency_relationship ? 'border-alert focus:border-alert' : 'border-border/80 dark:border-ink-soft/40 focus:border-terracotta'
-                  }`}
+                  className={`w-full px-3.5 py-2.5 bg-cream/40 dark:bg-ink-soft/20 border rounded-xl text-sm text-ink dark:text-cream placeholder:text-ink-soft/50 dark:placeholder:text-cream/30 focus:outline-none focus:ring-2 focus:ring-terracotta/40 transition-colors shadow-xs ${errors.emergency_relationship ? 'border-alert focus:border-alert' : 'border-border/80 dark:border-ink-soft/40 focus:border-terracotta'
+                    }`}
                   aria-invalid={Boolean(errors.emergency_relationship)}
                 />
                 {errors.emergency_relationship && (
@@ -985,9 +939,8 @@ export const RegisterPatient = () => {
                   value={formData.emergencyContact.phone}
                   onChange={(e) => handleEmergencyChange('phone', e.target.value)}
                   placeholder="+91 98765 43210"
-                  className={`w-full px-3.5 py-2.5 bg-cream/40 dark:bg-ink-soft/20 border rounded-xl text-sm text-ink dark:text-cream placeholder:text-ink-soft/50 dark:placeholder:text-cream/30 focus:outline-none focus:ring-2 focus:ring-terracotta/40 transition-colors shadow-xs ${
-                    errors.emergency_phone ? 'border-alert focus:border-alert' : 'border-border/80 dark:border-ink-soft/40 focus:border-terracotta'
-                  }`}
+                  className={`w-full px-3.5 py-2.5 bg-cream/40 dark:bg-ink-soft/20 border rounded-xl text-sm text-ink dark:text-cream placeholder:text-ink-soft/50 dark:placeholder:text-cream/30 focus:outline-none focus:ring-2 focus:ring-terracotta/40 transition-colors shadow-xs ${errors.emergency_phone ? 'border-alert focus:border-alert' : 'border-border/80 dark:border-ink-soft/40 focus:border-terracotta'
+                    }`}
                   aria-invalid={Boolean(errors.emergency_phone)}
                 />
                 {errors.emergency_phone && (

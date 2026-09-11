@@ -114,13 +114,13 @@ export const Dashboard = () => {
           <div>
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-cream dark:bg-ink-soft/40 text-terracotta text-xs font-semibold uppercase tracking-wider mb-3">
               <Sparkles className="w-3.5 h-3.5" />
-              <span>Caregiver Roster</span>
+              <span>Caregiver Portal</span>
             </div>
             <h2 className="text-xl sm:text-2xl font-bold text-ink dark:text-cream tracking-tight">
               Welcome, {caregiver?.name || 'Caregiver'}
             </h2>
             <p className="text-xs sm:text-sm text-ink-soft dark:text-cream/70 mt-1.5 max-w-2xl leading-relaxed">
-              Monitor active patient cognitive routines, longitudinal trends, and tablet synchronization status from your dashboard roster.
+              Monitor active patient cognitive routines, longitudinal trends, and tablet synchronization status from your caregiver portal.
             </p>
           </div>
 
