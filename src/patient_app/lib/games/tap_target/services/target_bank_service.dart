@@ -10,14 +10,16 @@ import '../models/target_config.dart';
 ///   Step-down: falsePositiveRate > 0.40 OR omissionRate > 0.50
 ///   Step-up:   scoreNormalized > 0.85 sustained over 3 sessions
 class TapDifficulty {
-  /// Number of distractor items shown alongside the target each trial.
+  /// Number of distractor items in the candidate pool.
   final int distractorCount;
 
-  /// Target-appearance interval in seconds. Patient sees blank/distractors
-  /// for this duration before the target card appears.
+  /// Display interval in seconds per card before cycling to the next.
   final double appearanceIntervalSeconds;
 
-  /// Total number of target appearances in the session.
+  /// Target frequency cadence (e.g. 4 means target appears roughly 1 in 4 cards).
+  final int targetFrequency;
+
+  /// Total number of card presentations in the session (distractors + targets).
   final int trialCount;
 
   /// How tightly distractors are matched to the target visually.
@@ -30,34 +32,38 @@ class TapDifficulty {
   const TapDifficulty._({
     required this.distractorCount,
     required this.appearanceIntervalSeconds,
+    required this.targetFrequency,
     required this.trialCount,
     required this.similarity,
     required this.level,
   });
 
-  /// Easy: 2 distractors, 3.0 s interval, 8 trials, visually distinct.
+  /// Easy: 2.5 s interval, 1-in-4 frequency, 16 total cards, visually distinct distractors.
   static const easy = TapDifficulty._(
-    distractorCount: 2,
-    appearanceIntervalSeconds: 3.0,
-    trialCount: 8,
+    distractorCount: 6,
+    appearanceIntervalSeconds: 2.5,
+    targetFrequency: 4,
+    trialCount: 16,
     similarity: DistractorSimilarity.distinct,
     level: 1,
   );
 
-  /// Medium: 4 distractors, 2.0 s interval, 10 trials, some similar visuals.
+  /// Medium: 1.8 s interval, 1-in-5 frequency, 20 total cards, similar visual groups.
   static const medium = TapDifficulty._(
-    distractorCount: 4,
-    appearanceIntervalSeconds: 2.0,
-    trialCount: 10,
+    distractorCount: 6,
+    appearanceIntervalSeconds: 1.8,
+    targetFrequency: 5,
+    trialCount: 20,
     similarity: DistractorSimilarity.similar,
     level: 2,
   );
 
-  /// Hard: 6 distractors, 1.2 s interval, 12 trials, semantically similar.
+  /// Hard: 1.2 s interval, 1-in-6 frequency, 24 total cards, semantically & visually very similar.
   static const hard = TapDifficulty._(
     distractorCount: 6,
     appearanceIntervalSeconds: 1.2,
-    trialCount: 12,
+    targetFrequency: 6,
+    trialCount: 24,
     similarity: DistractorSimilarity.verySimilar,
     level: 3,
   );
@@ -163,5 +169,55 @@ class TargetBankService {
 
     candidates.shuffle(_random);
     return candidates.take(difficulty.distractorCount).toList();
+  }
+
+  /// Generates the full sequence of [TargetConfig] cards to display in the single-card cycle.
+  ///
+  /// Distributes target appearances based on [difficulty.targetFrequency] across [difficulty.trialCount]
+  /// total cards, filling all other positions with distractors filtered by [difficulty.similarity].
+  List<TargetConfig> generateCardSequence({
+    required List<TargetConfig> bank,
+    required TargetConfig target,
+    required TapDifficulty difficulty,
+  }) {
+    final distractors = selectDistractors(
+      bank: bank,
+      target: target,
+      difficulty: difficulty,
+    );
+
+    final totalCards = difficulty.trialCount;
+    final cadence = max(2, difficulty.targetFrequency);
+    final sequence = List<TargetConfig?>.filled(totalCards, null);
+
+    // Distribute targets: 1 target in every block of [cadence] cards
+    for (int blockStart = 0; blockStart < totalCards; blockStart += cadence) {
+      final blockEnd = min(blockStart + cadence, totalCards);
+      final blockSize = blockEnd - blockStart;
+      if (blockSize <= 0) break;
+
+      // In the first block, avoid placing target at index 0 so user sees at least 1 lead-in card
+      final minOffset = (blockStart == 0 && blockSize > 1) ? 1 : 0;
+      final offset = minOffset + _random.nextInt(blockSize - minOffset);
+      sequence[blockStart + offset] = target;
+    }
+
+    // Fill remaining slots with distractors
+    TargetConfig? lastDistractor;
+    for (int i = 0; i < totalCards; i++) {
+      if (sequence[i] == null) {
+        // Pick a distractor, preferably not identical to the immediately preceding card
+        final pool = distractors.where((d) => d.id != lastDistractor?.id).toList();
+        final chosen = pool.isNotEmpty
+            ? pool[_random.nextInt(pool.length)]
+            : distractors[_random.nextInt(distractors.length)];
+        sequence[i] = chosen;
+        lastDistractor = chosen;
+      } else {
+        lastDistractor = null;
+      }
+    }
+
+    return sequence.cast<TargetConfig>();
   }
 }
