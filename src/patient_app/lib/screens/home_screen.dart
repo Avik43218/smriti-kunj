@@ -80,11 +80,11 @@ class _HomeScreenState extends State<HomeScreen> {
                               ],
                             ),
                           ),
-                          // Controls: Language toggle + Top-Right Dropdown Menu (Sound + Logout)
+                          // Controls: Language dropdown + Top-Right Dropdown Menu (Sound + Logout)
                           Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              _LangToggle(locale: locale),
+                              _LanguageDropdown(locale: locale),
                               const SizedBox(width: 8),
                               _HeaderMenuDropdown(session: session),
                             ],
@@ -162,77 +162,69 @@ class _HomeScreenState extends State<HomeScreen> {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Language toggle widget — two pill chips: EN | অ
+// Language selector dropdown widget — shows full native script names
 // ─────────────────────────────────────────────────────────────────────────────
-class _LangToggle extends StatelessWidget {
+class _LanguageDropdown extends StatelessWidget {
   final LocaleService locale;
-  const _LangToggle({required this.locale});
+  const _LanguageDropdown({required this.locale});
 
   @override
   Widget build(BuildContext context) {
     return Container(
       height: 44,
+      padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(22),
         border: Border.all(color: AppColors.border, width: 1.5),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _LangChip(
-            label: AppLang.english.label,
-            selected: locale.lang == AppLang.english,
-            onTap: () => locale.setLang(AppLang.english),
-          ),
-          _LangChip(
-            label: AppLang.assamese.label,
-            selected: locale.lang == AppLang.assamese,
-            onTap: () => locale.setLang(AppLang.assamese),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.ink.withValues(alpha: 0.04),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
           ),
         ],
       ),
-    );
-  }
-}
-
-class _LangChip extends StatelessWidget {
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  const _LangChip({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      button: true,
-      selected: selected,
-      label: label,
-      child: GestureDetector(
-        onTap: onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          width: 44,
-          height: 44,
-          decoration: BoxDecoration(
-            color: selected ? AppColors.terracotta : Colors.transparent,
-            borderRadius: BorderRadius.circular(22),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<AppLang>(
+          value: locale.lang,
+          icon: const Icon(
+            Icons.keyboard_arrow_down_rounded,
+            color: AppColors.terracotta,
+            size: 24,
           ),
-          child: Center(
-            child: Text(
-              label,
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-                color: selected ? Colors.white : AppColors.inkSoft,
+          dropdownColor: AppColors.surface,
+          borderRadius: BorderRadius.circular(18),
+          elevation: 4,
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w700,
+            color: AppColors.ink,
+          ),
+          onChanged: (AppLang? newLang) {
+            if (newLang != null) {
+              locale.setLang(newLang);
+            }
+          },
+          items: AppLang.values.map((AppLang lang) {
+            final isSelected = lang == locale.lang;
+            return DropdownMenuItem<AppLang>(
+              value: lang,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    lang.fullLabel,
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                      color: isSelected ? AppColors.terracotta : AppColors.ink,
+                    ),
+                  ),
+                ],
               ),
-            ),
-          ),
+            );
+          }).toList(),
         ),
       ),
     );

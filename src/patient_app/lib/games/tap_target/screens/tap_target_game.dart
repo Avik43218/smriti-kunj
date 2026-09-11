@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 import 'package:flutter/material.dart';
+import '../../../services/app_strings.dart';
+import '../../../services/locale_service.dart';
 import '../../../theme/theme.dart';
 import '../../../games/shared/models/round_telemetry.dart';
 import '../../../games/shared/models/completion_message.dart';
@@ -116,26 +118,17 @@ class _TapTargetGameScreenState extends State<TapTargetGameScreen>
   CompletionMessage _completionMessage = CompletionMessage.getRandom();
 
   // ── Localisation helpers ──────────────────────────────────────────────────
-  bool get _isAs => widget.promptLanguage == 'as';
+  AppStrings get _s => AppStrings(AppLangExt.fromCode(widget.promptLanguage));
 
-  String get _appBarTitle =>
-      _isAs ? 'লক্ষ্যত টেপ কৰক' : 'Tap the Target';
+  String get _appBarTitle => _s.gameAppBarTapTarget;
 
-  String get _introHeading =>
-      _isAs ? 'আপোনাৰ লক্ষ্য:' : 'Your target:';
+  String get _introHeading => _s.tapTargetIntroHeading;
 
-  String get _introInstruction =>
-      _isAs
-          ? 'এই বস্তুটো দেখা পালে সোনকালে কাৰ্ডখনত টেপ কৰক। অন্য বস্তুত টেপ নকৰিব।'
-          : 'Tap the card ONLY when your target appears. Do not tap other items.';
+  String get _introInstruction => _s.tapTargetIntroInstruction;
 
-  String get _startButton =>
-      _isAs ? 'আৰম্ভ কৰক' : 'Start';
+  String get _startButton => _s.tapTargetStartButton;
 
-  String get _playInstruction =>
-      _isAs
-          ? 'কেৱল লক্ষ্য দেখা পালে টেপ কৰক'
-          : 'Tap ONLY when target appears';
+  String get _playInstruction => _s.tapTargetPlayInstruction;
 
   String get _summaryHeading =>
       _completionMessage.heading(widget.promptLanguage);
@@ -143,11 +136,9 @@ class _TapTargetGameScreenState extends State<TapTargetGameScreen>
   String get _summarySubheading =>
       _completionMessage.subheading(widget.promptLanguage);
 
-  String get _playAgainButton =>
-      _isAs ? 'পুনৰ খেলক' : 'Play Again';
+  String get _playAgainButton => _s.playAgain;
 
-  String get _doneButton =>
-      _isAs ? "সম্পূৰ্ণ হ'ল" : 'Done';
+  String get _doneButton => _s.done;
 
   // ─────────────────────────────────────────────────────────────────────────
   @override
@@ -717,7 +708,7 @@ class _TapTargetGameScreenState extends State<TapTargetGameScreen>
                 Icon(_target.iconData, size: 24, color: AppColors.terracotta),
                 const SizedBox(width: 8),
                 Text(
-                  _isAs ? 'লক্ষ্য: $targetName' : 'Target: $targetName',
+                  _s.tapTargetLabel(targetName),
                   style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,

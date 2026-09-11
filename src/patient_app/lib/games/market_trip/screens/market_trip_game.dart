@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import '../../../services/app_strings.dart';
+import '../../../services/locale_service.dart';
 import '../../../theme/theme.dart';
 import '../../../games/shared/models/round_telemetry.dart';
 import '../../../games/shared/models/completion_message.dart';
@@ -227,9 +229,12 @@ class _MarketTripGameScreenState extends State<MarketTripGameScreen> {
     final double penalty = falseCount * 0.15;
     final double normalizedScore = (accuracy - penalty).clamp(0.0, 1.0);
 
-    final String langString = widget.promptLanguage == 'as'
-        ? 'assamese'
-        : (widget.promptLanguage == 'bn' ? 'bengali' : 'english');
+    final String langString = switch (widget.promptLanguage) {
+      'as' => 'assamese',
+      'bn' => 'bengali',
+      'brx' => 'bodo',
+      _ => 'english',
+    };
 
     final result = GameSessionResult(
       itemsPromptedCount: promptedCount,
@@ -318,6 +323,8 @@ class _MarketTripGameScreenState extends State<MarketTripGameScreen> {
     widget.onGameCompleted?.call(result);
   }
 
+  AppStrings get _s => AppStrings(AppLangExt.fromCode(widget.promptLanguage));
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -327,7 +334,7 @@ class _MarketTripGameScreenState extends State<MarketTripGameScreen> {
         elevation: 0,
         centerTitle: true,
         title: Text(
-          widget.promptLanguage == 'as' ? 'বজাৰৰ যাত্ৰা (Market Trip)' : 'The Market Trip',
+          _s.gameAppBarMarketTrip,
           style: const TextStyle(
             fontSize: 22,
             fontWeight: FontWeight.bold,
@@ -383,13 +390,8 @@ class _MarketTripGameScreenState extends State<MarketTripGameScreen> {
 
   /// Recall Phase Widget: Item card grid with dementia-safe selection state (border + checkmark icon).
   Widget _buildRecallWidget() {
-    final titleText = widget.promptLanguage == 'as'
-        ? 'বজাৰৰ মোনাত কি কি আছিল বাছনি কৰক:'
-        : 'Select the items that were on your shopping list:';
-
-    final submitText = widget.promptLanguage == 'as'
-        ? 'জমা দিয়ক (${_selectedItemIds.length} টা বাছনি কৰা হ’ল)'
-        : 'Submit Shopping Bag (${_selectedItemIds.length} selected)';
+    final titleText = _s.recallTitle;
+    final submitText = _s.recallSubmit(_selectedItemIds.length);
 
     return Container(
       color: AppColors.cream,
@@ -569,11 +571,10 @@ class _MarketTripGameScreenState extends State<MarketTripGameScreen> {
 
   /// Summary Phase Widget: Displays warm completion message and Play Again / Done actions.
   Widget _buildSummaryWidget() {
-    final bool isAs = widget.promptLanguage == 'as';
     final String heading = _completionMessage.heading(widget.promptLanguage);
     final String subheading = _completionMessage.subheading(widget.promptLanguage);
-    final String playAgainText = isAs ? 'পুনৰ খেলক' : 'Play Again';
-    final String doneText = isAs ? 'সম্পূৰ্ণ হ’ল' : 'Done';
+    final String playAgainText = _s.playAgain;
+    final String doneText = _s.done;
 
     return Container(
       color: AppColors.cream,
@@ -771,9 +772,7 @@ class _DistractorTaskWidgetState extends State<_DistractorTaskWidget> {
     final shape = _shapePalette[shapeIndex % _shapePalette.length];
     final isTapped = _tappedShapeIndices.contains(shapeIndex);
 
-    final title = widget.languageCode == 'as'
-        ? 'গণনা কৰক: ওলোৱা প্ৰতিটো চিনত টেপ কৰক'
-        : 'Count along: Tap each shape as it appears';
+    final title = AppStrings(AppLangExt.fromCode(widget.languageCode)).distractorTitle;
 
     return Container(
       color: AppColors.cream,

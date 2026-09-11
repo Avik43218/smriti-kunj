@@ -1,5 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import '../../../services/app_strings.dart';
+import '../../../services/locale_service.dart';
 import '../../../theme/theme.dart';
 import '../models/market_item.dart';
 
@@ -93,19 +95,11 @@ class _TextPromptWidgetState extends State<_TextPromptWidget> {
     super.dispose();
   }
 
-  String get _promptTitle {
-    if (widget.languageCode == 'as') {
-      return 'আজি আমি কি কি কিনিব লাগে মনত ৰাখক:';
-    }
-    return 'Today we need to buy these items:';
-  }
+  AppStrings get _s => AppStrings(AppLangExt.fromCode(widget.languageCode));
 
-  String get _buttonText {
-    if (widget.languageCode == 'as') {
-      return 'মই মনত ৰাখিলোঁ';
-    }
-    return "I'm Ready to Shop";
-  }
+  String get _promptTitle => _s.marketTripPromptTitle;
+
+  String get _buttonText => _s.marketTripReadyButton;
 
   @override
   Widget build(BuildContext context) {

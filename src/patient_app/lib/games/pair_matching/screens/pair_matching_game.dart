@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import '../../../services/app_strings.dart';
+import '../../../services/locale_service.dart';
 import '../../../theme/theme.dart';
 import '../../../games/shared/models/round_telemetry.dart';
 import '../../../games/shared/models/completion_message.dart';
@@ -73,16 +75,15 @@ class _PairMatchingGameScreenState extends State<PairMatchingGameScreen> {
   CompletionMessage _completionMessage = CompletionMessage.getRandom();
 
   // ── Localisation helpers ──────────────────────────────────────────────────
-  bool get _isAs => widget.promptLanguage == 'as';
+  AppStrings get _s => AppStrings(AppLangExt.fromCode(widget.promptLanguage));
 
-  String get _appBarTitle => _isAs ? "যোৰ মিলোৱা" : "Pair Matching";
-  String get _instruction =>
-      _isAs ? "মিলন যোৰ বিচাৰিবলৈ কাৰ্ডবোৰ ওলোটাওক" : "Flip cards to find matching pairs";
-  String get _pairsFoundLabel => _isAs ? "মিলিত যোৰ:" : "Pairs found:";
+  String get _appBarTitle => _s.gameAppBarPairMatch;
+  String get _instruction => _s.pairMatchInstruction;
+  String get _pairsFoundLabel => _s.pairsFoundLabel;
   String get _summaryHeading => _completionMessage.heading(widget.promptLanguage);
   String get _summarySubheading => _completionMessage.subheading(widget.promptLanguage);
-  String get _playAgainButton => _isAs ? "পুনৰ খেলক" : "Play Again";
-  String get _doneButton => _isAs ? "সম্পূৰ্ণ হ'ল" : "Done";
+  String get _playAgainButton => _s.playAgain;
+  String get _doneButton => _s.done;
   late PairDifficulty _activeDifficulty;
 
   @override
