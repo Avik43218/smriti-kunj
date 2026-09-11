@@ -58,7 +58,6 @@ class _MarketTripGameScreenState extends State<MarketTripGameScreen> {
   DateTime? _distractorStartTime;
   DateTime? _distractorEndTime;
 
-  int _distractorTapCount = 0;
   bool _distractorTaskCompleted = false;
 
   late GameDifficulty _activeDifficulty;
@@ -120,7 +119,6 @@ class _MarketTripGameScreenState extends State<MarketTripGameScreen> {
     _distractorStartTime = DateTime.now();
     setState(() {
       _currentPhase = MarketGamePhase.distractor;
-      _distractorTapCount = 0;
       _distractorTaskCompleted = false;
     });
   }
@@ -216,13 +214,6 @@ class _MarketTripGameScreenState extends State<MarketTripGameScreen> {
     final String langString = widget.promptLanguage == 'as'
         ? 'assamese'
         : (widget.promptLanguage == 'bn' ? 'bengali' : 'english');
-
-    // Record distractor tap count into rawTrials for downstream analytics.
-    _rawTrials.add({
-      'event': 'distractor_summary',
-      'tap_count': _distractorTapCount,
-      'completed': _distractorTaskCompleted || _activeDifficulty == GameDifficulty.easy,
-    });
 
     final result = GameSessionResult(
       itemsPromptedCount: promptedCount,
@@ -362,12 +353,12 @@ class _MarketTripGameScreenState extends State<MarketTripGameScreen> {
     }
   }
 
-  /// Distractor Phase Widget: Calm 10-second interactive plant watering / counting task.
+  /// Distractor Phase Widget: Interference counting task during memory delay.
   Widget _buildDistractorWidget() {
     return _DistractorTaskWidget(
       languageCode: widget.promptLanguage,
-      onCompleted: (tapsCount, completed) {
-        _distractorTapCount = tapsCount;
+      difficulty: _activeDifficulty,
+      onCompleted: (completed) {
         _distractorTaskCompleted = completed;
         _onDistractorFinished();
       },
@@ -679,13 +670,23 @@ class _MarketTripGameScreenState extends State<MarketTripGameScreen> {
   }
 }
 
-/// Simple 10-second distractor interaction widget: Water the garden tea plants.
+class _DistractorShape {
+  final IconData icon;
+  final Color color;
+
+  const _DistractorShape({required this.icon, required this.color});
+}
+
+/// Counting distractor task widget: Shapes appear sequentially during the delay.
+/// Patient taps each shape as it appears to keep attention occupied.
 class _DistractorTaskWidget extends StatefulWidget {
   final String languageCode;
-  final void Function(int tapCount, bool completed) onCompleted;
+  final GameDifficulty difficulty;
+  final void Function(bool completed) onCompleted;
 
   const _DistractorTaskWidget({
     required this.languageCode,
+    required this.difficulty,
     required this.onCompleted,
   });
 
@@ -694,13 +695,34 @@ class _DistractorTaskWidget extends StatefulWidget {
 }
 
 class _DistractorTaskWidgetState extends State<_DistractorTaskWidget> {
-  int _secondsLeft = 10;
-  int _waterTaps = 0;
+  late int _totalDuration;
+  late int _totalShapes;
+  late int _secondsLeft;
+  bool _hasTappedAtLeastOnce = false;
+  final Set<int> _tappedShapeIndices = {};
   Timer? _timer;
+
+  static const List<_DistractorShape> _shapePalette = [
+    _DistractorShape(icon: Icons.star_rounded, color: AppColors.mugaGold),
+    _DistractorShape(icon: Icons.circle, color: AppColors.terracotta),
+    _DistractorShape(icon: Icons.square_rounded, color: AppColors.sageGreen),
+    _DistractorShape(icon: Icons.diamond_rounded, color: AppColors.terracottaDark),
+    _DistractorShape(icon: Icons.spa_rounded, color: AppColors.sageGreen),
+    _DistractorShape(icon: Icons.change_history_rounded, color: AppColors.mugaGold),
+    _DistractorShape(icon: Icons.circle, color: AppColors.inkSoft),
+    _DistractorShape(icon: Icons.star_rounded, color: AppColors.terracotta),
+    _DistractorShape(icon: Icons.hexagon_rounded, color: AppColors.sageGreen),
+    _DistractorShape(icon: Icons.eco_rounded, color: AppColors.mugaGold),
+  ];
 
   @override
   void initState() {
     super.initState();
+    // Medium = 10s (5 shapes), Hard = 20s (10 shapes)
+    _totalDuration = widget.difficulty == GameDifficulty.hard ? 20 : 10;
+    _totalShapes = widget.difficulty == GameDifficulty.hard ? 10 : 5;
+    _secondsLeft = _totalDuration;
+
     _timer = Timer.periodic(const Duration(seconds: 1), (t) {
       if (!mounted) return;
       if (_secondsLeft > 1) {
@@ -709,7 +731,7 @@ class _DistractorTaskWidgetState extends State<_DistractorTaskWidget> {
         });
       } else {
         _timer?.cancel();
-        widget.onCompleted(_waterTaps, true);
+        widget.onCompleted(_hasTappedAtLeastOnce);
       }
     });
   }
@@ -720,21 +742,29 @@ class _DistractorTaskWidgetState extends State<_DistractorTaskWidget> {
     super.dispose();
   }
 
-  void _tapWaterPlant() {
+  int get _currentShapeIndex {
+    final elapsed = _totalDuration - _secondsLeft;
+    final index = (elapsed ~/ 2).clamp(0, _totalShapes - 1);
+    return index;
+  }
+
+  void _tapCurrentShape(int index) {
+    if (_tappedShapeIndices.contains(index)) return;
     setState(() {
-      _waterTaps++;
+      _hasTappedAtLeastOnce = true;
+      _tappedShapeIndices.add(index);
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    final title = widget.languageCode == 'as'
-        ? 'মন স্থিৰ কৰক: কিছু সময় বাগিচাত পানী দিয়ক'
-        : 'Take a short breath: Water the tea leaves';
+    final shapeIndex = _currentShapeIndex;
+    final shape = _shapePalette[shapeIndex % _shapePalette.length];
+    final isTapped = _tappedShapeIndices.contains(shapeIndex);
 
-    final instruction = widget.languageCode == 'as'
-        ? 'গছজোপাত পানী দিবলৈ টেপ কৰক ($_waterTaps বাৰ পানী দিয়া হ’ল)'
-        : 'Tap the plant to water it ($_waterTaps times watered)';
+    final title = widget.languageCode == 'as'
+        ? 'গণনা কৰক: ওলোৱা প্ৰতিটো চিনত টেপ কৰক'
+        : 'Count along: Tap each shape as it appears';
 
     return Container(
       color: AppColors.cream,
@@ -743,6 +773,7 @@ class _DistractorTaskWidgetState extends State<_DistractorTaskWidget> {
         mainAxisAlignment: MainAxisAlignment.center,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          // Timer and Title header
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
@@ -782,42 +813,44 @@ class _DistractorTaskWidgetState extends State<_DistractorTaskWidget> {
           ),
           const SizedBox(height: 32),
 
-          // Interactive Water Plant Target (Min target 88dp height/width)
-          GestureDetector(
-            onTap: _tapWaterPlant,
-            child: Container(
-              height: 180,
-              decoration: BoxDecoration(
-                color: AppColors.surface,
-                borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: AppColors.sageGreen, width: 3),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppColors.ink.withValues(alpha: 0.08),
-                    blurRadius: 8,
-                    offset: const Offset(0, 4),
+          // Interactive Counting Shape Target (Min target 88dp height/width)
+          Center(
+            child: GestureDetector(
+              onTap: () => _tapCurrentShape(shapeIndex),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 250),
+                width: 180,
+                height: 180,
+                decoration: BoxDecoration(
+                  color: isTapped
+                      ? shape.color.withValues(alpha: 0.15)
+                      : AppColors.surface,
+                  borderRadius: BorderRadius.circular(32),
+                  border: Border.all(
+                    color: isTapped ? shape.color : AppColors.border,
+                    width: isTapped ? 3.5 : 2.0,
                   ),
-                ],
-              ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(
-                    Icons.water_drop,
-                    size: 64,
-                    color: AppColors.sageGreen,
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    instruction,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.ink,
+                  boxShadow: [
+                    BoxShadow(
+                      color: isTapped
+                          ? shape.color.withValues(alpha: 0.25)
+                          : AppColors.ink.withValues(alpha: 0.08),
+                      blurRadius: isTapped ? 16 : 8,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Center(
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 200),
+                    child: Icon(
+                      isTapped ? Icons.check_circle_rounded : shape.icon,
+                      key: ValueKey('shape_${shapeIndex}_$isTapped'),
+                      size: 80,
+                      color: isTapped ? shape.color : shape.color,
                     ),
                   ),
-                ],
+                ),
               ),
             ),
           ),
