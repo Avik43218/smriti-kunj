@@ -400,8 +400,13 @@ class _PairMatchingGameScreenState extends State<PairMatchingGameScreen> {
         ? _matchedPairs / _activeDifficulty.pairCount
         : 0.0;
 
+    // Scale horizontal padding by tier density
+    final horizontalPad = _activeDifficulty == PairDifficulty.hard
+        ? 8.0
+        : (_activeDifficulty == PairDifficulty.medium ? 12.0 : 16.0);
+
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: EdgeInsets.symmetric(horizontal: horizontalPad, vertical: 6),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -413,7 +418,7 @@ class _PairMatchingGameScreenState extends State<PairMatchingGameScreen> {
                 child: Text(
                   _instruction,
                   style: const TextStyle(
-                    fontSize: 18,
+                    fontSize: 17,
                     fontWeight: FontWeight.w600,
                     color: AppColors.inkSoft,
                   ),
@@ -421,17 +426,17 @@ class _PairMatchingGameScreenState extends State<PairMatchingGameScreen> {
               ),
               Container(
                 padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
                   color: AppColors.mugaGold.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(14),
                   border: Border.all(
                       color: AppColors.mugaGold.withValues(alpha: 0.4)),
                 ),
                 child: Text(
                   '$_pairsFoundLabel $_matchedPairs/${_activeDifficulty.pairCount}',
                   style: const TextStyle(
-                    fontSize: 16,
+                    fontSize: 15,
                     fontWeight: FontWeight.w700,
                     color: AppColors.terracottaDark,
                   ),
@@ -439,38 +444,58 @@ class _PairMatchingGameScreenState extends State<PairMatchingGameScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
 
           // Progress bar
           ClipRRect(
             borderRadius: BorderRadius.circular(8),
             child: LinearProgressIndicator(
               value: progress,
-              minHeight: 8,
+              minHeight: 6,
               backgroundColor: AppColors.border,
               valueColor:
                   const AlwaysStoppedAnimation<Color>(AppColors.mugaGold),
             ),
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 10),
 
-          // Cards Grid
+          // Cards Grid with LayoutBuilder (Calculates exact zero-scroll aspect ratio)
           Expanded(
-            child: GridView.builder(
-              physics: const BouncingScrollPhysics(),
-              itemCount: _deck.length,
-              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: _activeDifficulty.gridColumns,
-                crossAxisSpacing: 10,
-                mainAxisSpacing: 10,
-                childAspectRatio: 0.82,
-              ),
-              itemBuilder: (context, index) {
-                final itemState = _deck[index];
-                return _CardTile(
-                  state: itemState,
-                  languageCode: widget.promptLanguage,
-                  onTap: () => _onCardTapped(index),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final columns = _activeDifficulty.gridColumns;
+                final rows = (_deck.length / columns).ceil();
+
+                // Spacing scales down with density (Easy: 10, Medium: 8, Hard: 6)
+                final spacing = _activeDifficulty == PairDifficulty.hard
+                    ? 6.0
+                    : (_activeDifficulty == PairDifficulty.medium ? 8.0 : 10.0);
+
+                final availableWidth = constraints.maxWidth;
+                final availableHeight = constraints.maxHeight;
+
+                final cardWidth = (availableWidth - (columns - 1) * spacing) / columns;
+                final cardHeight = (availableHeight - (rows - 1) * spacing) / rows;
+                final aspectRatio = (cardWidth / cardHeight).clamp(0.4, 2.5);
+
+                return GridView.builder(
+                  physics: const NeverScrollableScrollPhysics(), // Zero scrolling guarantee
+                  itemCount: _deck.length,
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: columns,
+                    crossAxisSpacing: spacing,
+                    mainAxisSpacing: spacing,
+                    childAspectRatio: aspectRatio,
+                  ),
+                  itemBuilder: (context, index) {
+                    final itemState = _deck[index];
+                    return _CardTile(
+                      state: itemState,
+                      languageCode: widget.promptLanguage,
+                      difficulty: _activeDifficulty,
+                      onTap: () => _onCardTapped(index),
+                    );
+                  },
                 );
               },
             ),
@@ -577,16 +602,23 @@ class _PairMatchingGameScreenState extends State<PairMatchingGameScreen> {
 class _CardTile extends StatelessWidget {
   final _CardDisplayState state;
   final String languageCode;
+  final PairDifficulty difficulty;
   final VoidCallback onTap;
 
   const _CardTile({
     required this.state,
     required this.languageCode,
+    required this.difficulty,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
+    final isHard = difficulty == PairDifficulty.hard;
+    final isMedium = difficulty == PairDifficulty.medium;
+
+    final radius = isHard ? 12.0 : (isMedium ? 14.0 : 16.0);
+
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
@@ -595,7 +627,7 @@ class _CardTile extends StatelessWidget {
           color: state.isFaceUp || state.isMatched
               ? AppColors.surface
               : AppColors.cream,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(radius),
           border: Border.all(
             color: state.isMatched
                 ? AppColors.sageGreen
@@ -613,24 +645,29 @@ class _CardTile extends StatelessWidget {
           ],
         ),
         child: state.isFaceUp || state.isMatched
-            ? _buildFaceContent()
-            : _buildBackContent(),
+            ? _buildFaceContent(isHard, isMedium)
+            : _buildBackContent(isHard, isMedium),
       ),
     );
   }
 
-  Widget _buildFaceContent() {
+  Widget _buildFaceContent(bool isHard, bool isMedium) {
+    final iconSize = isHard ? 30.0 : (isMedium ? 36.0 : 44.0);
+    final fontSize = isHard ? 13.0 : (isMedium ? 14.5 : 16.0);
+    final checkSize = isHard ? 16.0 : 20.0;
+    final pad = isHard ? 4.0 : (isMedium ? 6.0 : 8.0);
+
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+      padding: EdgeInsets.symmetric(horizontal: pad, vertical: pad),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           if (state.isMatched)
-            const Align(
+            Align(
               alignment: Alignment.topRight,
               child: Icon(
                 Icons.check_circle_rounded,
-                size: 20,
+                size: checkSize,
                 color: AppColors.sageGreen,
               ),
             ),
@@ -643,23 +680,23 @@ class _CardTile extends StatelessWidget {
                     )
                   : Icon(
                       state.card.iconData,
-                      size: 40,
+                      size: iconSize,
                       color: state.isMatched
                           ? AppColors.sageGreen
                           : AppColors.mugaGold,
                     ),
             ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 2),
           Text(
             state.card.getName(languageCode),
             style: TextStyle(
-              fontSize: 16,
+              fontSize: fontSize,
               fontWeight: FontWeight.w600,
               color: state.isMatched ? AppColors.sageGreen : AppColors.ink,
             ),
             textAlign: TextAlign.center,
-            maxLines: 2,
+            maxLines: isHard ? 1 : 2,
             overflow: TextOverflow.ellipsis,
           ),
         ],
@@ -667,22 +704,25 @@ class _CardTile extends StatelessWidget {
     );
   }
 
-  Widget _buildBackContent() {
+  Widget _buildBackContent(bool isHard, bool isMedium) {
+    final iconSize = isHard ? 22.0 : (isMedium ? 24.0 : 26.0);
+    final boxSize = isHard ? 36.0 : (isMedium ? 42.0 : 48.0);
+
     return Center(
       child: Container(
-        width: 48,
-        height: 48,
+        width: boxSize,
+        height: boxSize,
         decoration: BoxDecoration(
           color: AppColors.mugaGold.withValues(alpha: 0.12),
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(isHard ? 8 : 12),
           border: Border.all(
             color: AppColors.mugaGold.withValues(alpha: 0.3),
             width: 1.5,
           ),
         ),
-        child: const Icon(
+        child: Icon(
           Icons.help_outline_rounded,
-          size: 26,
+          size: iconSize,
           color: AppColors.mugaGold,
         ),
       ),
