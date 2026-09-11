@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:tflite_flutter/tflite_flutter.dart';
@@ -110,10 +111,34 @@ class DynamicDifficultyService {
   bool get isInitialized => _isInitialized;
   bool get isTfliteActive => _interpreter != null && !_useFallback;
 
-  /// Loads the TFLite model asset into memory.
+  /// Loads the TFLite model asset or file into memory.
   Future<void> init() async {
     if (_isInitialized && _interpreter != null) return;
 
+    // 1. Try loading directly from candidate filesystem paths (CLI/desktop/tests)
+    final candidateFiles = [
+      'agents/difficulty_mlp_ucb1.tflite',
+      'src/patient_app/agents/difficulty_mlp_ucb1.tflite',
+      'assets/models/difficulty_mlp_ucb1.tflite',
+    ];
+
+    for (final filePath in candidateFiles) {
+      try {
+        final f = File(filePath);
+        if (f.existsSync()) {
+          _interpreter = Interpreter.fromFile(f);
+          _isInitialized = true;
+          _useFallback = false;
+          debugPrint(
+              '[DynamicDifficultyService] TFLite UCB1 MLP loaded successfully from file $filePath');
+          return;
+        }
+      } catch (e) {
+        debugPrint('[DynamicDifficultyService] Attempting file $filePath: $e');
+      }
+    }
+
+    // 2. Try loading from Flutter asset bundle (mobile runtime)
     final candidateAssets = [
       'assets/models/difficulty_mlp_ucb1.tflite',
       'agents/difficulty_mlp_ucb1.tflite',
@@ -129,7 +154,7 @@ class DynamicDifficultyService {
         return;
       } catch (e) {
         debugPrint(
-            '[DynamicDifficultyService] Attempting $assetPath: $e');
+            '[DynamicDifficultyService] Attempting asset $assetPath: $e');
       }
     }
 
@@ -309,10 +334,10 @@ class DynamicDifficultyService {
     return [normLatency, accuracy, hesitation, errorBurst];
   }
 
-  /// Evaluates raw JSON string or map, executing on-device inference,
+  /// Evaluates raw telemetry JSON (String or Map), executing on-device inference,
   /// and returns the structured [DifficultyDecision].
-  Future<DifficultyDecision> evaluateSessionJson(
-    String jsonString, {
+  Future<DifficultyDecision> evaluateSessionData(
+    dynamic sessionData, {
     int currentDifficulty = 1,
     String gameType = '',
   }) async {
@@ -320,9 +345,19 @@ class DynamicDifficultyService {
       await init();
     }
 
-    final dynamic parsed = jsonDecode(jsonString);
-    final Map<String, dynamic> data =
-        parsed is Map<String, dynamic> ? parsed : Map<String, dynamic>.from(parsed as Map);
+    final Map<String, dynamic> data;
+    if (sessionData is String) {
+      final dynamic parsed = jsonDecode(sessionData);
+      data = parsed is Map<String, dynamic>
+          ? parsed
+          : Map<String, dynamic>.from(parsed as Map);
+    } else if (sessionData is Map<String, dynamic>) {
+      data = sessionData;
+    } else if (sessionData is Map) {
+      data = Map<String, dynamic>.from(sessionData);
+    } else {
+      throw ArgumentError('sessionData must be a JSON String or Map');
+    }
 
     final resolvedGameType = gameType.isNotEmpty
         ? gameType
@@ -388,6 +423,20 @@ class DynamicDifficultyService {
         '(level: $currentDifficulty -> $recommended, confidence: ${(maxProb * 100).toStringAsFixed(1)}%)');
 
     return decision;
+  }
+
+  /// Evaluates raw JSON string, executing on-device inference,
+  /// and returns the structured [DifficultyDecision].
+  Future<DifficultyDecision> evaluateSessionJson(
+    String jsonString, {
+    int currentDifficulty = 1,
+    String gameType = '',
+  }) async {
+    return evaluateSessionData(
+      jsonString,
+      currentDifficulty: currentDifficulty,
+      gameType: gameType,
+    );
   }
 
   /// Algorithmic UCB1 Distillation policy fallback matching agents/train.py.

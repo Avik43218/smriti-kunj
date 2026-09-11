@@ -719,45 +719,41 @@ export const PatientDetails = () => {
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5">
-          {/* 1. Body Weight */}
-          <div className="p-3.5 sm:p-4 rounded-xl bg-cream/40 dark:bg-ink-soft/25 border border-border/70 dark:border-ink-soft/30 flex flex-col justify-between h-full transition-all shadow-2xs">
-            <div className="flex items-center justify-between gap-2 pb-2.5 border-b border-border/50 dark:border-ink-soft/30">
-              <span className="text-[11px] font-semibold text-ink-soft dark:text-cream/60 uppercase tracking-wider truncate">
+          {/* Weight */}
+          <div className="p-3.5 rounded-xl bg-cream/40 dark:bg-ink-soft/25 border border-border/70 dark:border-ink-soft/30 flex flex-col justify-between space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-semibold text-ink-soft dark:text-cream/60 uppercase tracking-wider">
                 Body Weight
               </span>
-              <div className="w-6 h-6 rounded-md bg-terracotta/10 text-terracotta flex items-center justify-center shrink-0">
+              <div className="w-6 h-6 rounded-md bg-terracotta/10 text-terracotta flex items-center justify-center">
                 <Scale className="w-3.5 h-3.5" />
               </div>
             </div>
-            <div className="py-2.5 flex-1 flex flex-col justify-center min-h-[44px]">
-              <p className="text-sm sm:text-base font-bold text-ink dark:text-cream leading-snug truncate" title={patient.weight || 'Not recorded'}>
+            <div>
+              <p className="text-base sm:text-lg font-bold text-ink dark:text-cream">
                 {patient.weight || 'Not recorded'}
               </p>
-            </div>
-            <div className="pt-2 border-t border-border/40 dark:border-ink-soft/20 flex items-center">
-              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold border bg-terracotta/15 text-terracotta border-terracotta/30">
-                Physical Baseline
+              <span className="text-[10px] text-ink-soft dark:text-cream/60 block mt-0.5">
+                Physical baseline
               </span>
             </div>
           </div>
 
-          {/* 2. Diabetic Status */}
-          <div className="p-3.5 sm:p-4 rounded-xl bg-cream/40 dark:bg-ink-soft/25 border border-border/70 dark:border-ink-soft/30 flex flex-col justify-between h-full transition-all shadow-2xs">
-            <div className="flex items-center justify-between gap-2 pb-2.5 border-b border-border/50 dark:border-ink-soft/30">
-              <span className="text-[11px] font-semibold text-ink-soft dark:text-cream/60 uppercase tracking-wider truncate">
+          {/* Diabetic Status */}
+          <div className="p-3.5 rounded-xl bg-cream/40 dark:bg-ink-soft/25 border border-border/70 dark:border-ink-soft/30 flex flex-col justify-between space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-semibold text-ink-soft dark:text-cream/60 uppercase tracking-wider">
                 Diabetic Status
               </span>
-              <div className="w-6 h-6 rounded-md bg-sage/10 text-sage flex items-center justify-center shrink-0">
+              <div className="w-6 h-6 rounded-md bg-sage/10 text-sage flex items-center justify-center">
                 <Activity className="w-3.5 h-3.5" />
               </div>
             </div>
-            <div className="py-2.5 flex-1 flex flex-col justify-center min-h-[44px]">
-              <p className="text-sm sm:text-base font-bold text-ink dark:text-cream leading-snug line-clamp-2" title={patient.diabetic || 'Non-Diabetic'}>
+            <div>
+              <p className="text-sm sm:text-base font-bold text-ink dark:text-cream truncate" title={patient.diabetic || 'Non-Diabetic'}>
                 {patient.diabetic || 'Non-Diabetic'}
               </p>
-            </div>
-            <div className="pt-2 border-t border-border/40 dark:border-ink-soft/20 flex items-center">
-              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${
+              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border mt-1 ${
                 (patient.diabetic || '').toLowerCase().includes('non')
                   ? 'bg-sage/15 text-sage border-sage/30'
                   : 'bg-gold/15 text-gold border-gold/30'
@@ -767,23 +763,21 @@ export const PatientDetails = () => {
             </div>
           </div>
 
-          {/* 3. Nutrition & Diet */}
-          <div className="p-3.5 sm:p-4 rounded-xl bg-cream/40 dark:bg-ink-soft/25 border border-border/70 dark:border-ink-soft/30 flex flex-col justify-between h-full transition-all shadow-2xs">
-            <div className="flex items-center justify-between gap-2 pb-2.5 border-b border-border/50 dark:border-ink-soft/30">
-              <span className="text-[11px] font-semibold text-ink-soft dark:text-cream/60 uppercase tracking-wider truncate">
+          {/* Nutrition & Diet (Healthy Eating Status) */}
+          <div className="p-3.5 rounded-xl bg-cream/40 dark:bg-ink-soft/25 border border-border/70 dark:border-ink-soft/30 flex flex-col justify-between space-y-2 sm:col-span-2 lg:col-span-1">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-semibold text-ink-soft dark:text-cream/60 uppercase tracking-wider">
                 Nutrition & Diet
               </span>
-              <div className="w-6 h-6 rounded-md bg-gold/10 text-gold flex items-center justify-center shrink-0">
+              <div className="w-6 h-6 rounded-md bg-gold/10 text-gold flex items-center justify-center">
                 <Apple className="w-3.5 h-3.5" />
               </div>
             </div>
-            <div className="py-2.5 flex-1 flex flex-col justify-center min-h-[44px]">
-              <p className="text-xs sm:text-sm font-bold text-ink dark:text-cream leading-snug line-clamp-2" title={patient.nutritionDiet || 'Healthy & Balanced'}>
+            <div>
+              <p className="text-xs sm:text-sm font-bold text-ink dark:text-cream line-clamp-2" title={patient.nutritionDiet || 'Healthy & Balanced'}>
                 {patient.nutritionDiet || 'Healthy & Balanced'}
               </p>
-            </div>
-            <div className="pt-2 border-t border-border/40 dark:border-ink-soft/20 flex items-center">
-              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${
+              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border mt-1 ${
                 (patient.nutritionDiet || '').toLowerCase().includes('healthy') || (patient.nutritionDiet || '').toLowerCase().includes('balanced')
                   ? 'bg-sage/15 text-sage border-sage/30'
                   : (patient.nutritionDiet || '').toLowerCase().includes('specialized')
@@ -799,54 +793,50 @@ export const PatientDetails = () => {
             </div>
           </div>
 
-          {/* 4. Alcohol Intake */}
-          <div className="p-3.5 sm:p-4 rounded-xl bg-cream/40 dark:bg-ink-soft/25 border border-border/70 dark:border-ink-soft/30 flex flex-col justify-between h-full transition-all shadow-2xs">
-            <div className="flex items-center justify-between gap-2 pb-2.5 border-b border-border/50 dark:border-ink-soft/30">
-              <span className="text-[11px] font-semibold text-ink-soft dark:text-cream/60 uppercase tracking-wider truncate">
+          {/* Alcohol Level */}
+          <div className="p-3.5 rounded-xl bg-cream/40 dark:bg-ink-soft/25 border border-border/70 dark:border-ink-soft/30 flex flex-col justify-between space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-semibold text-ink-soft dark:text-cream/60 uppercase tracking-wider">
                 Alcohol Intake
               </span>
-              <div className="w-6 h-6 rounded-md bg-terracotta/10 text-terracotta flex items-center justify-center shrink-0">
+              <div className="w-6 h-6 rounded-md bg-terracotta/10 text-terracotta flex items-center justify-center">
                 <Wine className="w-3.5 h-3.5" />
               </div>
             </div>
-            <div className="py-2.5 flex-1 flex flex-col justify-center min-h-[44px]">
-              <p className="text-sm sm:text-base font-bold text-ink dark:text-cream leading-snug line-clamp-2" title={patient.alcoholLevel || 'None / Non-Drinker'}>
+            <div>
+              <p className="text-sm sm:text-base font-bold text-ink dark:text-cream truncate" title={patient.alcoholLevel || 'None / Non-Drinker'}>
                 {patient.alcoholLevel || 'None / Non-Drinker'}
               </p>
-            </div>
-            <div className="pt-2 border-t border-border/40 dark:border-ink-soft/20 flex items-center">
-              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${
+              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border mt-1 ${
                 (patient.alcoholLevel || '').toLowerCase().includes('none')
                   ? 'bg-sage/15 text-sage border-sage/30'
                   : 'bg-cream dark:bg-ink-soft/50 text-ink-soft dark:text-cream/80 border-border/60'
               }`}>
-                {(patient.alcoholLevel || '').toLowerCase().includes('none') ? 'Zero Intake' : 'Tracked Intake'}
+                {(patient.alcoholLevel || '').toLowerCase().includes('none') ? 'Zero Intake' : 'Tracked'}
               </span>
             </div>
           </div>
 
-          {/* 5. Smoking Status */}
-          <div className="p-3.5 sm:p-4 rounded-xl bg-cream/40 dark:bg-ink-soft/25 border border-border/70 dark:border-ink-soft/30 flex flex-col justify-between h-full transition-all shadow-2xs sm:col-span-2 lg:col-span-1">
-            <div className="flex items-center justify-between gap-2 pb-2.5 border-b border-border/50 dark:border-ink-soft/30">
-              <span className="text-[11px] font-semibold text-ink-soft dark:text-cream/60 uppercase tracking-wider truncate">
+          {/* Smoking Status */}
+          <div className="p-3.5 rounded-xl bg-cream/40 dark:bg-ink-soft/25 border border-border/70 dark:border-ink-soft/30 flex flex-col justify-between space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-semibold text-ink-soft dark:text-cream/60 uppercase tracking-wider">
                 Smoking Status
               </span>
-              <div className="w-6 h-6 rounded-md bg-gold/10 text-gold flex items-center justify-center shrink-0">
+              <div className="w-6 h-6 rounded-md bg-gold/10 text-gold flex items-center justify-center">
                 <Cigarette className="w-3.5 h-3.5" />
               </div>
             </div>
-            <div className="py-2.5 flex-1 flex flex-col justify-center min-h-[44px]">
-              <p className="text-sm sm:text-base font-bold text-ink dark:text-cream leading-snug line-clamp-2" title={patient.smokingStatus || 'Non-Smoker'}>
+            <div>
+              <p className="text-sm sm:text-base font-bold text-ink dark:text-cream truncate" title={patient.smokingStatus || 'Non-Smoker'}>
                 {patient.smokingStatus || 'Non-Smoker'}
               </p>
-            </div>
-            <div className="pt-2 border-t border-border/40 dark:border-ink-soft/20 flex items-center">
-              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${
+              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border mt-1 ${
                 (patient.smokingStatus || '').toLowerCase().includes('non') || (patient.smokingStatus || '').toLowerCase().includes('quit')
                   ? 'bg-sage/15 text-sage border-sage/30'
                   : 'bg-alert/15 text-alert border-alert/30'
               }`}>
-                {(patient.smokingStatus || '').toLowerCase().includes('non') ? 'Non-Smoker' : (patient.smokingStatus || '').toLowerCase().includes('quit') ? 'Former Smoker' : 'Active Smoker'}
+                {(patient.smokingStatus || '').toLowerCase().includes('non') ? 'Non-Smoker' : (patient.smokingStatus || '').toLowerCase().includes('quit') ? 'Former' : 'Active Smoker'}
               </span>
             </div>
           </div>

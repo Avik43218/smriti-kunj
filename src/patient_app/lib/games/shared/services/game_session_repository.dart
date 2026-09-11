@@ -131,13 +131,16 @@ class GameSessionRepository {
   static final GameSessionRepository instance = GameSessionRepository._();
 
   static const _dbName = 'smriti_kunj_sessions.db';
-  static const _dbVersion = 2;
+  static const _dbVersion = 4;
   static const _table = 'game_sessions';
 
   Database? _db;
 
   Future<Database> _getDb() async {
-    if (_db != null) return _db!;
+    if (_db != null) {
+      await _createDbSchema(_db!);
+      return _db!;
+    }
     final dbPath = await getDatabasesPath();
     final fullPath = p.join(dbPath, _dbName);
     _db = await openDatabase(
@@ -149,7 +152,11 @@ class GameSessionRepository {
       onUpgrade: (db, oldVersion, newVersion) async {
         await _createDbSchema(db);
       },
+      onOpen: (db) async {
+        await _createDbSchema(db);
+      },
     );
+    await _createDbSchema(_db!);
     return _db!;
   }
 
@@ -182,6 +189,12 @@ class GameSessionRepository {
         confidence             REAL    NOT NULL,
         raw_json               TEXT    NOT NULL,
         created_at             TEXT    NOT NULL
+      )
+    ''');
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS game_current_levels (
+        game_type TEXT PRIMARY KEY,
+        level     INTEGER NOT NULL
       )
     ''');
   }

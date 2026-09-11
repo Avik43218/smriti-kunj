@@ -251,7 +251,7 @@ class _PairMatchingGameScreenState extends State<PairMatchingGameScreen> {
     }
   }
 
-  void _completeGame() {
+  Future<void> _completeGame() async {
     final now = DateTime.now();
     final durationSeconds =
         now.difference(_sessionStart).inMilliseconds / 1000.0;
@@ -299,11 +299,6 @@ class _PairMatchingGameScreenState extends State<PairMatchingGameScreen> {
       rawTrials: _rawTrials,
     );
 
-    setState(() {
-      _result = result;
-      _phase = _GamePhase.summary;
-    });
-
     final telemetrySummary = _telemetryTracker.computeSummary();
 
     // Persist session to local storage for later sync to backend.
@@ -344,21 +339,26 @@ class _PairMatchingGameScreenState extends State<PairMatchingGameScreen> {
       'telemetry': telemetrySummary.toJson(),
     });
 
-    unawaited(() async {
-      try {
-        final decision = await DynamicDifficultyService.instance.evaluateSessionJson(
-          rawTelemetryJson,
-          currentDifficulty: _activeDifficulty.level,
-          gameType: 'pair_matching',
-        );
-        await DifficultyDatabaseService.instance.saveDifficultySettingsForAllGames(
-          decision,
-          rawJson: rawTelemetryJson,
-        );
-      } catch (e) {
-        debugPrint('[PairMatching] Error running TFLite difficulty model: $e');
-      }
-    }());
+    try {
+      final decision = await DynamicDifficultyService.instance.evaluateSessionJson(
+        rawTelemetryJson,
+        currentDifficulty: _activeDifficulty.level,
+        gameType: 'pair_matching',
+      );
+      await DifficultyDatabaseService.instance.saveDifficultySettingsForAllGames(
+        decision,
+        rawJson: rawTelemetryJson,
+      );
+      debugPrint('[PairMatching] Evaluated and stored next difficulty: ${decision.action} -> level ${decision.recommendedDifficulty}');
+    } catch (e) {
+      debugPrint('[PairMatching] Error running TFLite difficulty model: $e');
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _result = result;
+      _phase = _GamePhase.summary;
+    });
 
     widget.onGameCompleted?.call(result);
   }

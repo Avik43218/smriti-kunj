@@ -38,24 +38,49 @@ class DifficultyDatabaseService {
   }
 
   Future<Database> get database async {
-    if (_db != null) return _db!;
+    if (_db != null) {
+      await _createTables(_db!);
+      return _db!;
+    }
     final dbPath = await getDatabasesPath();
     final fullPath = p.join(dbPath, _dbName);
 
     _db = await openDatabase(
       fullPath,
-      version: 3,
+      version: 4,
       onCreate: (db, version) async {
         await _createTables(db);
       },
       onUpgrade: (db, oldVersion, newVersion) async {
         await _createTables(db);
       },
+      onOpen: (db) async {
+        await _createTables(db);
+      },
     );
+    await _createTables(_db!);
     return _db!;
   }
 
   Future<void> _createTables(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS game_sessions (
+        id           INTEGER PRIMARY KEY AUTOINCREMENT,
+        session_id   TEXT    NOT NULL UNIQUE,
+        patient_id   TEXT    NOT NULL,
+        game_type    TEXT    NOT NULL,
+        session_date TEXT    NOT NULL,
+        synced       INTEGER NOT NULL DEFAULT 0,
+        created_at   TEXT    NOT NULL,
+        payload      TEXT    NOT NULL
+      )
+    ''');
+
+    await db.execute('''
+      CREATE INDEX IF NOT EXISTS idx_unsynced
+      ON game_sessions (synced, created_at)
+    ''');
+
     await db.execute('''
       CREATE TABLE IF NOT EXISTS $_table (
         id                     INTEGER PRIMARY KEY AUTOINCREMENT,

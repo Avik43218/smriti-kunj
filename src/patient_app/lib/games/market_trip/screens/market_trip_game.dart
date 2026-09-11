@@ -197,7 +197,7 @@ class _MarketTripGameScreenState extends State<MarketTripGameScreen> {
     });
   }
 
-  void _submitRecall() {
+  Future<void> _submitRecall() async {
     _recallEndTime = DateTime.now();
     final recallDurationSeconds = _recallEndTime != null && _recallStartTime != null
         ? _recallEndTime!.difference(_recallStartTime!).inMilliseconds / 1000.0
@@ -210,33 +210,35 @@ class _MarketTripGameScreenState extends State<MarketTripGameScreen> {
       delayDuration = _distractorEndTime!.difference(_distractorStartTime!).inMilliseconds / 1000.0;
     }
 
-    final promptIds = _promptItems.map((e) => e.id).toSet();
+    final bank = await _itemBankService.loadItemBank();
+    final targetItemIds = _promptItems.map((e) => e.id).toSet();
+
     int correctCount = 0;
     int falseCount = 0;
 
-    for (final selectedId in _selectedItemIds) {
-      if (promptIds.contains(selectedId)) {
+    for (final id in _selectedItemIds) {
+      if (targetItemIds.contains(id)) {
         correctCount++;
       } else {
         falseCount++;
       }
     }
 
-    final int promptedCount = _promptItems.length;
-    final double accuracy = promptedCount > 0 ? (correctCount / promptedCount).clamp(0.0, 1.0) : 0.0;
+    final promptedCount = _promptItems.length;
+    final accuracy = promptedCount > 0 ? (correctCount / promptedCount).clamp(0.0, 1.0) : 0.0;
+    final rawScore = promptedCount > 0
+        ? ((correctCount - (falseCount * 0.5)) / promptedCount).clamp(0.0, 1.0)
+        : 0.0;
+    final normalizedScore = rawScore.clamp(0.0, 1.0);
 
-    // Calculate normalized score (0.0 to 1.0) taking intrusion errors into account
-    final double penalty = falseCount * 0.15;
-    final double normalizedScore = (accuracy - penalty).clamp(0.0, 1.0);
-
-    final String langString = switch (widget.promptLanguage) {
-      'as' => 'assamese',
-      'bn' => 'bengali',
-      'brx' => 'bodo',
-      _ => 'english',
+    final langString = switch (widget.promptLanguage) {
+      'as' => 'as',
+      'bn' => 'bn',
+      _ => 'en',
     };
 
     final result = GameSessionResult(
+      gameType: 'market_trip',
       itemsPromptedCount: promptedCount,
       itemsRecalledCorrect: correctCount,
       recallAccuracy: accuracy,
@@ -253,11 +255,6 @@ class _MarketTripGameScreenState extends State<MarketTripGameScreen> {
       scoreNormalized: normalizedScore,
       rawTrials: _rawTrials,
     );
-
-    setState(() {
-      _finalResult = result;
-      _currentPhase = MarketGamePhase.summary;
-    });
 
     final telemetrySummary = _telemetryTracker.computeSummary();
 
@@ -304,21 +301,26 @@ class _MarketTripGameScreenState extends State<MarketTripGameScreen> {
       'telemetry': telemetrySummary.toJson(),
     });
 
-    unawaited(() async {
-      try {
-        final decision = await DynamicDifficultyService.instance.evaluateSessionJson(
-          rawTelemetryJson,
-          currentDifficulty: _activeDifficulty.index + 1,
-          gameType: 'market_trip',
-        );
-        await DifficultyDatabaseService.instance.saveDifficultySettingsForAllGames(
-          decision,
-          rawJson: rawTelemetryJson,
-        );
-      } catch (e) {
-        debugPrint('[MarketTrip] Error running TFLite difficulty model: $e');
-      }
-    }());
+    try {
+      final decision = await DynamicDifficultyService.instance.evaluateSessionJson(
+        rawTelemetryJson,
+        currentDifficulty: _activeDifficulty.index + 1,
+        gameType: 'market_trip',
+      );
+      await DifficultyDatabaseService.instance.saveDifficultySettingsForAllGames(
+        decision,
+        rawJson: rawTelemetryJson,
+      );
+      debugPrint('[MarketTrip] Evaluated and stored next difficulty: ${decision.action} -> level ${decision.recommendedDifficulty}');
+    } catch (e) {
+      debugPrint('[MarketTrip] Error running TFLite difficulty model: $e');
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _finalResult = result;
+      _currentPhase = MarketGamePhase.summary;
+    });
 
     widget.onGameCompleted?.call(result);
   }

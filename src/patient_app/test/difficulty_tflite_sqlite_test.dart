@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:patient_app/services/difficulty_service.dart';
 import 'package:patient_app/services/difficulty_database_service.dart';
 
@@ -272,6 +273,222 @@ void main() {
       expect(DifficultyDatabaseService.supportedGames, contains('tap_target'));
       expect(DifficultyDatabaseService.supportedGames, contains('pair_matching'));
       expect(DifficultyDatabaseService.supportedGames.length, 3);
+    });
+  });
+
+  group('Difficulty SQLite Integration & Next-Game Lifecycle Tests', () {
+    late Database inMemoryDb;
+    late DynamicDifficultyService difficultyService;
+    late DifficultyDatabaseService dbService;
+
+    setUpAll(() {
+      sqfliteFfiInit();
+      databaseFactory = databaseFactoryFfi;
+    });
+
+    setUp(() async {
+      difficultyService = DynamicDifficultyService.instance;
+      dbService = DifficultyDatabaseService.instance;
+
+      inMemoryDb = await databaseFactoryFfi.openDatabase(inMemoryDatabasePath);
+      await inMemoryDb.execute('''
+        CREATE TABLE pending_difficulty_settings (
+          id                     INTEGER PRIMARY KEY AUTOINCREMENT,
+          game_type              TEXT    NOT NULL,
+          action                 TEXT    NOT NULL,
+          difficulty_delta       INTEGER NOT NULL,
+          previous_difficulty    INTEGER NOT NULL,
+          recommended_difficulty INTEGER NOT NULL,
+          confidence             REAL    NOT NULL,
+          raw_json               TEXT    NOT NULL,
+          created_at             TEXT    NOT NULL
+        )
+      ''');
+      await inMemoryDb.execute('''
+        CREATE TABLE game_current_levels (
+          game_type TEXT PRIMARY KEY,
+          level     INTEGER NOT NULL
+        )
+      ''');
+
+      dbService.setDatabaseForTesting(inMemoryDb);
+    });
+
+    tearDown(() async {
+      await inMemoryDb.close();
+    });
+
+    test('Round completion: TFLite evaluates raw JSON, stores output in SQLite, applies to next game and removes entry', () async {
+      // 1. Simulate a completed round of Market Trip with a cruising patient
+      final rawTelemetryJson = jsonEncode({
+        'game_type': 'market_trip',
+        'items_prompted_count': 5,
+        'items_recalled_correct': 5,
+        'recall_accuracy': 1.0,
+        'false_selection_count': 0,
+        'time_to_complete_recall': 3.0,
+        'distractor_task_completed': true,
+        'score_normalized': 1.0,
+        'telemetry': {
+          'latency': {'avg_ms': 420.0},
+          'accuracy': {'overall_rate': 1.0},
+          'hesitation': {'hesitation_ratio': 0.08},
+          'error_burst': {'error_burst_rate': 0.0},
+        },
+      });
+
+      // 2. Model spins up and returns its output
+      final decision = await difficultyService.evaluateSessionJson(
+        rawTelemetryJson,
+        currentDifficulty: 1, // Easy
+        gameType: 'market_trip',
+      );
+
+      expect(decision.action, 'Level Up (+1)');
+      expect(decision.recommendedDifficulty, 2);
+
+      // 3. Output is stored in the local SQLite database
+      await dbService.saveDifficultySettingsForAllGames(
+        decision,
+        rawJson: rawTelemetryJson,
+      );
+
+      // Verify that the setting is present in SQLite
+      final pendingCountBefore = await dbService.getPendingCount();
+      expect(pendingCountBefore, 3); // 1 recommendation per supported game
+
+      // Peek shows recommended level 2 without consuming
+      final peekDecision = await dbService.peekLatestDifficultySetting(gameType: 'tap_target');
+      expect(peekDecision, isNotNull);
+      expect(peekDecision!.recommendedDifficulty, 2);
+      expect(await dbService.getPendingCount(), 3);
+
+      // 4. When next game is selected (e.g. Tap Target), setting is applied according to SQLite
+      final nextGameDecision = await dbService.consumeAndClearForSelectedGame('tap_target');
+      expect(nextGameDecision, isNotNull);
+      expect(nextGameDecision!.action, 'Level Up (+1)');
+      expect(nextGameDecision.recommendedDifficulty, 2);
+
+      // 5. The entry from the database is REMOVED
+      final pendingCountAfter = await dbService.getPendingCount();
+      expect(pendingCountAfter, 0);
+
+      // Subsequent retrieval returns null since entry was cleared
+      final emptyCheck = await dbService.consumeLatestDifficultySetting(gameType: 'tap_target');
+      expect(emptyCheck, isNull);
+
+      // Verify baseline level in SQLite was updated to 2
+      final currentLevel = await dbService.getCurrentLevel('tap_target');
+      expect(currentLevel, 2);
+    });
+
+    test('Struggling round eases difficulty for next game, then clears SQLite', () async {
+      // Set current baseline level to 2 (Medium)
+      await dbService.setCurrentLevel('market_trip', 2);
+      await dbService.setCurrentLevel('tap_target', 2);
+      await dbService.setCurrentLevel('pair_matching', 2);
+
+      // Player struggles on Tap Target
+      final strugglingJson = jsonEncode({
+        'game_type': 'tap_target',
+        'reaction_time_avg': 1750.0,
+        'reaction_time_variability': 350.0,
+        'omission_rate': 0.50,
+        'false_positive_rate': 0.40,
+        'within_session_drift': -0.4,
+        'trial_count': 12,
+        'score_normalized': 0.30,
+        'telemetry': {
+          'latency': {'avg_ms': 1750.0},
+          'accuracy': {'overall_rate': 0.35},
+          'hesitation': {'hesitation_ratio': 0.80},
+          'error_burst': {'error_burst_rate': 0.70},
+        },
+      });
+
+      final decision = await difficultyService.evaluateSessionJson(
+        strugglingJson,
+        currentDifficulty: 2,
+        gameType: 'tap_target',
+      );
+
+      expect(decision.action, 'Ease Up (-1)');
+      expect(decision.recommendedDifficulty, 1);
+
+      // Save to SQLite
+      await dbService.saveDifficultySettingsForAllGames(decision, rawJson: strugglingJson);
+      expect(await dbService.getPendingCount(), 3);
+
+      // Player next launches Pair Matching
+      final appliedDecision = await dbService.consumeAndClearForSelectedGame('pair_matching');
+      expect(appliedDecision, isNotNull);
+      expect(appliedDecision!.action, 'Ease Up (-1)');
+      expect(appliedDecision.recommendedDifficulty, 1);
+
+      // Database entry is removed
+      expect(await dbService.getPendingCount(), 0);
+    });
+
+    test('Play Again in same game applies setting and removes SQLite entry', () async {
+      // Set baseline level to 1
+      await dbService.setCurrentLevel('pair_matching', 1);
+
+      // Cruising pair matching session
+      final cruisingPairMatching = jsonEncode({
+        'game_type': 'pair_matching',
+        'total_flips': 10,
+        'correct_match_rate': 0.90,
+        'time_to_first_correct_match': 3.0,
+        'repeat_error_rate': 0.0,
+        'completion_time': 24.0,
+        'pairs_count': 4,
+        'score_normalized': 0.92,
+        'telemetry': {
+          'latency': {'avg_ms': 500.0},
+          'accuracy': {'overall_rate': 0.90},
+          'hesitation': {'hesitation_ratio': 0.10},
+          'error_burst': {'error_burst_rate': 0.0},
+        },
+      });
+
+      final decision = await difficultyService.evaluateSessionJson(
+        cruisingPairMatching,
+        currentDifficulty: 1,
+        gameType: 'pair_matching',
+      );
+
+      await dbService.saveDifficultySettingsForAllGames(decision, rawJson: cruisingPairMatching);
+      expect(await dbService.getPendingCount(), 3);
+
+      // Patient clicks "Play Again" in Pair Matching
+      final replayDecision = await dbService.consumeLatestDifficultySetting(gameType: 'pair_matching');
+      expect(replayDecision, isNotNull);
+      expect(replayDecision!.recommendedDifficulty, 2);
+
+      // SQLite entries are consumed and removed
+      expect(await dbService.getPendingCount(), 0);
+    });
+
+    test('Single game difficulty setting save, consume, and remove', () async {
+      final singleDecision = DifficultyDecision(
+        action: 'Maintain (0)',
+        difficultyDelta: 0,
+        previousDifficulty: 2,
+        recommendedDifficulty: 2,
+        confidence: 0.95,
+        distribution: {'Ease Up (-1)': 0.02, 'Maintain (0)': 0.95, 'Level Up (+1)': 0.03},
+        gameType: 'market_trip',
+        featureVector: [0.25, 0.75, 0.30, 0.10],
+      );
+
+      final rowId = await dbService.saveDifficultySetting(singleDecision);
+      expect(rowId, greaterThan(0));
+      expect(await dbService.getPendingCount(), 1);
+
+      final consumed = await dbService.consumeAndClearForSelectedGame('market_trip');
+      expect(consumed, isNotNull);
+      expect(consumed!.recommendedDifficulty, 2);
+      expect(await dbService.getPendingCount(), 0);
     });
   });
 }

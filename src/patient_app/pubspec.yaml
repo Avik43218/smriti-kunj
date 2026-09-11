@@ -20,12 +20,13 @@ dependencies:
   sqflite: ^2.3.3+1
   path: ^1.9.0
 
-  tflite_flutter: ^0.12.1
+  tflite_flutter: ^0.10.4
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^4.0.0
+  sqflite_common_ffi: ^2.3.3
 
 flutter:
   uses-material-design: true
