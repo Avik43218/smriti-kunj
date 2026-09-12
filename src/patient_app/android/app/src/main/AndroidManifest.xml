@@ -2,6 +2,8 @@
     <uses-permission android:name="android.permission.INTERNET"/>
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
     <uses-permission android:name="android.permission.RECORD_AUDIO"/>
+    <uses-permission android:name="com.android.alarm.permission.SET_ALARM"/>
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>
     <application
         android:label="Smriti Kunj"
         android:name="${applicationName}"
@@ -47,6 +49,9 @@
         </intent>
         <intent>
             <action android:name="android.speech.RecognitionService"/>
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.SET_ALARM"/>
         </intent>
         <package android:name="com.google.android.googlequicksearchbox"/>
         <package android:name="com.samsung.android.bixby.agent"/>

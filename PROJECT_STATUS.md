@@ -1,8 +1,8 @@
-# Project Status Snapshot — Smriti Setu / Smriti Kunj
+# Project Status Snapshot — Smriti Kunj
 
 ## 1. Project Overview
 
-Smriti Setu (Caregiver Portal) and Smriti Kunj (Patient Tablet App) comprise an integrated cognitive assistive care ecosystem designed for individuals living with Mild Cognitive Impairment (MCI) and early-stage dementia. The platform provides culturally contextualized cognitive exercises, routine adherence tracking, emergency SOS, and reminiscence tools for elderly patients, coupled with a web-based clinical dashboard enabling caregivers to monitor cognitive stability, manage multi-patient care plans, and track multi-domain longitudinal performance without clinical intrusion.
+Smriti Kunj (Caregiver Portal) and Smriti Kunj (Patient Tablet App) comprise an integrated cognitive assistive care ecosystem designed for individuals living with Mild Cognitive Impairment (MCI) and early-stage dementia. The platform provides culturally contextualized cognitive exercises, routine adherence tracking, emergency SOS, and reminiscence tools for elderly patients, coupled with a web-based clinical dashboard enabling caregivers to monitor cognitive stability, manage multi-patient care plans, and track multi-domain longitudinal performance without clinical intrusion.
 
 ---
 
@@ -61,7 +61,7 @@ Smriti Setu (Caregiver Portal) and Smriti Kunj (Patient Tablet App) comprise an 
 - Application State: `SessionService` (authentication and pairing state), `LocaleService` (Assamese, Bengali, Bodo, English language selection), `SpeechRecognitionService` (voice command transcription).
 - Data Persistence: `ActivityDatabaseService` (SQLite storage for patient activities and sync queue), `ReminderDatabaseService` (SQLite storage for daily reminders), `DifficultyDatabaseService` (SQLite storage for dynamic difficulty levels and pending adjustments), `GameSessionRepository` (SQLite storage for full game telemetry payloads).
 - Networking & Telemetry: `ApiService` (HTTP client with automatic network candidate resolution across localhost, emulator 10.0.2.2, and local LAN IPs), `GameSyncService` (background synchronization worker).
-- Interaction & Accessibility: `VoiceNavigationCoordinator` & `VoiceNavigationService` (intent classification and automated screen routing), `TtsService` (text-to-speech audio feedback), `BackgroundMusicService` (ambient audio management), `AppColors` & `patientTheme` (`src/patient_app/lib/theme/theme.dart`).
+- Interaction & Accessibility: `VoiceNavigationCoordinator` & `VoiceNavigationService` (comprehensive 14-command multilingual voice navigation supporting Home, Sync, SOS/Help, Daily Reminders, Memory Gallery, real-time Language switching across Assamese, Bengali, Bodo, English, cognitive games navigation, and logout; includes phonetic romanization and English speech recognizer compatibility for regional pronunciations), `TtsService` (text-to-speech audio feedback), `BackgroundMusicService` (ambient audio management), `AppColors` & `patientTheme` (`src/patient_app/lib/theme/theme.dart`).
 
 ---
 

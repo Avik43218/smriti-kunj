@@ -158,7 +158,9 @@ async def _get_or_create_reminders(patient_id: str) -> PatientReminder:
 # }
 
 
-def _build_unified_reminders_list(rem: PatientReminder) -> List[Dict[str, Any]]:
+def _build_unified_reminders_list(rem: Optional[PatientReminder]) -> List[Dict[str, Any]]:
+    if not rem:
+        return []
     items: List[Dict[str, Any]] = []
 
     # Medication
@@ -345,10 +347,10 @@ async def _handle_fetch_reminders_logic(
         patient_id=patient_key,
         patient_name=patient.name,
         pairing_code=raw_code,
-        medication=rem.medication or [],
-        hydration=rem.hydration or {},
-        meals=rem.meals or [],
-        custom=rem.custom or [],
+        medication=(rem.medication if rem else []) or [],
+        hydration=(rem.hydration if rem else {}) or {},
+        meals=(rem.meals if rem else []) or [],
+        custom=(rem.custom if rem else []) or [],
         reminders=unified_list,
     )
 

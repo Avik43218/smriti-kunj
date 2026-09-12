@@ -27,6 +27,7 @@ env/
 Thumbs.db
 
 # Files
+export_patient_analytics.py
 assets/file-structure.md
 src/backend/.env.example
 src/frontend/caregiver_app/frontend_structure.md
