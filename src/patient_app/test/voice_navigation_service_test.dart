@@ -90,6 +90,137 @@ void main() {
         expect(match.isBengali, isFalse);
       }
     });
+
+    test('Parses "Home" and English variations', () {
+      final variations = ['Home', 'home', 'go home', 'main screen', 'back home'];
+      for (final text in variations) {
+        final match = parser.parseSingle(text);
+        expect(match, isNotNull, reason: 'Failed to parse: $text');
+        expect(match!.command, VoiceCommand.home);
+        expect(match.isBengali, isFalse);
+      }
+    });
+
+    test('Parses "Sync" and English variations', () {
+      final variations = ['Sync', 'sync', 'cloud sync', 'sync data', 'backup data'];
+      for (final text in variations) {
+        final match = parser.parseSingle(text);
+        expect(match, isNotNull, reason: 'Failed to parse: $text');
+        expect(match!.command, VoiceCommand.sync);
+        expect(match.isBengali, isFalse);
+      }
+    });
+
+    test('Parses "Help" and English variations', () {
+      final variations = ['Help', 'help', 'sos', 'emergency', 'help me'];
+      for (final text in variations) {
+        final match = parser.parseSingle(text);
+        expect(match, isNotNull, reason: 'Failed to parse: $text');
+        expect(match!.command, VoiceCommand.help);
+        expect(match.isBengali, isFalse);
+      }
+    });
+
+    test('Parses "Reminders" and English variations', () {
+      final variations = ['Reminders', 'reminders', 'daily reminders', 'notifications', 'alerts'];
+      for (final text in variations) {
+        final match = parser.parseSingle(text);
+        expect(match, isNotNull, reason: 'Failed to parse: $text');
+        expect(match!.command, VoiceCommand.reminders);
+        expect(match.isBengali, isFalse);
+      }
+    });
+
+    test('Parses "Memory Gallery" and English variations', () {
+      final variations = ['Gallery', 'gallery', 'memory gallery', 'photos', 'pictures'];
+      for (final text in variations) {
+        final match = parser.parseSingle(text);
+        expect(match, isNotNull, reason: 'Failed to parse: $text');
+        expect(match!.command, VoiceCommand.gallery);
+        expect(match.isBengali, isFalse);
+      }
+    });
+
+    test('Parses Language Switch commands in English', () {
+      expect(parser.parseSingle('language assamese')?.command, VoiceCommand.langAssamese);
+      expect(parser.parseSingle('assamese')?.command, VoiceCommand.langAssamese);
+      expect(parser.parseSingle('language bengali')?.command, VoiceCommand.langBengali);
+      expect(parser.parseSingle('bengali')?.command, VoiceCommand.langBengali);
+      expect(parser.parseSingle('language bodo')?.command, VoiceCommand.langBodo);
+      expect(parser.parseSingle('bodo')?.command, VoiceCommand.langBodo);
+      expect(parser.parseSingle('language english')?.command, VoiceCommand.langEnglish);
+      expect(parser.parseSingle('english')?.command, VoiceCommand.langEnglish);
+    });
+  });
+
+  group('VoiceNavigationService Regional Romanized Phonetic Tests (English Recognizer)', () {
+    final parser = VoiceNavigationService.instance;
+
+    test('Parses romanized regional words for Games', () {
+      expect(parser.parseSingle('khela')?.command, VoiceCommand.game);
+      expect(parser.parseSingle('khel')?.command, VoiceCommand.game);
+      expect(parser.parseSingle('geilun')?.command, VoiceCommand.game);
+    });
+
+    test('Parses romanized regional words for Home across 4 languages', () {
+      // Bengali
+      expect(parser.parseSingle('bari')?.command, VoiceCommand.home);
+      expect(parser.parseSingle('ghor')?.command, VoiceCommand.home);
+      // Assamese
+      expect(parser.parseSingle('ghorot')?.command, VoiceCommand.home);
+      expect(parser.parseSingle('ghoroloi')?.command, VoiceCommand.home);
+      // Bodo
+      expect(parser.parseSingle('noh')?.command, VoiceCommand.home);
+      expect(parser.parseSingle('nohao')?.command, VoiceCommand.home);
+    });
+
+    test('Parses romanized regional words for Sync', () {
+      expect(parser.parseSingle('singk')?.command, VoiceCommand.sync);
+      expect(parser.parseSingle('sink')?.command, VoiceCommand.sync);
+    });
+
+    test('Parses romanized regional words for Help / SOS across 4 languages', () {
+      // Bengali
+      expect(parser.parseSingle('sahajjo')?.command, VoiceCommand.help);
+      // Assamese
+      expect(parser.parseSingle('sahay')?.command, VoiceCommand.help);
+      // Bodo
+      expect(parser.parseSingle('ansunthai')?.command, VoiceCommand.help);
+    });
+
+    test('Parses romanized regional words for Reminders across 4 languages', () {
+      // Bengali
+      expect(parser.parseSingle('osudh')?.command, VoiceCommand.reminders);
+      // Assamese
+      expect(parser.parseSingle('monot')?.command, VoiceCommand.reminders);
+      // Bodo
+      expect(parser.parseSingle('goso')?.command, VoiceCommand.reminders);
+    });
+
+    test('Parses romanized regional words for Memory Gallery', () {
+      // Bengali
+      expect(parser.parseSingle('chobi')?.command, VoiceCommand.gallery);
+      // Assamese
+      expect(parser.parseSingle('sobi')?.command, VoiceCommand.gallery);
+      // Bodo
+      expect(parser.parseSingle('tasbir')?.command, VoiceCommand.gallery);
+    });
+
+    test('Parses regional pronunciation variations for Language switching', () {
+      // Assamese variants
+      expect(parser.parseSingle('ashamiyo')?.command, VoiceCommand.langAssamese);
+      expect(parser.parseSingle('oxomiya')?.command, VoiceCommand.langAssamese);
+      expect(parser.parseSingle('asamiya')?.command, VoiceCommand.langAssamese);
+
+      // Bengali variants
+      expect(parser.parseSingle('bangla')?.command, VoiceCommand.langBengali);
+
+      // Bodo variants
+      expect(parser.parseSingle('boro')?.command, VoiceCommand.langBodo);
+
+      // English variants
+      expect(parser.parseSingle('ingreji')?.command, VoiceCommand.langEnglish);
+    });
   });
 
   group('VoiceNavigationService Bengali Parsing Tests', () {
@@ -177,6 +308,35 @@ void main() {
         expect(match.isBengali, isTrue);
       }
     });
+
+    test('Parses Native scripts for Home, Sync, Help, Reminders, Gallery, Languages', () {
+      // Home
+      expect(parser.parseSingle('বাড়ি')?.command, VoiceCommand.home);
+      expect(parser.parseSingle('ঘরে চলো')?.command, VoiceCommand.home);
+      expect(parser.parseSingle('ঘৰলৈ')?.command, VoiceCommand.home);
+
+      // Sync
+      expect(parser.parseSingle('সিঙ্ক')?.command, VoiceCommand.sync);
+
+      // Help
+      expect(parser.parseSingle('সাহায্য')?.command, VoiceCommand.help);
+      expect(parser.parseSingle('সহায়')?.command, VoiceCommand.help);
+      expect(parser.parseSingle('अनसुंथाय')?.command, VoiceCommand.help);
+
+      // Reminders
+      expect(parser.parseSingle('স্মারক')?.command, VoiceCommand.reminders);
+      expect(parser.parseSingle('ওষুধের সময়')?.command, VoiceCommand.reminders);
+
+      // Gallery
+      expect(parser.parseSingle('ছবি')?.command, VoiceCommand.gallery);
+      expect(parser.parseSingle('স্মৃতি গ্যালারি')?.command, VoiceCommand.gallery);
+
+      // Languages
+      expect(parser.parseSingle('অসমীয়া')?.command, VoiceCommand.langAssamese);
+      expect(parser.parseSingle('বাংলা')?.command, VoiceCommand.langBengali);
+      expect(parser.parseSingle('बड़ो')?.command, VoiceCommand.langBodo);
+      expect(parser.parseSingle('ইংরেজি')?.command, VoiceCommand.langEnglish);
+    });
   });
 
   group('Candidate List Evaluation and Fallback Tests', () {
@@ -198,7 +358,7 @@ void main() {
     });
 
     test('Returns null for unrelated queries', () {
-      final candidates = ['what time is it', 'call doctor', 'show pictures'];
+      final candidates = ['what time is it', 'call doctor', 'today weather'];
       final match = parser.parseCandidates(candidates);
       expect(match, isNull);
     });

@@ -15,6 +15,12 @@ import '../games/tap_target/services/target_bank_service.dart';
 import '../games/pair_matching/screens/pair_matching_game.dart';
 import '../games/pair_matching/services/pair_bank_service.dart';
 import '../games/pair_matching/models/game_session_result.dart';
+import '../services/api_service.dart';
+import 'app_strings.dart';
+import '../theme/theme.dart';
+import '../screens/reminders_screen.dart';
+import '../screens/memory_gallery_screen.dart';
+import '../widgets/sos_button.dart';
 import 'voice_navigation_service.dart';
 
 /// Central coordinator that executes navigation commands identified by the voice system.
@@ -36,6 +42,10 @@ class VoiceNavigationCoordinator {
     _showCommandFeedback(ctx, command);
 
     switch (command) {
+      case VoiceCommand.home:
+        await navigateToHome(ctx);
+        break;
+
       case VoiceCommand.game:
         await navigateToGames(ctx);
         break;
@@ -50,6 +60,38 @@ class VoiceNavigationCoordinator {
 
       case VoiceCommand.patternMatch:
         await launchPatternMatch(ctx);
+        break;
+
+      case VoiceCommand.reminders:
+        await navigateToReminders(ctx);
+        break;
+
+      case VoiceCommand.gallery:
+        await navigateToGallery(ctx);
+        break;
+
+      case VoiceCommand.sync:
+        await performSync(ctx);
+        break;
+
+      case VoiceCommand.help:
+        await triggerHelp(ctx);
+        break;
+
+      case VoiceCommand.langAssamese:
+        await changeLanguage(ctx, AppLang.assamese);
+        break;
+
+      case VoiceCommand.langBengali:
+        await changeLanguage(ctx, AppLang.bengali);
+        break;
+
+      case VoiceCommand.langBodo:
+        await changeLanguage(ctx, AppLang.bodo);
+        break;
+
+      case VoiceCommand.langEnglish:
+        await changeLanguage(ctx, AppLang.english);
         break;
 
       case VoiceCommand.logout:
@@ -259,5 +301,158 @@ class VoiceNavigationCoordinator {
       MaterialPageRoute(builder: (_) => const PairingScreen()),
       (route) => false,
     );
+  }
+
+  /// Navigates to Home screen if currently on any other pushed screen.
+  Future<void> navigateToHome(BuildContext context) async {
+    Navigator.of(context).popUntil((route) => route.isFirst);
+  }
+
+  /// Navigates to [RemindersScreen].
+  Future<void> navigateToReminders(BuildContext context) async {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const RemindersScreen()),
+    );
+  }
+
+  /// Navigates to [MemoryGalleryScreen].
+  Future<void> navigateToGallery(BuildContext context) async {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const MemoryGalleryScreen()),
+    );
+  }
+
+  /// Dispatches Emergency SOS confirmation dialog.
+  Future<void> triggerHelp(BuildContext context) async {
+    debugPrint('[SOS ALERT] Emergency trigger dispatched via voice navigation at ${DateTime.now().toIso8601String()}');
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => const SosConfirmationScreen(),
+        fullscreenDialog: true,
+      ),
+    );
+  }
+
+  /// Changes the application UI language reactively.
+  Future<void> changeLanguage(BuildContext context, AppLang lang) async {
+    try {
+      final locale = Provider.of<LocaleService>(context, listen: false);
+      locale.setLang(lang);
+    } catch (_) {
+      LocaleService.instance.setLang(lang);
+    }
+  }
+
+  /// Executes data synchronization with MongoDB backend.
+  Future<void> performSync(BuildContext context) async {
+    final activityService = ActivityDatabaseService.instance;
+    final session = Provider.of<SessionService>(context, listen: false);
+    final locale = Provider.of<LocaleService>(context, listen: false);
+    final strings = AppStrings(locale.lang);
+
+    try {
+      final activeCode = await activityService.getActivePairingCode();
+      if (activeCode == null || activeCode.isEmpty) {
+        if (!context.mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Sync failed: No pairing code found. Please pair your device first.'),
+            backgroundColor: AppColors.terracottaDark,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        return;
+      }
+
+      var pending = await activityService.getUnsyncedActivities();
+      if (pending.isEmpty) {
+        await activityService.seedSampleActivityIfEmpty(
+          session.patientId,
+          pairingCode: session.pairingCode ?? activeCode,
+        );
+        pending = await activityService.getUnsyncedActivities();
+      }
+
+      if (pending.isEmpty) {
+        if (!context.mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(strings.allSynced),
+            backgroundColor: AppColors.sageGreen,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        return;
+      }
+
+      final validToSync = <PatientActivityRecord>[];
+      for (final act in pending) {
+        final code = act.pairingCode;
+        if (code != null && code.isNotEmpty && await activityService.hasPairingCode(code)) {
+          validToSync.add(act);
+        }
+      }
+
+      if (validToSync.isEmpty) {
+        if (!context.mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Sync rejected: Stored game activities do not have a matching pairing code in the local database.'),
+            backgroundColor: AppColors.terracottaDark,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        return;
+      }
+
+      final accepted = await ApiService.instance.syncBatchActivities(
+        activities: validToSync,
+        token: session.authToken,
+        patientId: session.patientId,
+        pairingCode: activeCode,
+      );
+
+      final sessionIds = validToSync.map((a) => a.clientSessionId).toList();
+      await activityService.deleteActivities(sessionIds);
+
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.cloud_done_rounded, color: Colors.white, size: 22),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  '${strings.syncSuccess} ($accepted games sent) • ${strings.syncCleaned}',
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+              ),
+            ],
+          ),
+          backgroundColor: AppColors.sageGreen,
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 4),
+        ),
+      );
+    } catch (e) {
+      debugPrint('[VoiceNavigationCoordinator] Sync error: $e');
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Row(
+            children: [
+              Icon(Icons.cloud_off_rounded, color: Colors.white, size: 20),
+              SizedBox(width: 8),
+              Expanded(
+                child: Text('Saved locally on tablet. Will sync once backend is reachable.'),
+              ),
+            ],
+          ),
+          backgroundColor: AppColors.terracotta,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
   }
 }
