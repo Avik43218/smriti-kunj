@@ -9,7 +9,7 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  flutter_tts: ^3.8.3
+  # flutter_tts: ^3.8.3
   # State management (Provider — see AGENTS.md §3)
   provider: ^6.1.2
 
