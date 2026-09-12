@@ -12,6 +12,9 @@ import { RegisterPatient } from './pages/RegisterPatient';
 import { Analytics } from './pages/Analytics';
 import { CarePlan } from './pages/CarePlan';
 import { PatientDetails } from './pages/PatientDetails';
+import { AdminDashboard } from './pages/admin/AdminDashboard';
+import { ManageCaregivers } from './pages/admin/ManageCaregivers';
+import { AllPatients } from './pages/admin/AllPatients';
 
 export const App = () => {
   return (
@@ -22,6 +25,20 @@ export const App = () => {
             {/* Public Authentication Routes */}
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
+
+            {/* Admin Management Routes wrapped in DashboardLayout */}
+            <Route
+              element={
+                <ProtectedRoute allowedRoles={['admin']}>
+                  <DashboardLayout />
+                </ProtectedRoute>
+              }
+            >
+              <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
+              <Route path="/admin/dashboard" element={<AdminDashboard />} />
+              <Route path="/admin/caregivers" element={<ManageCaregivers />} />
+              <Route path="/admin/patients" element={<AllPatients />} />
+            </Route>
 
             {/* Main Caregiver Dashboard Routes wrapped in DashboardLayout */}
             <Route
