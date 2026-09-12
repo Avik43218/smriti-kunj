@@ -31,7 +31,8 @@ class _VoiceNavigationSheetState extends State<VoiceNavigationSheet>
     with SingleTickerProviderStateMixin {
   final SpeechRecognitionService _speech = SpeechRecognitionService.instance;
   final VoiceNavigationService _voiceNav = VoiceNavigationService.instance;
-  final VoiceNavigationCoordinator _coordinator = VoiceNavigationCoordinator.instance;
+  final VoiceNavigationCoordinator _coordinator =
+      VoiceNavigationCoordinator.instance;
 
   late AnimationController _pulseController;
   late Animation<double> _pulseAnimation;
@@ -215,7 +216,8 @@ class _VoiceNavigationSheetState extends State<VoiceNavigationSheet>
             // Top Header: Title + Language Switcher + Close Button
             Row(
               children: [
-                const Icon(Icons.mic_rounded, color: AppColors.terracotta, size: 28),
+                const Icon(Icons.mic_rounded,
+                    color: AppColors.terracotta, size: 28),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Column(
@@ -245,7 +247,8 @@ class _VoiceNavigationSheetState extends State<VoiceNavigationSheet>
                 GestureDetector(
                   onTap: _toggleLanguage,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                     decoration: BoxDecoration(
                       color: AppColors.cream,
                       borderRadius: BorderRadius.circular(16),
@@ -257,7 +260,9 @@ class _VoiceNavigationSheetState extends State<VoiceNavigationSheet>
                         Icon(
                           Icons.language_rounded,
                           size: 18,
-                          color: _isBengali ? AppColors.terracotta : AppColors.inkSoft,
+                          color: _isBengali
+                              ? AppColors.terracotta
+                              : AppColors.inkSoft,
                         ),
                         const SizedBox(width: 4),
                         Text(
@@ -265,7 +270,9 @@ class _VoiceNavigationSheetState extends State<VoiceNavigationSheet>
                           style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.bold,
-                            color: _isBengali ? AppColors.terracotta : AppColors.ink,
+                            color: _isBengali
+                                ? AppColors.terracotta
+                                : AppColors.ink,
                           ),
                         ),
                       ],
@@ -274,7 +281,8 @@ class _VoiceNavigationSheetState extends State<VoiceNavigationSheet>
                 ),
                 const SizedBox(width: 6),
                 IconButton(
-                  icon: const Icon(Icons.close_rounded, size: 28, color: AppColors.inkSoft),
+                  icon: const Icon(Icons.close_rounded,
+                      size: 28, color: AppColors.inkSoft),
                   onPressed: () => Navigator.of(context).pop(),
                 ),
               ],
@@ -300,7 +308,8 @@ class _VoiceNavigationSheetState extends State<VoiceNavigationSheet>
                               height: 100,
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
-                                color: AppColors.terracotta.withValues(alpha: 0.18),
+                                color: AppColors.terracotta
+                                    .withValues(alpha: 0.18),
                               ),
                             ),
                           );
@@ -313,7 +322,9 @@ class _VoiceNavigationSheetState extends State<VoiceNavigationSheet>
                       decoration: BoxDecoration(
                         color: _recognizedMatch != null
                             ? AppColors.sageGreen
-                            : (isListening ? AppColors.terracotta : AppColors.inkSoft),
+                            : (isListening
+                                ? AppColors.terracotta
+                                : AppColors.inkSoft),
                         shape: BoxShape.circle,
                         boxShadow: [
                           BoxShadow(
@@ -329,7 +340,9 @@ class _VoiceNavigationSheetState extends State<VoiceNavigationSheet>
                       child: Icon(
                         _recognizedMatch != null
                             ? Icons.check_rounded
-                            : (isListening ? Icons.mic_rounded : Icons.mic_none_rounded),
+                            : (isListening
+                                ? Icons.mic_rounded
+                                : Icons.mic_none_rounded),
                         color: Colors.white,
                         size: 38,
                       ),
@@ -344,7 +357,8 @@ class _VoiceNavigationSheetState extends State<VoiceNavigationSheet>
             Center(
               child: Container(
                 constraints: const BoxConstraints(minHeight: 44),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 decoration: BoxDecoration(
                   color: AppColors.cream,
                   borderRadius: BorderRadius.circular(14),
@@ -397,7 +411,8 @@ class _VoiceNavigationSheetState extends State<VoiceNavigationSheet>
             if (_errorMessage != null) ...[
               const SizedBox(height: 8),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
                   color: Colors.red.shade50,
                   borderRadius: BorderRadius.circular(10),
@@ -426,7 +441,9 @@ class _VoiceNavigationSheetState extends State<VoiceNavigationSheet>
 
             // Command Cheat-Sheet Cards (Tap any command as fallback accessibility)
             Text(
-              _isBengali ? 'সমর্থিত ভয়েস নির্দেশাবলী:' : 'Supported Voice Commands:',
+              _isBengali
+                  ? 'সমর্থিত ভয়েস নির্দেশাবলী:'
+                  : 'Supported Voice Commands:',
               style: const TextStyle(
                 fontSize: 15,
                 fontWeight: FontWeight.bold,

@@ -262,7 +262,8 @@ class VoiceCommandMatch {
 
 /// Engine that parses transcribed voice input into navigation actions.
 class VoiceNavigationService {
-  static final VoiceNavigationService instance = VoiceNavigationService._internal();
+  static final VoiceNavigationService instance =
+      VoiceNavigationService._internal();
   VoiceNavigationService._internal();
   factory VoiceNavigationService() => instance;
 
@@ -874,7 +875,8 @@ class VoiceNavigationService {
       final match = parseSingle(raw);
       if (match != null) {
         // Adjust confidence slightly based on candidate rank
-        final adjustedConfidence = (match.confidence * (1.0 - (i * 0.1))).clamp(0.1, 1.0);
+        final adjustedConfidence =
+            (match.confidence * (1.0 - (i * 0.1))).clamp(0.1, 1.0);
         return VoiceCommandMatch(
           command: match.command,
           matchedCandidate: match.matchedCandidate,
@@ -1064,7 +1066,8 @@ class VoiceNavigationService {
         return const _ScoreResult(1.0, true);
       }
       // Exact whole-word boundary match
-      if (RegExp(r'(^|\s)' + RegExp.escape(normKw) + r'($|\s)').hasMatch(normalizedInput)) {
+      if (RegExp(r'(^|\s)' + RegExp.escape(normKw) + r'($|\s)')
+          .hasMatch(normalizedInput)) {
         return const _ScoreResult(0.95, true);
       }
       // Substring match for longer words/phrases (3+ characters in native script)
@@ -1081,7 +1084,8 @@ class VoiceNavigationService {
         return const _ScoreResult(1.0, false);
       }
       // Exact whole-word boundary match
-      if (RegExp(r'(^|\s)' + RegExp.escape(normKw) + r'($|\s)').hasMatch(normalizedInput)) {
+      if (RegExp(r'(^|\s)' + RegExp.escape(normKw) + r'($|\s)')
+          .hasMatch(normalizedInput)) {
         return const _ScoreResult(0.95, false);
       }
       // Substring match for longer words/phrases (4+ characters)
