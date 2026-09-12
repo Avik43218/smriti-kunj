@@ -268,6 +268,11 @@ async def complete_pairing(payload: PatientPairCompleteRequest):
         expires_at=datetime.now(timezone.utc) + timedelta(days=settings.PATIENT_TOKEN_EXPIRE_DAYS),
     )
 
+    emergency = patient.emergency_contact or {}
+    guardian_phone = emergency.get("phone")
+    guardian_name = emergency.get("name")
+    guardian_relationship = emergency.get("relationship")
+
     return PatientPairCompleteOut(
         patient_id=patient.id,
         patient_code=patient.patient_code,
@@ -276,6 +281,9 @@ async def complete_pairing(payload: PatientPairCompleteRequest):
         token=token,
         region_language=patient.region_language or "bn",
         emergency_contact=patient.emergency_contact,
+        guardian_phone=guardian_phone,
+        guardian_name=guardian_name,
+        guardian_relationship=guardian_relationship,
         diagnosis=patient.diagnosis,
         status=patient.status or "stable",
     )
@@ -284,6 +292,11 @@ async def complete_pairing(payload: PatientPairCompleteRequest):
 @router.get("/patient/me", response_model=PatientPairCompleteOut)
 async def get_patient_me(patient: User = Depends(require_patient)):
     """Fetch current paired patient profile and emergency contact using device token."""
+    emergency = patient.emergency_contact or {}
+    guardian_phone = emergency.get("phone")
+    guardian_name = emergency.get("name")
+    guardian_relationship = emergency.get("relationship")
+
     return PatientPairCompleteOut(
         patient_id=patient.id,
         patient_code=patient.patient_code,
@@ -295,6 +308,10 @@ async def get_patient_me(patient: User = Depends(require_patient)):
         ),
         region_language=patient.region_language or "bn",
         emergency_contact=patient.emergency_contact,
+        guardian_phone=guardian_phone,
+        guardian_name=guardian_name,
+        guardian_relationship=guardian_relationship,
         diagnosis=patient.diagnosis,
         status=patient.status or "stable",
     )
+

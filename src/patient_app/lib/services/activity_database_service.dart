@@ -33,7 +33,7 @@ class ActivityDatabaseService extends ChangeNotifier {
 
     _db = await openDatabase(
       fullPath,
-      version: 5,
+      version: 6,
       onCreate: (db, version) async {
         await _createTables(db);
       },
@@ -44,6 +44,17 @@ class ActivityDatabaseService extends ChangeNotifier {
             await db.execute('ALTER TABLE $_table ADD COLUMN pairing_code TEXT;');
           } catch (_) {}
         }
+        if (oldVersion < 6) {
+          try {
+            await db.execute('ALTER TABLE $_pairingTable ADD COLUMN guardian_phone TEXT;');
+          } catch (_) {}
+          try {
+            await db.execute('ALTER TABLE $_pairingTable ADD COLUMN guardian_name TEXT;');
+          } catch (_) {}
+          try {
+            await db.execute('ALTER TABLE $_pairingTable ADD COLUMN guardian_relationship TEXT;');
+          } catch (_) {}
+        }
       },
     );
     return _db!;
@@ -52,11 +63,14 @@ class ActivityDatabaseService extends ChangeNotifier {
   Future<void> _createTables(Database db) async {
     await db.execute('''
       CREATE TABLE IF NOT EXISTS $_pairingTable (
-        id           INTEGER PRIMARY KEY AUTOINCREMENT,
-        pairing_code TEXT    NOT NULL UNIQUE,
-        patient_id   TEXT,
-        saved_at     TEXT    NOT NULL,
-        is_active    INTEGER NOT NULL DEFAULT 1
+        id                    INTEGER PRIMARY KEY AUTOINCREMENT,
+        pairing_code          TEXT    NOT NULL UNIQUE,
+        patient_id            TEXT,
+        saved_at              TEXT    NOT NULL,
+        is_active             INTEGER NOT NULL DEFAULT 1,
+        guardian_phone        TEXT,
+        guardian_name         TEXT,
+        guardian_relationship TEXT
       )
     ''');
 
@@ -101,8 +115,14 @@ class ActivityDatabaseService extends ChangeNotifier {
 
   // ── Pairing Code Persistence & Auto-Login ───────────────────────────────────
 
-  /// Saves the active pairing code in SQLite database for automatic login.
-  Future<void> savePairingCode(String code, {String? patientId}) async {
+  /// Saves the active pairing code and guardian contact in SQLite database for automatic login.
+  Future<void> savePairingCode(
+    String code, {
+    String? patientId,
+    String? guardianPhone,
+    String? guardianName,
+    String? guardianRelationship,
+  }) async {
     final clean = code.trim().toUpperCase();
     if (clean.isEmpty) return;
     try {
@@ -115,13 +135,85 @@ class ActivityDatabaseService extends ChangeNotifier {
           'patient_id': patientId,
           'saved_at': DateTime.now().toIso8601String(),
           'is_active': 1,
+          'guardian_phone': guardianPhone,
+          'guardian_name': guardianName,
+          'guardian_relationship': guardianRelationship,
         },
         conflictAlgorithm: ConflictAlgorithm.replace,
       );
-      debugPrint('[ActivityDatabaseService] Stored pairing code in SQLite: $clean');
+      debugPrint('[ActivityDatabaseService] Stored pairing code in SQLite: $clean (Guardian Phone: $guardianPhone)');
       notifyListeners();
     } catch (e) {
       debugPrint('[ActivityDatabaseService] Error saving pairing code: $e');
+    }
+  }
+
+  /// Retrieves the stored primary guardian phone number from SQLite.
+  Future<String?> getGuardianPhone() async {
+    try {
+      final db = await database;
+      final rows = await db.query(
+        _pairingTable,
+        columns: ['guardian_phone'],
+        where: 'is_active = 1',
+        orderBy: 'id DESC',
+        limit: 1,
+      );
+      if (rows.isNotEmpty) {
+        return rows.first['guardian_phone'] as String?;
+      }
+    } catch (e) {
+      debugPrint('[ActivityDatabaseService] Error fetching guardian phone: $e');
+    }
+    return null;
+  }
+
+  /// Retrieves full guardian contact information stored in SQLite.
+  Future<Map<String, String?>?> getGuardianContact() async {
+    try {
+      final db = await database;
+      final rows = await db.query(
+        _pairingTable,
+        columns: ['guardian_phone', 'guardian_name', 'guardian_relationship'],
+        where: 'is_active = 1',
+        orderBy: 'id DESC',
+        limit: 1,
+      );
+      if (rows.isNotEmpty) {
+        final row = rows.first;
+        return {
+          'phone': row['guardian_phone'] as String?,
+          'name': row['guardian_name'] as String?,
+          'relationship': row['guardian_relationship'] as String?,
+        };
+      }
+    } catch (e) {
+      debugPrint('[ActivityDatabaseService] Error fetching guardian contact: $e');
+    }
+    return null;
+  }
+
+  /// Updates or saves the guardian phone number in SQLite.
+  Future<void> saveGuardianPhone(
+    String phone, {
+    String? name,
+    String? relationship,
+  }) async {
+    try {
+      final db = await database;
+      await db.update(
+        _pairingTable,
+        {
+          'guardian_phone': phone,
+          if (name != null) 'guardian_name': name,
+          if (relationship != null) 'guardian_relationship': relationship,
+        },
+        where: 'is_active = 1',
+      );
+      debugPrint('[ActivityDatabaseService] Updated guardian phone in SQLite: $phone');
+      notifyListeners();
+    } catch (e) {
+      debugPrint('[ActivityDatabaseService] Error updating guardian phone: $e');
     }
   }
 

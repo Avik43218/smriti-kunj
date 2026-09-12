@@ -102,8 +102,8 @@ void main() {
     });
   });
 
-  group('SessionService Auto-Login and Unpair State Tests', () {
-    test('SessionService pairs device and updates state', () async {
+  group('SessionService Auto-Login, Guardian Phone, and Unpair State Tests', () {
+    test('SessionService pairs device, extracts guardian phone and updates state', () async {
       final session = SessionService.instance;
       // Pairing with valid demo code
       final success = await session.pairDevice('PAIR-652759');
@@ -111,17 +111,24 @@ void main() {
       expect(session.isPaired, isTrue);
       expect(session.pairingCode, 'PAIR-652759');
       expect(session.patientId, 'p101');
+      expect(session.guardianPhone, isNotNull);
+      expect(session.guardianPhone, contains('98765'));
+      expect(session.guardianName, 'Priya Sharma');
     });
 
-    test('SessionService unpair resets state completely', () async {
+    test('SessionService unpair resets state and guardian phone completely', () async {
       final session = SessionService.instance;
       await session.pairDevice('PAIR-652759');
       expect(session.isPaired, isTrue);
+      expect(session.guardianPhone, isNotNull);
 
       await session.unpair();
       expect(session.isPaired, isFalse);
       expect(session.pairingCode, isNull);
       expect(session.authToken, isNull);
+      expect(session.guardianPhone, isNull);
+      expect(session.guardianName, isNull);
+      expect(session.guardianRelationship, isNull);
       expect(session.currentSession, isNull);
     });
 

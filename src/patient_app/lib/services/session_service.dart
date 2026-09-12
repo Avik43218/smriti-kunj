@@ -19,6 +19,9 @@ class SessionService extends ChangeNotifier {
   String? _caregiverId;
   String _regionLanguage = 'bn';
   Map<String, dynamic>? _emergencyContact;
+  String? _guardianPhone;
+  String? _guardianName;
+  String? _guardianRelationship;
   PatientSession? _currentSession;
   String? _errorMessage;
 
@@ -32,6 +35,9 @@ class SessionService extends ChangeNotifier {
   String? get caregiverId => _caregiverId;
   String get regionLanguage => _regionLanguage;
   Map<String, dynamic>? get emergencyContact => _emergencyContact;
+  String? get guardianPhone => _guardianPhone;
+  String? get guardianName => _guardianName;
+  String? get guardianRelationship => _guardianRelationship;
   PatientSession? get currentSession => _currentSession;
   String? get errorMessage => _errorMessage;
 
@@ -41,6 +47,14 @@ class SessionService extends ChangeNotifier {
     notifyListeners();
 
     try {
+      // Pre-load guardian contact from local SQLite database in case offline
+      final savedContact = await ActivityDatabaseService.instance.getGuardianContact();
+      if (savedContact != null) {
+        _guardianPhone = savedContact['phone'];
+        _guardianName = savedContact['name'];
+        _guardianRelationship = savedContact['relationship'];
+      }
+
       final savedCode = await ActivityDatabaseService.instance.getActivePairingCode();
       if (savedCode != null && savedCode.trim().isNotEmpty) {
         debugPrint('[SessionService] Found stored pairing code $savedCode in SQLite. Performing auto-login...');
@@ -57,7 +71,7 @@ class SessionService extends ChangeNotifier {
   }
 
   /// Authenticate and register device with pairing code through ApiService.
-  /// Persists the pairing code in the local SQLite database on success.
+  /// Persists the pairing code and primary guardian phone number in the local SQLite database on success.
   Future<bool> pairDevice(String code) async {
     final cleanCode = code.trim().toUpperCase();
     if (cleanCode.isEmpty) {
@@ -80,12 +94,18 @@ class SessionService extends ChangeNotifier {
       _authToken = session.token;
       _regionLanguage = session.regionLanguage;
       _emergencyContact = session.emergencyContact;
+      _guardianPhone = session.guardianPhone;
+      _guardianName = session.guardianName;
+      _guardianRelationship = session.guardianRelationship;
       _errorMessage = null;
 
-      // Save pairing code in local SQLite database for auto-login on next app launch
+      // Save pairing code and guardian contact in local SQLite database for offline access & auto-login
       await ActivityDatabaseService.instance.savePairingCode(
         cleanCode,
         patientId: session.patientId,
+        guardianPhone: session.guardianPhone,
+        guardianName: session.guardianName,
+        guardianRelationship: session.guardianRelationship,
       );
 
       notifyListeners();
@@ -98,7 +118,7 @@ class SessionService extends ChangeNotifier {
     }
   }
 
-  /// Reset session state, clear stored pairing code from SQLite, and unpair device.
+  /// Reset session state, clear stored pairing code and guardian contact from SQLite, and unpair device.
   Future<void> unpair() async {
     _isPaired = false;
     _pairingCode = null;
@@ -106,11 +126,15 @@ class SessionService extends ChangeNotifier {
     _authToken = null;
     _caregiverId = null;
     _emergencyContact = null;
+    _guardianPhone = null;
+    _guardianName = null;
+    _guardianRelationship = null;
     _errorMessage = null;
 
-    // Clear pairing code from SQLite so app does not auto-login again until paired
+    // Clear pairing code and guardian contact from SQLite so app does not auto-login again until paired
     await ActivityDatabaseService.instance.clearSavedPairingCode();
 
     notifyListeners();
   }
 }
+
