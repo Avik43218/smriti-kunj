@@ -25,7 +25,7 @@ class CaregiverOut(BaseModel):
     id: uuid.UUID
     name: str
     email: EmailStr
-    region_language: str
+    region_language: Optional[str] = "bn"
     role: str = "caregiver"
     status: Optional[str] = "active"
 
@@ -49,6 +49,7 @@ class CaregiverRegisterRequest(BaseModel):
 class LoginRequest(BaseModel):
     email: EmailStr
     password: str
+    role: Optional[str] = None
 
 
 class OtpRequestRequest(BaseModel):
@@ -71,6 +72,7 @@ class OtpVerifyResponse(BaseModel):
 
     token: str
     caregiver: CaregiverOut
+    user: Optional[UserOut] = None
 
 
 class LogoutResponse(BaseModel):

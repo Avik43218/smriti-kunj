@@ -56,7 +56,7 @@ const getPatientComplianceRaw = (patientId) => {
  * @param {string} patientId 
  * @returns {Promise<{ medication: Array, hydration: Object, meals: Array, custom: Array }>}
  */
-export const fetchReminders = async (patientId = 'p101') => {
+export const fetchReminders = async (patientId) => {
   try {
     const data = await apiClient(`/api/patients/${patientId}/reminders`);
     if (data && (data.medication || data.hydration || data.meals || data.custom)) {
@@ -86,7 +86,7 @@ export const fetchReminders = async (patientId = 'p101') => {
  * @param {Array|Object} updatedData 
  * @returns {Promise<{ success: boolean, data: any }>}
  */
-export const updateCategoryReminders = async (patientId = 'p101', category, updatedData) => {
+export const updateCategoryReminders = async (patientId, category, updatedData) => {
   try {
     const data = await apiClient(`/api/patients/${patientId}/reminders/${category}`, {
       method: 'PUT',
@@ -130,7 +130,7 @@ export const updateCategoryReminders = async (patientId = 'p101', category, upda
  * @param {string} reminderData.frequency
  * @returns {Promise<{ id: string, label: string, time: string, frequency: string }>}
  */
-export const addCustomReminder = async ({ patientId = 'p101', label, time, frequency = 'Daily' }) => {
+export const addCustomReminder = async ({ patientId, label, time, frequency = 'Daily' }) => {
   try {
     const data = await apiClient(`/api/patients/${patientId}/reminders/custom`, {
       method: 'POST',
@@ -196,7 +196,7 @@ export const addCustomReminder = async ({ patientId = 'p101', label, time, frequ
  *   completionRate: number
  * }}
  */
-export const getTodayComplianceSummary = (patientId = 'p101') => {
+export const getTodayComplianceSummary = (patientId) => {
   const normId = normalizePatientId(patientId);
   const reminders = getPatientRemindersRaw(normId);
   const compliance = getPatientComplianceRaw(normId);
@@ -254,7 +254,7 @@ export const getTodayComplianceSummary = (patientId = 'p101') => {
  *   pastDays: Array<{ dateLabel: string, completed: number, total: number, missed: number, rate: number }>
  * }>}
  */
-export const getPatientComplianceDetails = async (patientId = 'p101') => {
+export const getPatientComplianceDetails = async (patientId) => {
   return new Promise((resolve) => {
     setTimeout(() => {
       const normId = normalizePatientId(patientId);

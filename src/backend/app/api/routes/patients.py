@@ -275,21 +275,11 @@ async def find_patient_by_pairing_code(raw_code: str) -> Optional[User]:
         if patient:
             return patient
 
-    # 3. Seed / demo fallback (p101 -> PAIR-652759)
+    # 3. Check existing patient code match (e.g. p101)
     if clean_code in ["PAIR-652759", "652759", "P101"]:
         patient = await User.find_one(User.patient_code == "p101", User.role == RoleEnum.patient)
-        if not patient:
-            patient = User(
-                role=RoleEnum.patient,
-                name="Aarav Sharma",
-                patient_code="p101",
-                pairing_token="PAIR-652759",
-                region_language="bn",
-                status="stable",
-                status_label="Active • Tablet synced",
-            )
-            await patient.insert()
-        return patient
+        if patient:
+            return patient
 
     return None
 

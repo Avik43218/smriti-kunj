@@ -28,11 +28,15 @@ export const verifyOtp = async (email, otp) => {
   return data; // Usually returns { token, caregiver }
 };
 
-// Validates credentials
-export const login = async (email, password) => {
+// Validates credentials and sends OTP
+export const login = async (email, password, role) => {
+  const payload = { email, password };
+  if (role) {
+    payload.role = role;
+  }
   return await apiClient('/api/auth/login', {
     method: 'POST',
-    body: JSON.stringify({ email, password }),
+    body: JSON.stringify(payload),
   });
 };
 
@@ -41,10 +45,11 @@ export const logout = async () => {
   try {
     await apiClient('/api/auth/logout', { method: 'POST' });
   } catch (error) {
-    console.warn("Backend logout failed!");
+    console.warn("Backend logout notice:", error.message);
   }
 
   localStorage.removeItem('token');
+  localStorage.removeItem('caregiver_user_data');
   return { success: true };
 };
 

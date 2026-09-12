@@ -95,6 +95,8 @@ async def get_current_user(creds: HTTPAuthorizationCredentials = Depends(bearer_
 
     user = await User.get(user_id)
     if not user:
+        user = await User.find_one(User.id == user_id)
+    if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
     return user
 

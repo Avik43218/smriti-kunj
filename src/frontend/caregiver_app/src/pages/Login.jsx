@@ -23,13 +23,13 @@ const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 export const Login = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { login, requestOtp, verifyOtp, isAuthenticated, loading } = useAuth();
+  const { login, requestOtp, verifyOtp, isAuthenticated, loading, role, isAdmin } = useAuth();
   const { theme, toggleTheme } = useTheme();
 
   // Multi-step authentication state: 'credentials' | 'otp'
   const [step, setStep] = useState('credentials');
 
-  // ROLE TRACKER ADDED HERE
+  // ROLE TRACKER: 'caregiver' | 'admin'
   const [loginRole, setLoginRole] = useState('caregiver');
 
   const [email, setEmail] = useState('');
@@ -45,10 +45,11 @@ export const Login = () => {
   // Redirect if already authenticated
   useEffect(() => {
     if (isAuthenticated) {
-      const origin = location.state?.from?.pathname || '/dashboard';
+      const defaultDest = isAdmin || role === 'admin' ? '/admin/dashboard' : '/dashboard';
+      const origin = location.state?.from?.pathname || defaultDest;
       navigate(origin, { replace: true });
     }
-  }, [isAuthenticated, navigate, location]);
+  }, [isAuthenticated, navigate, location, role, isAdmin]);
 
   const validateCredentials = () => {
     const nextErrors = {};
@@ -78,18 +79,7 @@ export const Login = () => {
 
     setIsSubmitting(true);
     try {
-      // Pass the loginRole to your auth context
-      const res = await login(email.trim(), password, loginRole);
-
-      // DEV MOCK BYPASS: If the mock returns the user immediately, skip OTP and route them
-      if (res && res.role) {
-        if (res.role === 'admin') navigate('/admin/dashboard', { replace: true });
-        else navigate('/dashboard', { replace: true });
-        return;
-      }
-
-      // Normal Live Backend Flow
-      await requestOtp(email.trim());
+      await login(email.trim(), password, loginRole);
       setStep('otp');
       setOtp('');
     } catch (err) {
@@ -111,10 +101,17 @@ export const Login = () => {
 
     setIsSubmitting(true);
     try {
-      // Step 2: Verify OTP and finalize session
-      await verifyOtp(email.trim(), otp);
-      const destination = location.state?.from?.pathname || '/dashboard';
-      navigate(destination, { replace: true });
+      const response = await verifyOtp(email.trim(), otp);
+      const userRole = response?.user?.role || response?.caregiver?.role || loginRole;
+      if (userRole === 'admin') {
+        const fromPath = location.state?.from?.pathname;
+        const destination = fromPath && fromPath.startsWith('/admin') ? fromPath : '/admin/dashboard';
+        navigate(destination, { replace: true });
+      } else {
+        const fromPath = location.state?.from?.pathname;
+        const destination = fromPath && !fromPath.startsWith('/admin') ? fromPath : '/dashboard';
+        navigate(destination, { replace: true });
+      }
     } catch (err) {
       setSubmitError(err.message || 'Invalid verification code. Please try again.');
     } finally {

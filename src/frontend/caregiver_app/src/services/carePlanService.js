@@ -6,16 +6,6 @@ import apiClient from './apiClient';
  * Provides memory gallery family member operations and care plan customization.
  */
 
-let familyMembersStore = [];
-
-/**
- * Fetches family member photo memory cards for a patient.
- * 
- * Uses GET /api/patients/:patientId/family-members with local fallback.
- * 
- * @param {string} patientId 
- * @returns {Promise<Array<{ id: string, name: string, relation: string, photoUrl: string, patientId: string }>>}
- */
 export const fetchFamilyMembers = async (patientId) => {
   try {
     const data = await apiClient(`/api/patients/${patientId}/family-members`);
@@ -23,17 +13,17 @@ export const fetchFamilyMembers = async (patientId) => {
       return data;
     }
   } catch (err) {
-    console.warn(`apiClient /api/patients/${patientId}/family-members notice, using local cache:`, err.message);
+    console.warn(`apiClient /api/patients/${patientId}/family-members notice:`, err.message);
   }
 
-  return familyMembersStore.filter((m) => m.patientId === patientId);
+  return [];
 };
 
 /**
  * Adds a new family member memory card for a patient.
  * All fields (patientId, name, relation, photoUrl) are strictly required.
  * 
- * Uses POST /api/patients/:patientId/family-members with local fallback.
+ * Uses POST /api/patients/:patientId/family-members.
  * 
  * @param {Object} memberData
  * @param {string} memberData.patientId
@@ -43,19 +33,6 @@ export const fetchFamilyMembers = async (patientId) => {
  * @returns {Promise<{ id: string, name: string, relation: string, photoUrl: string, patientId: string }>}
  */
 export const addFamilyMember = async ({ patientId, name, relation, photoUrl }) => {
-  try {
-    const data = await apiClient(`/api/patients/${patientId}/family-members`, {
-      method: 'POST',
-      body: JSON.stringify({ name, relation, photoUrl }),
-    });
-    if (data && data.id) {
-      familyMembersStore.push(data);
-      return data;
-    }
-  } catch (err) {
-    console.warn(`apiClient POST /api/patients/${patientId}/family-members notice, using local mock:`, err.message);
-  }
-
   if (!patientId || !patientId.trim()) {
     throw new Error('Patient ID is required.');
   }
@@ -69,16 +46,11 @@ export const addFamilyMember = async ({ patientId, name, relation, photoUrl }) =
     throw new Error('Photo URL/upload is required. Every memory card must include a photo.');
   }
 
-  const newMember = {
-    id: `fam_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
-    patientId: patientId.trim(),
-    name: name.trim(),
-    relation: relation.trim(),
-    photoUrl: photoUrl.trim(),
-  };
-
-  familyMembersStore.push(newMember);
-  return newMember;
+  const data = await apiClient(`/api/patients/${patientId}/family-members`, {
+    method: 'POST',
+    body: JSON.stringify({ name, relation, photoUrl }),
+  });
+  return data;
 };
 
 /**

@@ -14,6 +14,7 @@ long-lived device token, unchanged from before.
 import uuid
 from datetime import datetime, timedelta, timezone
 
+from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials
 
@@ -54,8 +55,7 @@ router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 async def _issue_otp(email: str) -> None:
     """Invalidate any outstanding code for this email and issue a fresh one.
-    Sending is stubbed to a print — wire up a real provider (SES/SendGrid/
-    etc.) here before this goes anywhere near production."""
+    Displays OTP prominently in terminal for authentication."""
     await OtpCode.find(OtpCode.email == email).delete()
 
     code = generate_otp()
@@ -65,8 +65,12 @@ async def _issue_otp(email: str) -> None:
         expires_at=datetime.utcnow() + timedelta(minutes=settings.OTP_EXPIRE_MINUTES),
     ).insert()
 
-    # TODO: send `code` via email instead of logging it.
-    print(f"[stub email] OTP for {email}: {code}")
+    print("\n" + "=" * 60, flush=True)
+    print(" >>> [SMRITI KUNJ OTP VERIFICATION] <<<", flush=True)
+    print(f" Account: {email}", flush=True)
+    print(f" One-Time Password (OTP): {code}", flush=True)
+    print(f" Expiration: {settings.OTP_EXPIRE_MINUTES} minutes", flush=True)
+    print("=" * 60 + "\n", flush=True)
 
 
 @router.post("/register", response_model=CaregiverOut, status_code=201)
@@ -93,6 +97,13 @@ async def login(payload: LoginRequest):
     user = await User.find_one(User.email == payload.email)
     if not user or user.role == RoleEnum.patient or not user.hashed_password or not verify_password(payload.password, user.hashed_password):
         raise HTTPException(status_code=401, detail="Incorrect email or password")
+
+    user_role_str = user.role.value if hasattr(user.role, "value") else str(user.role)
+    if payload.role and user_role_str != payload.role:
+        raise HTTPException(
+            status_code=403,
+            detail=f"This account is registered as a {user_role_str}. Please switch to the {user_role_str.capitalize()} tab to sign in.",
+        )
 
     if getattr(user, "status", None) == "disabled":
         raise HTTPException(status_code=403, detail="Account is disabled")
@@ -138,15 +149,38 @@ async def verify_otp(payload: OtpVerifyRequest):
 
     await otp_record.delete()
 
+    user_role_str = user.role.value if hasattr(user.role, "value") else str(user.role)
     token = _create_token(
         user.id,
         user.role,
         timedelta(minutes=settings.CAREGIVER_TOKEN_EXPIRE_MINUTES),
     )
 
+    caregiver_out = CaregiverOut(
+        id=user.id,
+        name=user.name,
+        email=user.email,
+        region_language=user.region_language or "bn",
+        role=user_role_str,
+        status=getattr(user, "status", "active") or "active",
+    )
+    user_out = UserOut(
+        id=user.id,
+        role=user_role_str,
+        name=user.name,
+        email=user.email,
+        status=getattr(user, "status", "active") or "active",
+        patient_code=user.patient_code,
+        region_language=user.region_language or "bn",
+        pairing_token=user.pairing_token,
+        emergency_contact=user.emergency_contact,
+        device_id=user.device_id,
+    )
+
     return OtpVerifyResponse(
         token=token,
-        caregiver=CaregiverOut.model_validate(user),
+        caregiver=caregiver_out,
+        user=user_out,
     )
 
 

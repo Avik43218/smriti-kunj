@@ -16,6 +16,19 @@ import { AdminDashboard } from './pages/admin/AdminDashboard';
 import { ManageCaregivers } from './pages/admin/ManageCaregivers';
 import { AllPatients } from './pages/admin/AllPatients';
 
+import { useAuth } from './context/AuthContext';
+
+const RootRedirect = () => {
+  const { role, isAuthenticated, isAdmin } = useAuth();
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+  if (isAdmin || role === 'admin') {
+    return <Navigate to="/admin/dashboard" replace />;
+  }
+  return <Navigate to="/dashboard" replace />;
+};
+
 export const App = () => {
   return (
     <BrowserRouter>
@@ -43,7 +56,7 @@ export const App = () => {
             {/* Main Caregiver Dashboard Routes wrapped in DashboardLayout */}
             <Route
               element={
-                <ProtectedRoute>
+                <ProtectedRoute allowedRoles={['caregiver']}>
                   <DashboardLayout />
                 </ProtectedRoute>
               }
@@ -57,7 +70,7 @@ export const App = () => {
             {/* Patient Context Routes wrapped in PatientLayout */}
             <Route
               element={
-                <ProtectedRoute>
+                <ProtectedRoute allowedRoles={['caregiver']}>
                   <PatientLayout />
                 </ProtectedRoute>
               }
@@ -68,9 +81,9 @@ export const App = () => {
               <Route path="/patients/:id/analytics" element={<Analytics />} />
             </Route>
 
-            {/* Default redirect to /dashboard */}
-            <Route path="/" element={<Navigate to="/dashboard" replace />} />
-            <Route path="*" element={<Navigate to="/dashboard" replace />} />
+            {/* Role-aware default redirect */}
+            <Route path="/" element={<RootRedirect />} />
+            <Route path="*" element={<RootRedirect />} />
           </Routes>
         </ThemeProvider>
       </AuthProvider>
