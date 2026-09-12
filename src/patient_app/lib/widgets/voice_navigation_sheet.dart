@@ -231,8 +231,8 @@ class _VoiceNavigationSheetState extends State<VoiceNavigationSheet>
                       ),
                       Text(
                         _isBengali
-                            ? 'বলুন: খেলা, বাজারের যাত্রা, ট্যাপ, প্যাটার্ন, লগআউট'
-                            : 'Say: Game, Market Trip, Tap target, Pattern match, Logout',
+                            ? 'বলুন: বাড়ি, খেলা, অনুস্মারক, গ্যালারি, সিংক, সাহায্য, ভাষা...'
+                            : 'Say: Home, Games, Reminders, Gallery, Sync, Help, Languages...',
                         style: const TextStyle(
                           fontSize: 13,
                           color: AppColors.inkSoft,
@@ -435,22 +435,27 @@ class _VoiceNavigationSheetState extends State<VoiceNavigationSheet>
             ),
             const SizedBox(height: 8),
 
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: VoiceCommand.values.map((cmd) {
-                return _VoiceCommandBadge(
-                  command: cmd,
-                  isBengali: _isBengali,
-                  isSelected: _recognizedMatch?.command == cmd,
-                  onTap: () => _handleCommandRecognized(VoiceCommandMatch(
-                    command: cmd,
-                    matchedCandidate: cmd.englishTitle,
-                    confidence: 1.0,
-                    isBengali: _isBengali,
-                  )),
-                );
-              }).toList(),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 180),
+              child: SingleChildScrollView(
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: VoiceCommand.values.map((cmd) {
+                    return _VoiceCommandBadge(
+                      command: cmd,
+                      isBengali: _isBengali,
+                      isSelected: _recognizedMatch?.command == cmd,
+                      onTap: () => _handleCommandRecognized(VoiceCommandMatch(
+                        command: cmd,
+                        matchedCandidate: cmd.englishTitle,
+                        confidence: 1.0,
+                        isBengali: _isBengali,
+                      )),
+                    );
+                  }).toList(),
+                ),
+              ),
             ),
             const SizedBox(height: 12),
           ],
