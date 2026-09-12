@@ -4,6 +4,7 @@ import '../models/reminder_item.dart';
 import '../services/activity_database_service.dart';
 import '../services/api_service.dart';
 import '../services/app_strings.dart';
+import '../services/device_alarm_service.dart';
 import '../services/locale_service.dart';
 import '../services/reminder_database_service.dart';
 import '../services/session_service.dart';
@@ -86,6 +87,14 @@ class _RemindersScreenState extends State<RemindersScreen> {
       // Save into local SQLite database
       await ReminderDatabaseService.instance.saveReminders(remoteItems, pairingCode: pairingCode);
 
+      // Save as everyday alarms in the mobile device by label
+      int alarmsScheduled = 0;
+      try {
+        alarmsScheduled = await DeviceAlarmService.instance.syncRemindersToDeviceAlarms(remoteItems);
+      } catch (alarmErr) {
+        debugPrint('[RemindersScreen] Error syncing to device alarms: $alarmErr');
+      }
+
       // Reload updated records from local SQLite
       final updatedLocal = await ReminderDatabaseService.instance.getReminders(
         pairingCode: pairingCode,
@@ -99,14 +108,17 @@ class _RemindersScreenState extends State<RemindersScreen> {
         });
 
         if (showFeedback) {
+          final alarmNotice = alarmsScheduled > 0
+              ? ' • $alarmsScheduled everyday alarms set'
+              : '';
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
-                'Updated ${_reminders.length} reminders from cloud',
+                'Updated ${_reminders.length} reminders from cloud$alarmNotice',
                 style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
               ),
               backgroundColor: AppColors.sageGreen,
-              duration: const Duration(seconds: 2),
+              duration: const Duration(seconds: 3),
             ),
           );
         }
@@ -221,6 +233,64 @@ class _RemindersScreenState extends State<RemindersScreen> {
     }
   }
 
+  /// Manually synchronizes all loaded reminders to native everyday alarms on the mobile device.
+  Future<void> _syncToDeviceAlarms() async {
+    if (_reminders.isEmpty) return;
+
+    try {
+      final scheduled = await DeviceAlarmService.instance.syncRemindersToDeviceAlarms(_reminders);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Saved $scheduled reminders as everyday alarms on device',
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+            ),
+            backgroundColor: AppColors.terracotta,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('[RemindersScreen] Error during manual alarm sync: $e');
+    }
+  }
+
+  /// Sets a single reminder as an everyday alarm on the mobile device.
+  Future<void> _setSingleAlarm(ReminderItem item) async {
+    final parsed = DeviceAlarmService.parseTimeString(item.time);
+    if (parsed == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Invalid time format: "${item.time}"'),
+          backgroundColor: AppColors.alertRed,
+        ),
+      );
+      return;
+    }
+
+    final success = await DeviceAlarmService.instance.setDeviceAlarm(
+      label: item.title,
+      hour: parsed.hour,
+      minute: parsed.minute,
+    );
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            success
+                ? 'Everyday alarm set: "${item.title}" at ${item.time}'
+                : 'Could not set alarm for "${item.title}"',
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+          ),
+          backgroundColor: success ? AppColors.sageGreen : AppColors.alertRed,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
@@ -247,6 +317,13 @@ class _RemindersScreenState extends State<RemindersScreen> {
           ),
         ),
         actions: [
+          // Sync Reminders to Everyday Device Alarms button
+          IconButton(
+            icon: const Icon(Icons.alarm_add_rounded, size: 28, color: AppColors.terracotta),
+            tooltip: 'Sync Reminders to Everyday Device Alarms',
+            onPressed: _reminders.isEmpty ? null : _syncToDeviceAlarms,
+          ),
+
           // Refresh / Fetch button
           IconButton(
             icon: _isSyncing
@@ -330,6 +407,7 @@ class _RemindersScreenState extends State<RemindersScreen> {
                           return _ReminderCard(
                             item: item,
                             onDone: () => _markAsDone(index),
+                            onSetAlarm: () => _setSingleAlarm(item),
                           );
                         },
                       ),
@@ -428,10 +506,12 @@ class _RemindersScreenState extends State<RemindersScreen> {
 class _ReminderCard extends StatelessWidget {
   final ReminderItem item;
   final VoidCallback onDone;
+  final VoidCallback onSetAlarm;
 
   const _ReminderCard({
     required this.item,
     required this.onDone,
+    required this.onSetAlarm,
   });
 
   @override
@@ -535,6 +615,18 @@ class _ReminderCard extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 12),
+
+          // Action Target: Save Everyday Alarm to Mobile Device
+          IconButton(
+            icon: const Icon(
+              Icons.alarm_on_rounded,
+              size: 28,
+              color: AppColors.terracotta,
+            ),
+            tooltip: 'Set Everyday Alarm',
+            onPressed: onSetAlarm,
+          ),
+          const SizedBox(width: 4),
 
           // Action Target: "Done" button or "Completed" badge (Min 44px height)
           if (!isDone)
