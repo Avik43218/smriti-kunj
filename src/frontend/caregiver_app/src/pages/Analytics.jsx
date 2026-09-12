@@ -241,10 +241,10 @@ export const Analytics = () => {
     switch (gameType) {
       case GAME_TYPES.PAIR_MATCHING:
         return 'Pair Matching';
-      case GAME_TYPES.WORD_ASSOCIATION:
-        return 'Word Association';
-      case GAME_TYPES.VISUAL_SEARCH:
-        return 'Visual Search';
+      case GAME_TYPES.MARKET_TRIP:
+        return 'Market Trip';
+      case GAME_TYPES.TAP_TARGET:
+        return 'Tap the Target';
       default:
         return gameType || 'Cognitive Game';
     }

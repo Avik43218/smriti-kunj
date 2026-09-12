@@ -13,7 +13,7 @@ import 'theme/theme.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   // Pre-initialize TFLite dynamic difficulty model in background
-  ApiService.instance.baseUrl = 'http://192.168.1.240:8000';
+  ApiService.instance.baseUrl = 'http://10.191.74.150:8000';
   DynamicDifficultyService.instance.init();
   // Auto-login using pairing code stored in local SQLite database
   await SessionService.instance.tryAutoLogin();

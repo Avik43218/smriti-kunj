@@ -106,56 +106,56 @@ async def _get_or_create_reminders(patient_id: str) -> PatientReminder:
     return rem
 
 
-DEFAULT_DAILY_REMINDERS = {
-    "medication": [
-        {
-            "id": "med_1",
-            "title": "Morning Medicine",
-            "label": "Morning Medicine",
-            "time": "8:00 AM",
-            "dosage": "1 Tablet with water",
-            "type": "medication",
-            "category": "medication",
-            "icon": "medication",
-            "isCompleted": False,
-        }
-    ],
-    "hydration": {
-        "id": "hyd_1",
-        "title": "Glass of Warm Water",
-        "label": "Glass of Warm Water",
-        "time": "10:30 AM",
-        "type": "hydration",
-        "category": "hydration",
-        "icon": "water_drop",
-        "isCompleted": False,
-    },
-    "meals": [
-        {
-            "id": "meal_1",
-            "title": "Lunch & Fresh Fruits",
-            "label": "Lunch & Fresh Fruits",
-            "time": "1:00 PM",
-            "type": "meals",
-            "category": "meals",
-            "icon": "restaurant",
-            "isCompleted": False,
-        }
-    ],
-    "custom": [
-        {
-            "id": "cust_1",
-            "title": "Evening Walk & Stretch",
-            "label": "Evening Walk & Stretch",
-            "time": "5:00 PM",
-            "frequency": "Daily",
-            "type": "custom",
-            "category": "custom",
-            "icon": "directions_walk",
-            "isCompleted": False,
-        }
-    ],
-}
+# DEFAULT_DAILY_REMINDERS = {
+#     "medication": [
+#         {
+#             "id": "med_1",
+#             "title": "Morning Medicine",
+#             "label": "Morning Medicine",
+#             "time": "8:00 AM",
+#             "dosage": "1 Tablet with water",
+#             "type": "medication",
+#             "category": "medication",
+#             "icon": "medication",
+#             "isCompleted": False,
+#         }
+#     ],
+#     "hydration": {
+#         "id": "hyd_1",
+#         "title": "Glass of Warm Water",
+#         "label": "Glass of Warm Water",
+#         "time": "10:30 AM",
+#         "type": "hydration",
+#         "category": "hydration",
+#         "icon": "water_drop",
+#         "isCompleted": False,
+#     },
+#     "meals": [
+#         {
+#             "id": "meal_1",
+#             "title": "Lunch & Fresh Fruits",
+#             "label": "Lunch & Fresh Fruits",
+#             "time": "1:00 PM",
+#             "type": "meals",
+#             "category": "meals",
+#             "icon": "restaurant",
+#             "isCompleted": False,
+#         }
+#     ],
+#     "custom": [
+#         {
+#             "id": "cust_1",
+#             "title": "Evening Walk & Stretch",
+#             "label": "Evening Walk & Stretch",
+#             "time": "5:00 PM",
+#             "frequency": "Daily",
+#             "type": "custom",
+#             "category": "custom",
+#             "icon": "directions_walk",
+#             "isCompleted": False,
+#         }
+#     ],
+# }
 
 
 def _build_unified_reminders_list(rem: PatientReminder) -> List[Dict[str, Any]]:
@@ -329,15 +329,15 @@ async def _handle_fetch_reminders_logic(
         rem = await PatientReminder.find_one(PatientReminder.patient_id == patient.pairing_token)
 
     # Initialize default daily reminders in MongoDB if patient doesn't have any yet
-    if not rem or (not rem.medication and not rem.hydration and not rem.meals and not rem.custom):
-        if not rem:
-            rem = PatientReminder(patient_id=patient_key)
-        rem.medication = [dict(x) for x in DEFAULT_DAILY_REMINDERS["medication"]]
-        rem.hydration = dict(DEFAULT_DAILY_REMINDERS["hydration"])
-        rem.meals = [dict(x) for x in DEFAULT_DAILY_REMINDERS["meals"]]
-        rem.custom = [dict(x) for x in DEFAULT_DAILY_REMINDERS["custom"]]
-        rem.updated_at = datetime.utcnow()
-        await rem.save()
+    # if not rem or (not rem.medication and not rem.hydration and not rem.meals and not rem.custom):
+    #     if not rem:
+    #         rem = PatientReminder(patient_id=patient_key)
+    #     rem.medication = [dict(x) for x in DEFAULT_DAILY_REMINDERS["medication"]]
+    #     rem.hydration = dict(DEFAULT_DAILY_REMINDERS["hydration"])
+    #     rem.meals = [dict(x) for x in DEFAULT_DAILY_REMINDERS["meals"]]
+    #     rem.custom = [dict(x) for x in DEFAULT_DAILY_REMINDERS["custom"]]
+    #     rem.updated_at = datetime.utcnow()
+    #     await rem.save()
 
     unified_list = _build_unified_reminders_list(rem)
 
