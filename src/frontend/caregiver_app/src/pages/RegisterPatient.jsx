@@ -588,13 +588,13 @@ export const RegisterPatient = () => {
                   onChange={(e) => handleChange('name', e.target.value)}
                   placeholder="e.g. Aarav Sharma"
                   className={`w-full px-3.5 py-2.5 bg-cream/40 dark:bg-ink-soft/20 border rounded-xl text-sm text-ink dark:text-cream placeholder:text-ink-soft/50 dark:placeholder:text-cream/30 focus:outline-none focus:ring-2 focus:ring-terracotta/40 transition-colors shadow-xs ${
-                    errors.name ? 'border-alert focus:border-alert' : 'border-border/80 dark:border-ink-soft/40 focus:border-terracotta'
+                    errors.name ? 'border-alert dark:border-gold/70 focus:border-alert' : 'border-border/80 dark:border-ink-soft/40 focus:border-terracotta'
                   }`}
                   aria-invalid={Boolean(errors.name)}
                 />
                 {errors.name && (
-                  <p className="text-xs text-alert flex items-center gap-1 mt-1 font-medium">
-                    <AlertCircle className="w-3.5 h-3.5" />
+                  <p className="text-xs text-alert dark:text-gold flex items-center gap-1 mt-1 font-medium">
+                    <AlertCircle className="w-3.5 h-3.5 text-alert dark:text-gold" />
                     <span>{errors.name}</span>
                   </p>
                 )}
@@ -603,43 +603,39 @@ export const RegisterPatient = () => {
               {/* Date of Birth */}
               <div>
                 <label htmlFor="patient-dob" className="block text-xs font-semibold text-ink-soft dark:text-cream/80 mb-1.5">
-                  Date of Birth
+                  Date of Birth <span className="text-terracotta">*</span>
                 </label>
-                <div className="relative">
-                  <input
-                    id="patient-dob"
-                    type="date"
-                    value={formData.dateOfBirth}
-                    onChange={handleDobChange}
-                    className="w-full px-3.5 py-2.5 bg-cream/40 dark:bg-ink-soft/20 border border-border/80 dark:border-ink-soft/40 rounded-xl text-sm text-ink dark:text-cream focus:outline-none focus:ring-2 focus:ring-terracotta/40 focus:border-terracotta transition-colors shadow-xs"
-                  />
-                </div>
-                <span className="text-[11px] text-ink-soft dark:text-cream/60 block mt-1">
-                  Optional. Auto-calculates age.
-                </span>
+                <input
+                  id="patient-dob"
+                  type="date"
+                  value={formData.dateOfBirth}
+                  onChange={(e) => handleDobChange(e.target.value)}
+                  max={new Date().toISOString().split('T')[0]}
+                  className="w-full px-3.5 py-2.5 bg-cream/40 dark:bg-ink-soft/20 border border-border/80 dark:border-ink-soft/40 rounded-xl text-sm text-ink dark:text-cream focus:outline-none focus:ring-2 focus:ring-terracotta/40 focus:border-terracotta transition-colors shadow-xs"
+                />
               </div>
 
-              {/* Age */}
+              {/* Age (Auto-calculated, Read-only / Editable) */}
               <div>
                 <label htmlFor="patient-age" className="block text-xs font-semibold text-ink-soft dark:text-cream/80 mb-1.5">
-                  Age (Years) <span className="text-terracotta">*</span>
+                  Age <span className="text-terracotta">*</span>
                 </label>
                 <input
                   id="patient-age"
                   type="number"
-                  min="40"
-                  max="120"
+                  min="1"
+                  max="125"
                   value={formData.age}
                   onChange={(e) => handleChange('age', e.target.value)}
                   placeholder="e.g. 72"
                   className={`w-full px-3.5 py-2.5 bg-cream/40 dark:bg-ink-soft/20 border rounded-xl text-sm text-ink dark:text-cream placeholder:text-ink-soft/50 dark:placeholder:text-cream/30 focus:outline-none focus:ring-2 focus:ring-terracotta/40 transition-colors shadow-xs ${
-                    errors.age ? 'border-alert focus:border-alert' : 'border-border/80 dark:border-ink-soft/40 focus:border-terracotta'
+                    errors.age ? 'border-alert dark:border-gold/70 focus:border-alert' : 'border-border/80 dark:border-ink-soft/40 focus:border-terracotta'
                   }`}
                   aria-invalid={Boolean(errors.age)}
                 />
                 {errors.age && (
-                  <p className="text-xs text-alert flex items-center gap-1 mt-1 font-medium">
-                    <AlertCircle className="w-3.5 h-3.5" />
+                  <p className="text-xs text-alert dark:text-gold flex items-center gap-1 mt-1 font-medium">
+                    <AlertCircle className="w-3.5 h-3.5 text-alert dark:text-gold" />
                     <span>{errors.age}</span>
                   </p>
                 )}
@@ -716,13 +712,13 @@ export const RegisterPatient = () => {
                   onChange={(e) => handleChange('healthIssue', e.target.value)}
                   placeholder="e.g. Mild Cognitive Impairment (MCI) • Early-stage memory recall decline • Hypertension"
                   className={`w-full px-3.5 py-2.5 bg-cream/40 dark:bg-ink-soft/20 border rounded-xl text-sm text-ink dark:text-cream placeholder:text-ink-soft/50 dark:placeholder:text-cream/30 focus:outline-none focus:ring-2 focus:ring-terracotta/40 transition-colors shadow-xs ${
-                    errors.healthIssue ? 'border-alert focus:border-alert' : 'border-border/80 dark:border-ink-soft/40 focus:border-terracotta'
+                    errors.healthIssue ? 'border-alert dark:border-gold/70 focus:border-alert' : 'border-border/80 dark:border-ink-soft/40 focus:border-terracotta'
                   }`}
                   aria-invalid={Boolean(errors.healthIssue)}
                 />
                 {errors.healthIssue ? (
-                  <p className="text-xs text-alert flex items-center gap-1 mt-1 font-medium">
-                    <AlertCircle className="w-3.5 h-3.5" />
+                  <p className="text-xs text-alert dark:text-gold flex items-center gap-1 mt-1 font-medium">
+                    <AlertCircle className="w-3.5 h-3.5 text-alert dark:text-gold" />
                     <span>{errors.healthIssue}</span>
                   </p>
                 ) : (
@@ -898,13 +894,13 @@ export const RegisterPatient = () => {
                   onChange={(e) => handleEmergencyChange('name', e.target.value)}
                   placeholder="e.g. Priya Sharma"
                   className={`w-full px-3.5 py-2.5 bg-cream/40 dark:bg-ink-soft/20 border rounded-xl text-sm text-ink dark:text-cream placeholder:text-ink-soft/50 dark:placeholder:text-cream/30 focus:outline-none focus:ring-2 focus:ring-terracotta/40 transition-colors shadow-xs ${
-                    errors.emergency_name ? 'border-alert focus:border-alert' : 'border-border/80 dark:border-ink-soft/40 focus:border-terracotta'
+                    errors.emergency_name ? 'border-alert dark:border-gold/70 focus:border-alert' : 'border-border/80 dark:border-ink-soft/40 focus:border-terracotta'
                   }`}
                   aria-invalid={Boolean(errors.emergency_name)}
                 />
                 {errors.emergency_name && (
-                  <p className="text-xs text-alert flex items-center gap-1 mt-1 font-medium">
-                    <AlertCircle className="w-3.5 h-3.5" />
+                  <p className="text-xs text-alert dark:text-gold flex items-center gap-1 mt-1 font-medium">
+                    <AlertCircle className="w-3.5 h-3.5 text-alert dark:text-gold" />
                     <span>{errors.emergency_name}</span>
                   </p>
                 )}
@@ -922,13 +918,13 @@ export const RegisterPatient = () => {
                   onChange={(e) => handleEmergencyChange('relationship', e.target.value)}
                   placeholder="e.g. Daughter (Primary Guardian)"
                   className={`w-full px-3.5 py-2.5 bg-cream/40 dark:bg-ink-soft/20 border rounded-xl text-sm text-ink dark:text-cream placeholder:text-ink-soft/50 dark:placeholder:text-cream/30 focus:outline-none focus:ring-2 focus:ring-terracotta/40 transition-colors shadow-xs ${
-                    errors.emergency_relationship ? 'border-alert focus:border-alert' : 'border-border/80 dark:border-ink-soft/40 focus:border-terracotta'
+                    errors.emergency_relationship ? 'border-alert dark:border-gold/70 focus:border-alert' : 'border-border/80 dark:border-ink-soft/40 focus:border-terracotta'
                   }`}
                   aria-invalid={Boolean(errors.emergency_relationship)}
                 />
                 {errors.emergency_relationship && (
-                  <p className="text-xs text-alert flex items-center gap-1 mt-1 font-medium">
-                    <AlertCircle className="w-3.5 h-3.5" />
+                  <p className="text-xs text-alert dark:text-gold flex items-center gap-1 mt-1 font-medium">
+                    <AlertCircle className="w-3.5 h-3.5 text-alert dark:text-gold" />
                     <span>{errors.emergency_relationship}</span>
                   </p>
                 )}
@@ -946,13 +942,13 @@ export const RegisterPatient = () => {
                   onChange={(e) => handleEmergencyChange('phone', e.target.value)}
                   placeholder="+91 98765 43210"
                   className={`w-full px-3.5 py-2.5 bg-cream/40 dark:bg-ink-soft/20 border rounded-xl text-sm text-ink dark:text-cream placeholder:text-ink-soft/50 dark:placeholder:text-cream/30 focus:outline-none focus:ring-2 focus:ring-terracotta/40 transition-colors shadow-xs ${
-                    errors.emergency_phone ? 'border-alert focus:border-alert' : 'border-border/80 dark:border-ink-soft/40 focus:border-terracotta'
+                    errors.emergency_phone ? 'border-alert dark:border-gold/70 focus:border-alert' : 'border-border/80 dark:border-ink-soft/40 focus:border-terracotta'
                   }`}
                   aria-invalid={Boolean(errors.emergency_phone)}
                 />
                 {errors.emergency_phone && (
-                  <p className="text-xs text-alert flex items-center gap-1 mt-1 font-medium">
-                    <AlertCircle className="w-3.5 h-3.5" />
+                  <p className="text-xs text-alert dark:text-gold flex items-center gap-1 mt-1 font-medium">
+                    <AlertCircle className="w-3.5 h-3.5 text-alert dark:text-gold" />
                     <span>{errors.emergency_phone}</span>
                   </p>
                 )}
