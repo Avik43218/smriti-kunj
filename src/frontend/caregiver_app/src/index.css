@@ -3,7 +3,8 @@
 @tailwind utilities;
 
 /* Smooth global color/background transitions when theme toggles */
-html, body {
+html,
+body {
   margin: 0;
   padding: 0;
   font-family: "Noto Sans", "Noto Sans Bengali", "Noto Sans Devanagari", sans-serif;
@@ -16,6 +17,42 @@ html, body {
 html.dark body {
   background-color: #1A1412;
   color: #FBF5EA;
+}
+
+/* Opaque card surfaces in dark mode to prevent wallpaper pattern bleed-through */
+/* Derived strictly from tailwind.config.js tokens: ink (#2E2A24) and ink-soft (#6B625A) */
+html.dark .dark\:bg-ink-soft\/20 {
+  background-color: #3A352F !important;
+  background-color: color-mix(in srgb, #6B625A 20%, #2E2A24) !important;
+}
+
+html.dark .dark\:bg-ink-soft\/10 {
+  background-color: #342F2A !important;
+  background-color: color-mix(in srgb, #6B625A 10%, #2E2A24) !important;
+}
+
+html.dark .dark\:bg-ink-soft\/30 {
+  background-color: #413B35 !important;
+  background-color: color-mix(in srgb, #6B625A 30%, #2E2A24) !important;
+}
+
+html.dark .dark\:bg-ink-soft\/40 {
+  background-color: #474039 !important;
+  background-color: color-mix(in srgb, #6B625A 40%, #2E2A24) !important;
+}
+
+/* Ambient Cultural Motif Pattern Background (Dashboard, Patient Details, Analytics, Care Plan) */
+.motif-bg-pattern {
+  background-repeat: repeat;
+  background-size: 160px 160px;
+  mix-blend-mode: multiply;
+  opacity: 0.5;
+}
+
+html.dark .motif-bg-pattern {
+  filter: invert(1) sepia(1) hue-rotate(5deg) brightness(0.85);
+  mix-blend-mode: screen;
+  opacity: 0.12;
 }
 
 *,

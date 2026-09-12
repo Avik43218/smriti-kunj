@@ -15,6 +15,7 @@ import {
   Moon,
 } from 'lucide-react';
 import { OtpInput } from '../components/OtpInput';
+import { Footer } from '../components/Footer';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -247,9 +248,9 @@ export const Login = () => {
 
               {/* Error Banner */}
               {submitError && (
-                <div className="mb-5 p-3.5 bg-status-urgent/10 border border-status-urgent/30 rounded-lg flex items-start gap-2.5">
-                  <AlertCircle className="w-5 h-5 text-status-urgent shrink-0 mt-0.5" />
-                  <p className="text-xs sm:text-sm text-status-urgent font-medium leading-relaxed">
+                <div className="mb-5 p-3.5 bg-status-urgent/10 dark:bg-gold/15 border border-status-urgent/30 dark:border-gold/30 rounded-lg flex items-start gap-2.5">
+                  <AlertCircle className="w-5 h-5 text-status-urgent dark:text-gold shrink-0 mt-0.5" />
+                  <p className="text-xs sm:text-sm text-status-urgent dark:text-gold font-medium leading-relaxed">
                     {submitError}
                   </p>
                 </div>
@@ -290,14 +291,14 @@ export const Login = () => {
                       placeholder="caregiver@example.com"
                       className={`w-full px-3.5 py-2.5 bg-cream/70 dark:bg-ink-soft/20 border rounded-lg text-sm text-ink dark:text-cream placeholder:text-ink-soft/60 dark:placeholder:text-cream/40 focus:outline-none focus:ring-1 focus:ring-terracotta transition-colors ${
                         errors.email
-                          ? 'border-status-urgent'
+                          ? 'border-status-urgent dark:border-gold/70'
                           : 'border-border/80 dark:border-ink-soft/40 focus:border-terracotta'
                       }`}
                       disabled={isSubmitting || loading}
                     />
                     {errors.email && (
-                      <p className="text-xs text-status-urgent font-medium mt-1.5 flex items-center gap-1">
-                        <AlertCircle className="w-3.5 h-3.5" />
+                      <p className="text-xs text-status-urgent dark:text-gold font-medium mt-1.5 flex items-center gap-1">
+                        <AlertCircle className="w-3.5 h-3.5 text-status-urgent dark:text-gold" />
                         {errors.email}
                       </p>
                     )}
@@ -325,14 +326,14 @@ export const Login = () => {
                       placeholder="••••••••"
                       className={`w-full px-3.5 py-2.5 bg-cream/70 dark:bg-ink-soft/20 border rounded-lg text-sm text-ink dark:text-cream placeholder:text-ink-soft/60 dark:placeholder:text-cream/40 focus:outline-none focus:ring-1 focus:ring-terracotta transition-colors ${
                         errors.password
-                          ? 'border-status-urgent'
+                          ? 'border-status-urgent dark:border-gold/70'
                           : 'border-border/80 dark:border-ink-soft/40 focus:border-terracotta'
                       }`}
                       disabled={isSubmitting || loading}
                     />
                     {errors.password && (
-                      <p className="text-xs text-status-urgent font-medium mt-1.5 flex items-center gap-1">
-                        <AlertCircle className="w-3.5 h-3.5" />
+                      <p className="text-xs text-status-urgent dark:text-gold font-medium mt-1.5 flex items-center gap-1">
+                        <AlertCircle className="w-3.5 h-3.5 text-status-urgent dark:text-gold" />
                         {errors.password}
                       </p>
                     )}
@@ -403,8 +404,8 @@ export const Login = () => {
                       hasError={Boolean(errors.otp)}
                     />
                     {errors.otp && (
-                      <p className="text-xs text-status-urgent font-medium mt-2 flex items-center justify-center gap-1">
-                        <AlertCircle className="w-3.5 h-3.5" />
+                      <p className="text-xs text-status-urgent dark:text-gold font-medium mt-2 flex items-center justify-center gap-1">
+                        <AlertCircle className="w-3.5 h-3.5 text-status-urgent dark:text-gold" />
                         {errors.otp}
                       </p>
                     )}
@@ -460,40 +461,8 @@ export const Login = () => {
         </div>
       </main>
 
-      {/* Traditional Decorative Gamusa Weave Motif Footer: Consistent dark glassmorphic style in both light and dark mode */}
-      <footer className="relative z-10 w-full bg-ink/85 backdrop-blur-md py-4 border-t border-ink-soft/30 flex flex-col items-center justify-center space-y-2 transition-colors duration-300">
-        <div className="w-full max-w-xl px-4 flex items-center justify-center gap-4 opacity-80">
-          <div className="flex-1 h-[1px] bg-gradient-to-r from-transparent via-terracotta/40 to-gold/70" />
-          <div className="flex items-center gap-1.5 text-gold text-xs font-semibold tracking-widest uppercase">
-            ❖ ✦ ❖
-          </div>
-          <div className="flex-1 h-[1px] bg-gradient-to-l from-transparent via-terracotta/40 to-gold/70" />
-        </div>
-
-        {/* Gamusa Geometric Weave SVG Strip */}
-        <div className="w-full max-w-xl px-4 overflow-hidden flex items-center justify-center">
-          <svg className="w-full h-5 text-terracotta opacity-85" preserveAspectRatio="repeat" viewBox="0 0 480 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <defs>
-              <pattern id="gamusaPatternLogin" width="60" height="32" patternUnits="userSpaceOnUse">
-                <line x1="0" y1="2" x2="60" y2="2" stroke="#B5562F" strokeWidth="1.5" strokeDasharray="3 2" />
-                <line x1="0" y1="5" x2="60" y2="5" stroke="#C9962C" strokeWidth="0.75" />
-                <line x1="0" y1="27" x2="60" y2="27" stroke="#C9962C" strokeWidth="0.75" />
-                <line x1="0" y1="30" x2="60" y2="30" stroke="#B5562F" strokeWidth="1.5" strokeDasharray="3 2" />
-                <path d="M15 16L30 6L45 16L30 26Z" fill="#B5562F" fillOpacity="0.2" stroke="#B5562F" strokeWidth="1.5" />
-                <polygon points="30,10 40,16 30,22 20,16" fill="#C9962C" fillOpacity="0.25" stroke="#C9962C" strokeWidth="1" />
-                <circle cx="30" cy="16" r="2.5" fill="#B5562F" />
-                <path d="M0 16L15 6V10L6 16L15 22V26Z" fill="#B5562F" fillOpacity="0.8" />
-                <path d="M60 16L45 6V10L54 16L45 22V26Z" fill="#B5562F" fillOpacity="0.8" />
-              </pattern>
-            </defs>
-            <rect width="100%" height="32" fill="url(#gamusaPatternLogin)" />
-          </svg>
-        </div>
-
-        <p className="text-[11px] text-cream/60 tracking-wider">
-          স্মৃতি কুঞ্জ • Smriti Kunj • Cognitive Assist Platform
-        </p>
-      </footer>
+      {/* Site Identity Line Design Footer */}
+      <Footer variant="dark" />
     </div>
   );
 };

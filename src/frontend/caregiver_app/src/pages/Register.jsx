@@ -16,6 +16,7 @@ import {
   Sun,
   Moon,
 } from 'lucide-react';
+import { Footer } from '../components/Footer';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -203,9 +204,9 @@ export const Register = () => {
 
               {/* Error Alert */}
               {submitError && (
-                <div className="mb-4 p-3.5 bg-status-urgent/10 border border-status-urgent/30 rounded-lg flex items-start gap-2.5">
-                  <AlertCircle className="w-5 h-5 text-status-urgent shrink-0 mt-0.5" />
-                  <p className="text-xs sm:text-sm text-status-urgent font-medium leading-relaxed">
+                <div className="mb-4 p-3.5 bg-status-urgent/10 dark:bg-gold/15 border border-status-urgent/30 dark:border-gold/30 rounded-lg flex items-start gap-2.5">
+                  <AlertCircle className="w-5 h-5 text-status-urgent dark:text-gold shrink-0 mt-0.5" />
+                  <p className="text-xs sm:text-sm text-status-urgent dark:text-gold font-medium leading-relaxed">
                     {submitError}
                   </p>
                 </div>
@@ -234,14 +235,14 @@ export const Register = () => {
                     placeholder="Dr. Sarah Jenkins"
                     className={`w-full px-3.5 py-2 bg-cream/70 dark:bg-ink-soft/20 border rounded-lg text-sm text-ink dark:text-cream placeholder:text-ink-soft/60 dark:placeholder:text-cream/40 focus:outline-none focus:ring-1 focus:ring-terracotta transition-colors ${
                       errors.name
-                        ? 'border-status-urgent'
+                        ? 'border-status-urgent dark:border-gold/70'
                         : 'border-border/80 dark:border-ink-soft/40 focus:border-terracotta'
                     }`}
                     disabled={isSubmitting}
                   />
                   {errors.name && (
-                    <p className="text-xs text-status-urgent font-medium mt-1 flex items-center gap-1">
-                      <AlertCircle className="w-3.5 h-3.5" />
+                    <p className="text-xs text-status-urgent dark:text-gold font-medium mt-1 flex items-center gap-1">
+                      <AlertCircle className="w-3.5 h-3.5 text-status-urgent dark:text-gold" />
                       {errors.name}
                     </p>
                   )}
@@ -269,7 +270,7 @@ export const Register = () => {
                     placeholder="caregiver@example.com"
                     className={`w-full px-3.5 py-2 bg-cream/70 dark:bg-ink-soft/20 border rounded-lg text-sm text-ink dark:text-cream placeholder:text-ink-soft/60 dark:placeholder:text-cream/40 focus:outline-none focus:ring-1 focus:ring-terracotta transition-colors ${
                       errors.email
-                        ? 'border-status-urgent'
+                        ? 'border-status-urgent dark:border-gold/70'
                         : 'border-border/80 dark:border-ink-soft/40 focus:border-terracotta'
                     }`}
                     disabled={isSubmitting}
@@ -284,7 +285,7 @@ export const Register = () => {
                           <span>Valid email format</span>
                         </span>
                       ) : (
-                        <span className="text-status-urgent flex items-center gap-1 font-medium">
+                        <span className="text-status-urgent dark:text-gold flex items-center gap-1 font-medium">
                           <X className="w-3.5 h-3.5" />
                           <span>Invalid email format</span>
                         </span>
@@ -293,8 +294,8 @@ export const Register = () => {
                   )}
 
                   {errors.email && email.length === 0 && (
-                    <p className="text-xs text-status-urgent font-medium mt-1 flex items-center gap-1">
-                      <AlertCircle className="w-3.5 h-3.5" />
+                    <p className="text-xs text-status-urgent dark:text-gold font-medium mt-1 flex items-center gap-1">
+                      <AlertCircle className="w-3.5 h-3.5 text-status-urgent dark:text-gold" />
                       {errors.email}
                     </p>
                   )}
@@ -322,7 +323,7 @@ export const Register = () => {
                     placeholder="Minimum 8 characters"
                     className={`w-full px-3.5 py-2 bg-cream/70 dark:bg-ink-soft/20 border rounded-lg text-sm text-ink dark:text-cream placeholder:text-ink-soft/60 dark:placeholder:text-cream/40 focus:outline-none focus:ring-1 focus:ring-terracotta transition-colors ${
                       errors.password
-                        ? 'border-status-urgent'
+                        ? 'border-status-urgent dark:border-gold/70'
                         : 'border-border/80 dark:border-ink-soft/40 focus:border-terracotta'
                     }`}
                     disabled={isSubmitting}
@@ -330,8 +331,8 @@ export const Register = () => {
                   <PasswordStrengthIndicator password={password} />
 
                   {errors.password && (
-                    <p className="text-xs text-status-urgent font-medium mt-1 flex items-center gap-1">
-                      <AlertCircle className="w-3.5 h-3.5" />
+                    <p className="text-xs text-status-urgent dark:text-gold font-medium mt-1 flex items-center gap-1">
+                      <AlertCircle className="w-3.5 h-3.5 text-status-urgent dark:text-gold" />
                       {errors.password}
                     </p>
                   )}
@@ -359,7 +360,7 @@ export const Register = () => {
                     placeholder="Re-enter your password"
                     className={`w-full px-3.5 py-2 bg-cream/70 dark:bg-ink-soft/20 border rounded-lg text-sm text-ink dark:text-cream placeholder:text-ink-soft/60 dark:placeholder:text-cream/40 focus:outline-none focus:ring-1 focus:ring-terracotta transition-colors ${
                       errors.confirmPassword
-                        ? 'border-status-urgent'
+                        ? 'border-status-urgent dark:border-gold/70'
                         : 'border-border/80 dark:border-ink-soft/40 focus:border-terracotta'
                     }`}
                     disabled={isSubmitting}
@@ -374,7 +375,7 @@ export const Register = () => {
                           <span>Passwords match</span>
                         </span>
                       ) : (
-                        <span className="text-status-urgent flex items-center gap-1 font-medium">
+                        <span className="text-status-urgent dark:text-gold flex items-center gap-1 font-medium">
                           <X className="w-3.5 h-3.5" />
                           <span>Passwords do not match</span>
                         </span>
@@ -383,8 +384,8 @@ export const Register = () => {
                   )}
 
                   {errors.confirmPassword && confirmPassword.length === 0 && (
-                    <p className="text-xs text-status-urgent font-medium mt-1 flex items-center gap-1">
-                      <AlertCircle className="w-3.5 h-3.5" />
+                    <p className="text-xs text-status-urgent dark:text-gold font-medium mt-1 flex items-center gap-1">
+                      <AlertCircle className="w-3.5 h-3.5 text-status-urgent dark:text-gold" />
                       {errors.confirmPassword}
                     </p>
                   )}
@@ -430,40 +431,8 @@ export const Register = () => {
         </div>
       </main>
 
-      {/* Traditional Decorative Gamusa Weave Motif Footer: Consistent dark glassmorphic style in both light and dark mode */}
-      <footer className="relative z-10 w-full bg-ink/85 backdrop-blur-md py-4 border-t border-ink-soft/30 flex flex-col items-center justify-center space-y-2 transition-colors duration-300">
-        <div className="w-full max-w-xl px-4 flex items-center justify-center gap-4 opacity-80">
-          <div className="flex-1 h-[1px] bg-gradient-to-r from-transparent via-terracotta/40 to-gold/70" />
-          <div className="flex items-center gap-1.5 text-gold text-xs font-semibold tracking-widest uppercase">
-            ❖ ✦ ❖
-          </div>
-          <div className="flex-1 h-[1px] bg-gradient-to-l from-transparent via-terracotta/40 to-gold/70" />
-        </div>
-
-        {/* Gamusa Geometric Weave SVG Strip */}
-        <div className="w-full max-w-xl px-4 overflow-hidden flex items-center justify-center">
-          <svg className="w-full h-5 text-terracotta opacity-85" preserveAspectRatio="repeat" viewBox="0 0 480 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <defs>
-              <pattern id="gamusaPatternRegister" width="60" height="32" patternUnits="userSpaceOnUse">
-                <line x1="0" y1="2" x2="60" y2="2" stroke="#B5562F" strokeWidth="1.5" strokeDasharray="3 2" />
-                <line x1="0" y1="5" x2="60" y2="5" stroke="#C9962C" strokeWidth="0.75" />
-                <line x1="0" y1="27" x2="60" y2="27" stroke="#C9962C" strokeWidth="0.75" />
-                <line x1="0" y1="30" x2="60" y2="30" stroke="#B5562F" strokeWidth="1.5" strokeDasharray="3 2" />
-                <path d="M15 16L30 6L45 16L30 26Z" fill="#B5562F" fillOpacity="0.2" stroke="#B5562F" strokeWidth="1.5" />
-                <polygon points="30,10 40,16 30,22 20,16" fill="#C9962C" fillOpacity="0.25" stroke="#C9962C" strokeWidth="1" />
-                <circle cx="30" cy="16" r="2.5" fill="#B5562F" />
-                <path d="M0 16L15 6V10L6 16L15 22V26Z" fill="#B5562F" fillOpacity="0.8" />
-                <path d="M60 16L45 6V10L54 16L45 22V26Z" fill="#B5562F" fillOpacity="0.8" />
-              </pattern>
-            </defs>
-            <rect width="100%" height="32" fill="url(#gamusaPatternRegister)" />
-          </svg>
-        </div>
-
-        <p className="text-[11px] text-cream/60 tracking-wider">
-          স্মৃতি কুঞ্জ • Smriti Kunj • Cognitive Assist Platform
-        </p>
-      </footer>
+      {/* Site Identity Line Design Footer */}
+      <Footer variant="dark" />
     </div>
   );
 };
