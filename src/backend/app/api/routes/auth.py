@@ -20,6 +20,7 @@ from fastapi.security import HTTPAuthorizationCredentials
 from app.config import settings
 from app.core.otp import generate_otp, hash_otp, verify_otp_code
 from app.core.security import (
+    _create_token,
     bearer_scheme,
     create_caregiver_token,
     create_patient_device_token,
@@ -79,6 +80,7 @@ async def register(payload: CaregiverRegisterRequest):
         email=payload.email,
         hashed_password=hash_password(payload.password),
         region_language=payload.region_language,
+        status="active",
     )
     await user.insert()
     return user
@@ -88,9 +90,12 @@ async def register(payload: CaregiverRegisterRequest):
 async def login(payload: LoginRequest):
     """Step 1 of 2: validate the password, then send an OTP. No session
     token is issued here — only /verify-otp issues one."""
-    user = await User.find_one(User.email == payload.email, User.role == RoleEnum.caregiver)
-    if not user or not user.hashed_password or not verify_password(payload.password, user.hashed_password):
+    user = await User.find_one(User.email == payload.email)
+    if not user or user.role == RoleEnum.patient or not user.hashed_password or not verify_password(payload.password, user.hashed_password):
         raise HTTPException(status_code=401, detail="Incorrect email or password")
+
+    if getattr(user, "status", None) == "disabled":
+        raise HTTPException(status_code=403, detail="Account is disabled")
 
     await _issue_otp(user.email)
     return OtpRequestResponse(message="A one-time code has been sent to your email.", email=user.email)
@@ -101,19 +106,22 @@ async def request_otp(payload: OtpRequestRequest):
     """Resend path ('Didn't get a code?'). Always returns the same generic
     message whether or not the email has an account, to avoid leaking
     which emails are registered."""
-    user = await User.find_one(User.email == payload.email, User.role == RoleEnum.caregiver)
-    if user:
+    user = await User.find_one(User.email == payload.email)
+    if user and user.role != RoleEnum.patient and getattr(user, "status", None) != "disabled":
         await _issue_otp(user.email)
     return OtpRequestResponse(message="If that email has an account, a code has been sent.", email=payload.email)
 
 
 @router.post("/verify-otp", response_model=OtpVerifyResponse)
 async def verify_otp(payload: OtpVerifyRequest):
-    user = await User.find_one(User.email == payload.email, User.role == RoleEnum.caregiver)
+    user = await User.find_one(User.email == payload.email)
     otp_record = await OtpCode.find_one(OtpCode.email == payload.email)
 
     if not user or not otp_record:
         raise HTTPException(status_code=400, detail="Invalid or expired code")
+
+    if getattr(user, "status", None) == "disabled":
+        raise HTTPException(status_code=403, detail="Account is disabled")
 
     if otp_record.expires_at < datetime.utcnow():
         await otp_record.delete()
@@ -130,8 +138,14 @@ async def verify_otp(payload: OtpVerifyRequest):
 
     await otp_record.delete()
 
+    token = _create_token(
+        user.id,
+        user.role,
+        timedelta(minutes=settings.CAREGIVER_TOKEN_EXPIRE_MINUTES),
+    )
+
     return OtpVerifyResponse(
-        token=create_caregiver_token(user.id),
+        token=token,
         caregiver=CaregiverOut.model_validate(user),
     )
 

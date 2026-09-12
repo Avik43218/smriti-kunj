@@ -10,6 +10,7 @@ even though it hasn't technically expired yet.
 """
 import uuid
 from datetime import datetime, timedelta, timezone
+from typing import Any
 
 import bcrypt
 from fastapi import Depends, HTTPException, status
@@ -35,15 +36,22 @@ def verify_password(password: str, hashed: str) -> bool:
 
 # ---- JWT issuance ------------------------------------------------------
 
-def _create_token(user_id: uuid.UUID, role: RoleEnum, expires_delta: timedelta) -> str:
+def _create_token(user_id: uuid.UUID, role: Any, expires_delta: timedelta) -> str:
     expire = datetime.now(timezone.utc) + expires_delta
-    payload = {"sub": str(user_id), "role": role.value, "jti": uuid.uuid4().hex, "exp": expire}
+    role_str = role.value if hasattr(role, "value") else str(role)
+    payload = {"sub": str(user_id), "role": role_str, "jti": uuid.uuid4().hex, "exp": expire}
     return jwt.encode(payload, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
 
 
 def create_caregiver_token(user_id: uuid.UUID) -> str:
     return _create_token(
         user_id, RoleEnum.caregiver, timedelta(minutes=settings.CAREGIVER_TOKEN_EXPIRE_MINUTES)
+    )
+
+
+def create_admin_token(user_id: uuid.UUID) -> str:
+    return _create_token(
+        user_id, RoleEnum.admin, timedelta(minutes=settings.CAREGIVER_TOKEN_EXPIRE_MINUTES)
     )
 
 
@@ -91,13 +99,26 @@ async def get_current_user(creds: HTTPAuthorizationCredentials = Depends(bearer_
     return user
 
 
+async def require_admin(user: User = Depends(get_current_user)) -> User:
+    role_val = user.role.value if hasattr(user.role, "value") else str(user.role)
+    if role_val != "admin" and user.role != RoleEnum.admin:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin access required")
+    if getattr(user, "status", None) == "disabled":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account is disabled")
+    return user
+
+
 async def require_caregiver(user: User = Depends(get_current_user)) -> User:
-    if user.role != RoleEnum.caregiver:
+    role_val = user.role.value if hasattr(user.role, "value") else str(user.role)
+    if role_val != "caregiver" and user.role != RoleEnum.caregiver:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Caregiver access required")
+    if getattr(user, "status", None) == "disabled":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account is disabled")
     return user
 
 
 async def require_patient(user: User = Depends(get_current_user)) -> User:
-    if user.role != RoleEnum.patient:
+    role_val = user.role.value if hasattr(user.role, "value") else str(user.role)
+    if role_val != "patient" and user.role != RoleEnum.patient:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Patient device access required")
     return user

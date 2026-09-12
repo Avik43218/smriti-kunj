@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import {
-  login as apiLogin,
   logout as apiLogout,
   verifyOtp as apiVerifyOtp,
   requestOtp as apiRequestOtp,
@@ -14,7 +13,6 @@ const STORAGE_KEYS = {
 };
 
 export const AuthProvider = ({ children }) => {
-  // Pulls from the vault on first load
   const [token, setToken] = useState(() => {
     try {
       return localStorage.getItem(STORAGE_KEYS.TOKEN) || null;
@@ -58,7 +56,6 @@ export const AuthProvider = ({ children }) => {
     }
   }, [caregiver]);
 
-  // Syncs the Token to keep it aligned with authService
   useEffect(() => {
     if (token) {
       localStorage.setItem(STORAGE_KEYS.TOKEN, token);
@@ -67,14 +64,31 @@ export const AuthProvider = ({ children }) => {
     }
   }, [token]);
 
-  const login = useCallback(async (email, password) => {
+  // ===== DEV MOCK LOGIN =====
+  // This intercepts the login and fakes a success response so you can test the UI
+  const login = useCallback(async (email, password, roleType = 'caregiver') => {
     setLoading(true);
     try {
-      return await apiLogin(email, password);
+      // Fake network delay for realism
+      await new Promise(resolve => setTimeout(resolve, 800));
+
+      const mockUser = {
+        id: roleType === 'admin' ? 'admin1' : 'dev1',
+        name: roleType === 'admin' ? 'Dev Admin' : 'Dev Caregiver',
+        email: email,
+        role: roleType
+      };
+
+      setToken(`mock-${roleType}-token`);
+      setCaregiver(mockUser);
+
+      // Return the mock user so Login.jsx routes you instantly (skipping OTP)
+      return mockUser;
     } finally {
       setLoading(false);
     }
   }, []);
+  // ===== END DEV MOCK LOGIN =====
 
   const requestOtp = useCallback(async (email) => {
     return await apiRequestOtp(email);
@@ -106,9 +120,14 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const isAuthenticated = Boolean(token && caregiver);
+  const role = caregiver?.role || 'caregiver';
+  const isAdmin = role === 'admin';
 
   const value = {
+    user: caregiver,
     caregiver,
+    role,
+    isAdmin,
     token,
     login,
     requestOtp,

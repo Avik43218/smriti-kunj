@@ -18,6 +18,7 @@ class TestSyncPipelineAndPersistence(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
         db = MagicMock()
         db.command = AsyncMock(return_value={"version": "6.0.0", "versionArray": [6, 0]})
+        db.list_collection_names = AsyncMock(return_value=[])
         mock_coll = MagicMock()
         mock_coll.create_index = AsyncMock()
         mock_coll.create_indexes = AsyncMock()
@@ -168,7 +169,18 @@ class TestSyncPipelineAndPersistence(unittest.IsolatedAsyncioTestCase):
 
     def test_sync_batch_routes_registered(self):
         from app.main import app
-        registered_paths = {r.path for r in app.routes}
+        registered_paths = set()
+        for r in app.routes:
+            if hasattr(r, "path"):
+                registered_paths.add(r.path)
+            elif hasattr(r, "original_router"):
+                for sub_r in r.original_router.routes:
+                    if hasattr(sub_r, "path"):
+                        registered_paths.add(sub_r.path)
+            elif hasattr(r, "routes"):
+                for sub_r in r.routes:
+                    if hasattr(sub_r, "path"):
+                        registered_paths.add(sub_r.path)
         self.assertIn("/api/sync/batch", registered_paths)
         self.assertIn("/sync/batch", registered_paths)
         self.assertIn("/api/sync", registered_paths)

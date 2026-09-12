@@ -10,6 +10,7 @@ class UserOut(BaseModel):
     role: str
     name: str
     email: Optional[str] = None
+    status: Optional[str] = "active"
     patient_code: Optional[str] = None
     region_language: Optional[str] = "bn"
     pairing_token: Optional[str] = None
@@ -25,6 +26,8 @@ class CaregiverOut(BaseModel):
     name: str
     email: EmailStr
     region_language: str
+    role: str = "caregiver"
+    status: Optional[str] = "active"
 
     class Config:
         from_attributes = True
