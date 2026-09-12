@@ -15,6 +15,7 @@ import { PatientDetails } from './pages/PatientDetails';
 import { AdminDashboard } from './pages/admin/AdminDashboard';
 import { ManageCaregivers } from './pages/admin/ManageCaregivers';
 import { AllPatients } from './pages/admin/AllPatients';
+import { RegisterAdmin } from './pages/admin/RegisterAdmin';
 
 import { useAuth } from './context/AuthContext';
 
@@ -38,6 +39,8 @@ export const App = () => {
             {/* Public Authentication Routes */}
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
+            <Route path="/admin/register" element={<RegisterAdmin />} />
+            <Route path="/register/admin" element={<Navigate to="/admin/register" replace />} />
 
             {/* Admin Management Routes wrapped in DashboardLayout */}
             <Route

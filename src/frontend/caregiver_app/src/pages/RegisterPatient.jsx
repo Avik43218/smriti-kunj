@@ -6,7 +6,6 @@ import {
   User,
   HeartPulse,
   Phone,
-  Tablet,
   CheckCircle2,
   AlertCircle,
   Calendar,
@@ -14,7 +13,6 @@ import {
   FileText,
   ShieldCheck,
   Sparkles,
-  QrCode,
   ExternalLink,
   Scale,
   Activity,
@@ -72,11 +70,10 @@ const SMOKING_OPTIONS = [
 ];
 
 const LANGUAGE_OPTIONS = [
+  { value: 'English', label: 'English' },
   { value: 'Assamese', label: 'Assamese (অসমীয়া)' },
   { value: 'Bengali', label: 'Bengali (বাংলা)' },
   { value: 'Bodo', label: 'Bodo (बड़ो)' },
-  { value: 'Manipuri', label: 'Manipuri (মৈতৈলোন্)' },
-  { value: 'English', label: 'English' },
   { value: 'Hindi', label: 'Hindi (हिन्दी)' },
 ];
 
@@ -91,7 +88,7 @@ export const RegisterPatient = () => {
     dateOfBirth: '',
     age: '',
     gender: 'Male',
-    preferredLanguage: 'Assamese',
+    preferredLanguage: 'English',
     diagnosis: 'Mild Cognitive Impairment (MCI)',
     healthIssue: '',
     notes: '',
@@ -106,11 +103,6 @@ export const RegisterPatient = () => {
       relationship: '',
       phone: '',
     },
-    deviceStatus: {
-      linked: true,
-      deviceName: 'Lenovo Tab M10 Plus',
-      deviceId: `DEV-M10-${Math.floor(1000 + Math.random() * 9000)}`,
-    },
   });
 
   const [errors, setErrors] = useState({});
@@ -118,19 +110,27 @@ export const RegisterPatient = () => {
   const [registeredPatient, setRegisteredPatient] = useState(null);
 
   // Auto-calculate age from DOB if DOB changes
-  const handleDobChange = (e) => {
-    const dob = e.target.value;
+  const handleDobChange = (eOrVal) => {
+    const dob = typeof eOrVal === 'string' ? eOrVal : eOrVal?.target?.value || '';
     let computedAge = formData.age;
     if (dob) {
-      const birthDate = new Date(dob);
-      const today = new Date();
-      let age = today.getFullYear() - birthDate.getFullYear();
-      const monthDiff = today.getMonth() - birthDate.getMonth();
-      if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-        age--;
-      }
-      if (age >= 0 && age <= 125) {
-        computedAge = String(age);
+      const parts = dob.split('-');
+      if (parts.length === 3) {
+        const birthYear = parseInt(parts[0], 10);
+        const birthMonth = parseInt(parts[1], 10) - 1;
+        const birthDay = parseInt(parts[2], 10);
+
+        if (!isNaN(birthYear) && !isNaN(birthMonth) && !isNaN(birthDay)) {
+          const today = new Date();
+          let age = today.getFullYear() - birthYear;
+          const monthDiff = today.getMonth() - birthMonth;
+          if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDay)) {
+            age--;
+          }
+          if (age >= 0 && age <= 125) {
+            computedAge = String(age);
+          }
+        }
       }
     }
     setFormData((prev) => ({
@@ -139,6 +139,64 @@ export const RegisterPatient = () => {
       age: computedAge,
     }));
     if (errors.dateOfBirth) {
+      setErrors((prev) => ({ ...prev, dateOfBirth: '' }));
+    }
+    if (computedAge && errors.age) {
+      setErrors((prev) => ({ ...prev, age: '' }));
+    }
+  };
+
+  // Auto-calculate estimated DOB from Age if Age changes (vice versa)
+  const handleAgeChange = (eOrVal) => {
+    const val = typeof eOrVal === 'string' ? eOrVal : eOrVal?.target?.value || '';
+    let computedDob = formData.dateOfBirth;
+
+    if (val !== '') {
+      const ageNum = parseInt(val, 10);
+      if (!isNaN(ageNum) && ageNum >= 0 && ageNum <= 125) {
+        const today = new Date();
+        let month = today.getMonth();
+        let day = today.getDate();
+
+        // If a valid dateOfBirth already exists, preserve the chosen month and day
+        if (formData.dateOfBirth) {
+          const parts = formData.dateOfBirth.split('-');
+          if (parts.length === 3) {
+            const existingMonth = parseInt(parts[1], 10) - 1;
+            const existingDay = parseInt(parts[2], 10);
+            if (!isNaN(existingMonth) && !isNaN(existingDay)) {
+              month = existingMonth;
+              day = existingDay;
+            }
+          }
+        }
+
+        // Determine birth year so that on `today`, age equals `ageNum`
+        let birthYear = today.getFullYear() - ageNum;
+        const hasHadBirthdayThisYear =
+          today.getMonth() > month ||
+          (today.getMonth() === month && today.getDate() >= day);
+
+        if (!hasHadBirthdayThisYear) {
+          birthYear--;
+        }
+
+        const mm = String(month + 1).padStart(2, '0');
+        const dd = String(day).padStart(2, '0');
+        computedDob = `${birthYear}-${mm}-${dd}`;
+      }
+    }
+
+    setFormData((prev) => ({
+      ...prev,
+      age: val,
+      dateOfBirth: computedDob,
+    }));
+
+    if (errors.age) {
+      setErrors((prev) => ({ ...prev, age: '' }));
+    }
+    if (computedDob && errors.dateOfBirth) {
       setErrors((prev) => ({ ...prev, dateOfBirth: '' }));
     }
   };
@@ -166,16 +224,6 @@ export const RegisterPatient = () => {
     }
   };
 
-  const handleDeviceChange = (field, value) => {
-    setFormData((prev) => ({
-      ...prev,
-      deviceStatus: {
-        ...prev.deviceStatus,
-        [field]: value,
-      },
-    }));
-  };
-
   const validateForm = () => {
     const newErrors = {};
 
@@ -189,6 +237,10 @@ export const RegisterPatient = () => {
       newErrors.age = 'Please enter a valid age (e.g. 70)';
     }
 
+    if (!formData.dateOfBirth) {
+      newErrors.dateOfBirth = 'Date of birth is required';
+    }
+
     if (formData.emergencyContact.phone.trim() && !/^[+0-9\s-]{7,16}$/.test(formData.emergencyContact.phone.trim())) {
       newErrors.emergency_phone = 'Please enter a valid phone number (e.g. +91 98765 43210)';
     }
@@ -199,6 +251,7 @@ export const RegisterPatient = () => {
       const firstField = Object.keys(newErrors)[0];
       const targetId =
         firstField === 'name' ? 'patient-name' :
+        firstField === 'dateOfBirth' ? 'patient-dob' :
         firstField === 'age' ? 'patient-age' :
         firstField === 'emergency_phone' ? 'emergency-phone' : null;
       if (targetId) {
@@ -227,12 +280,15 @@ export const RegisterPatient = () => {
     let formattedDob = formData.dateOfBirth;
     if (formData.dateOfBirth) {
       try {
-        const dateObj = new Date(formData.dateOfBirth);
-        formattedDob = dateObj.toLocaleDateString('en-US', {
-          month: 'long',
-          day: 'numeric',
-          year: 'numeric',
-        });
+        const parts = formData.dateOfBirth.split('-');
+        if (parts.length === 3) {
+          const dateObj = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+          formattedDob = dateObj.toLocaleDateString('en-US', {
+            month: 'long',
+            day: 'numeric',
+            year: 'numeric',
+          });
+        }
       } catch (err) {
         formattedDob = formData.dateOfBirth;
       }
@@ -275,19 +331,14 @@ export const RegisterPatient = () => {
       smokingStatus: formData.smokingStatus,
       pairingToken,
       careStatus: 'normal',
-      statusLabel: formData.deviceStatus.linked ? 'Device configured • Ready to pair' : 'Registration completed',
+      statusLabel: 'Registration completed',
       emergencyContact: {
         name: effectiveEmergencyName,
         relationship: effectiveEmergencyRel,
         phone: effectiveEmergencyPhone,
       },
       deviceStatus: {
-        linked: formData.deviceStatus.linked,
-        deviceName: formData.deviceStatus.linked
-          ? `${formData.deviceStatus.deviceName} (${formData.name.split(' ')[0]}'s Unit)`
-          : 'Not linked',
-        deviceId: formData.deviceStatus.linked ? formData.deviceStatus.deviceId : 'UNLINKED',
-        lastSynced: 'Pending first sync',
+        linked: false,
       },
       createdAt: new Date().toISOString(),
     };
@@ -352,9 +403,6 @@ export const RegisterPatient = () => {
 
           <p className="text-sm text-ink-soft dark:text-cream/70 leading-relaxed">
             The patient profile has been created and indexed with standard cognitive baseline routines.
-            {registeredPatient.deviceStatus.linked
-              ? ' A paired device code has been generated to link their dedicated Assist device.'
-              : ''}
           </p>
 
           {/* Patient Summary Card */}
@@ -404,29 +452,6 @@ export const RegisterPatient = () => {
             </div>
           </div>
 
-          {/* Paired Device Code Card */}
-          {registeredPatient.deviceStatus.linked && (
-            <div className="p-5 bg-surface dark:bg-ink-soft/40 border border-gold/40 rounded-xl shadow-xs space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 text-gold font-bold text-sm">
-                  <QrCode className="w-4 h-4" />
-                  <span>Paired Device Code (Patient Device)</span>
-                </div>
-                <span className="text-[11px] font-semibold text-ink-soft dark:text-cream/60">
-                  Unit: {registeredPatient.deviceStatus.deviceId}
-                </span>
-              </div>
-              <p className="text-xs text-ink-soft dark:text-cream/70">
-                Turn on the patient device, open <strong>Smriti Kunj Assist</strong>, and enter this one-time code to lock the device into simplified Patient Mode:
-              </p>
-              <div className="flex items-center gap-3">
-                <div className="px-4 py-2 bg-cream dark:bg-ink border border-border dark:border-ink-soft/60 rounded-lg font-mono font-bold text-lg text-ink dark:text-cream tracking-widest">
-                  {registeredPatient.pairingToken}
-                </div>
-              </div>
-            </div>
-          )}
-
           {/* Actions */}
           <div className="flex flex-wrap items-center gap-3 pt-2">
             <Link
@@ -451,7 +476,7 @@ export const RegisterPatient = () => {
                   dateOfBirth: '',
                   age: '',
                   gender: 'Male',
-                  preferredLanguage: 'Assamese',
+                  preferredLanguage: 'English',
                   diagnosis: 'Mild Cognitive Impairment (MCI)',
                   healthIssue: '',
                   notes: '',
@@ -465,11 +490,6 @@ export const RegisterPatient = () => {
                     name: '',
                     relationship: '',
                     phone: '',
-                  },
-                  deviceStatus: {
-                    linked: true,
-                    deviceName: 'Lenovo Tab M10 Plus',
-                    deviceId: `DEV-M10-${Math.floor(1000 + Math.random() * 9000)}`,
                   },
                 });
               }}
@@ -611,8 +631,17 @@ export const RegisterPatient = () => {
                   value={formData.dateOfBirth}
                   onChange={(e) => handleDobChange(e.target.value)}
                   max={new Date().toISOString().split('T')[0]}
-                  className="w-full px-3.5 py-2.5 bg-cream/40 dark:bg-ink-soft/20 border border-border/80 dark:border-ink-soft/40 rounded-xl text-sm text-ink dark:text-cream focus:outline-none focus:ring-2 focus:ring-terracotta/40 focus:border-terracotta transition-colors shadow-xs"
+                  className={`w-full px-3.5 py-2.5 bg-cream/40 dark:bg-ink-soft/20 border rounded-xl text-sm text-ink dark:text-cream focus:outline-none focus:ring-2 focus:ring-terracotta/40 transition-colors shadow-xs ${
+                    errors.dateOfBirth ? 'border-alert dark:border-gold/70 focus:border-alert' : 'border-border/80 dark:border-ink-soft/40 focus:border-terracotta'
+                  }`}
+                  aria-invalid={Boolean(errors.dateOfBirth)}
                 />
+                {errors.dateOfBirth && (
+                  <p className="text-xs text-alert dark:text-gold flex items-center gap-1 mt-1 font-medium">
+                    <AlertCircle className="w-3.5 h-3.5 text-alert dark:text-gold" />
+                    <span>{errors.dateOfBirth}</span>
+                  </p>
+                )}
               </div>
 
               {/* Age (Auto-calculated, Read-only / Editable) */}
@@ -626,7 +655,7 @@ export const RegisterPatient = () => {
                   min="1"
                   max="125"
                   value={formData.age}
-                  onChange={(e) => handleChange('age', e.target.value)}
+                  onChange={(e) => handleAgeChange(e.target.value)}
                   placeholder="e.g. 72"
                   className={`w-full px-3.5 py-2.5 bg-cream/40 dark:bg-ink-soft/20 border rounded-xl text-sm text-ink dark:text-cream placeholder:text-ink-soft/50 dark:placeholder:text-cream/30 focus:outline-none focus:ring-2 focus:ring-terracotta/40 transition-colors shadow-xs ${
                     errors.age ? 'border-alert dark:border-gold/70 focus:border-alert' : 'border-border/80 dark:border-ink-soft/40 focus:border-terracotta'
@@ -954,73 +983,6 @@ export const RegisterPatient = () => {
                 )}
               </div>
             </div>
-          </section>
-
-          {/* Form Section 4: Device Linking & Pairing Setup */}
-          <section className="bg-surface dark:bg-ink-soft/20 border border-border/80 dark:border-ink-soft/40 rounded-card p-6 sm:p-7 shadow-card space-y-5">
-            <div className="flex items-center justify-between pb-2 border-b border-border/60 dark:border-ink-soft/30">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-full bg-cream dark:bg-ink-soft/30 border border-border/80 dark:border-ink-soft/40 flex items-center justify-center text-terracotta shrink-0 shadow-xs">
-                  <Tablet className="w-4 h-4" />
-                </div>
-                <div>
-                  <h2 className="text-base font-bold text-ink dark:text-cream">Patient Device Linking</h2>
-                  <p className="text-[11px] text-ink-soft dark:text-cream/60">
-                    Pre-configures the patient device token and pairing setup.
-                  </p>
-                </div>
-              </div>
-
-              {/* Toggle linked switch */}
-              <label className="flex items-center gap-2 cursor-pointer select-none text-xs font-semibold text-ink-soft dark:text-cream/80">
-                <span>Pair Device Now</span>
-                <input
-                  type="checkbox"
-                  checked={formData.deviceStatus.linked}
-                  onChange={(e) => handleDeviceChange('linked', e.target.checked)}
-                  className="sr-only peer"
-                />
-                <div className="w-9 h-5 bg-border dark:bg-ink-soft/50 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-sage relative" />
-              </label>
-            </div>
-
-            {formData.deviceStatus.linked ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label htmlFor="device-model" className="block text-xs font-semibold text-ink-soft dark:text-cream/80 mb-1.5">
-                    Device Model / Name
-                  </label>
-                  <input
-                    id="device-model"
-                    type="text"
-                    value={formData.deviceStatus.deviceName}
-                    onChange={(e) => handleDeviceChange('deviceName', e.target.value)}
-                    placeholder="e.g. Lenovo Tab M10 Plus"
-                    className="w-full px-3.5 py-2.5 bg-cream/40 dark:bg-ink-soft/20 border border-border/80 dark:border-ink-soft/40 rounded-xl text-sm text-ink dark:text-cream placeholder:text-ink-soft/50 dark:placeholder:text-cream/30 focus:outline-none focus:ring-2 focus:ring-terracotta/40 focus:border-terracotta transition-colors shadow-xs"
-                  />
-                </div>
-
-                <div>
-                  <label htmlFor="device-id" className="block text-xs font-semibold text-ink-soft dark:text-cream/80 mb-1.5">
-                    Device Identifier (Assigned)
-                  </label>
-                  <input
-                    id="device-id"
-                    type="text"
-                    readOnly
-                    value={formData.deviceStatus.deviceId}
-                    className="w-full px-3.5 py-2.5 bg-cream/60 dark:bg-ink-soft/30 border border-border/80 dark:border-ink-soft/40 rounded-xl text-sm font-mono text-ink dark:text-cream shadow-xs cursor-not-allowed"
-                  />
-                  <span className="text-[11px] text-ink-soft dark:text-cream/60 block mt-1">
-                    Auto-generated for hardware identification.
-                  </span>
-                </div>
-              </div>
-            ) : (
-              <p className="text-xs text-ink-soft dark:text-cream/60 italic">
-                Device linking skipped. You can pair a device anytime later from the patient's profile.
-              </p>
-            )}
           </section>
 
           {/* Form Actions Footer */}

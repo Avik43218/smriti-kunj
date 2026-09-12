@@ -7,6 +7,14 @@ export const register = async (name, email, password) => {
   });
 };
 
+// BACKEND-TODO: see ../../docs/API_ENDPOINTS_NEEDED.md §1 Admin Registration
+export const registerAdmin = async (name, email, password, adminCode) => {
+  return await apiClient('/api/auth/register-admin', {
+    method: 'POST',
+    body: JSON.stringify({ name, email, password, admin_code: adminCode }),
+  });
+};
+
 export const requestOtp = async (email) => {
   return await apiClient('/api/auth/request-otp', {
     method: 'POST',
@@ -55,6 +63,7 @@ export const logout = async () => {
 
 export default {
   register,
+  registerAdmin,
   requestOtp,
   verifyOtp,
   login,
