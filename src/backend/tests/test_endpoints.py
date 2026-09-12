@@ -361,6 +361,11 @@ class TestCaregiverAndPatientEndpoints(unittest.IsolatedAsyncioTestCase):
             mock_find_user.side_effect = lambda *args, **kwargs: mock_patient
 
             # Patient enters only digits "652759"
+            mock_patient.emergency_contact = {
+                "name": "Priya Sharma",
+                "relationship": "Daughter",
+                "phone": "+91 98765 43210",
+            }
             req = PatientPairCompleteRequest(
                 pairing_code="652759",
                 device_id="DEV-PATIENT-02",
@@ -368,6 +373,8 @@ class TestCaregiverAndPatientEndpoints(unittest.IsolatedAsyncioTestCase):
             res = await auth.complete_pairing(req)
             self.assertEqual(res.patient_name, "Aarav Sharma")
             self.assertEqual(res.patient_code, "p101")
+            self.assertEqual(res.guardian_phone, "+91 98765 43210")
+            self.assertEqual(res.guardian_name, "Priya Sharma")
             self.assertTrue(res.token.access_token)
 
     async def test_patient_pair_invalid_code_raises_404(self):
@@ -389,11 +396,19 @@ class TestCaregiverAndPatientEndpoints(unittest.IsolatedAsyncioTestCase):
             patient_code="p101",
             caregiver_id=self.caregiver_id,
             region_language="bn",
+            emergency_contact={
+                "name": "Priya Sharma",
+                "relationship": "Daughter",
+                "phone": "+91 98765 43210",
+            },
         )
         res = await auth.get_patient_me(mock_patient)
         self.assertEqual(res.patient_name, "Aarav Sharma")
         self.assertEqual(res.patient_code, "p101")
         self.assertEqual(res.region_language, "bn")
+        self.assertEqual(res.guardian_phone, "+91 98765 43210")
+        self.assertEqual(res.guardian_name, "Priya Sharma")
+
 
 
 if __name__ == "__main__":

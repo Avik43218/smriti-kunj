@@ -95,5 +95,9 @@ class PatientPairCompleteOut(BaseModel):
     token: TokenOut
     region_language: Optional[str] = "bn"
     emergency_contact: Optional[Dict[str, Any]] = None
+    guardian_phone: Optional[str] = None
+    guardian_name: Optional[str] = None
+    guardian_relationship: Optional[str] = None
     diagnosis: Optional[str] = None
     status: Optional[str] = "stable"
+
