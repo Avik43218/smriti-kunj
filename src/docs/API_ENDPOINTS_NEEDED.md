@@ -59,6 +59,36 @@ As stub functions are added to `src/services/`, they must be documented here.
   - `409 Conflict`: Email already registered.
   - `422 Unprocessable Entity`: Validation failure.
 
+### `POST /api/auth/register-admin`
+- **Calling Service / Page:** `src/services/authService.js` (`RegisterAdmin.jsx`)
+- **Purpose:** Register a new platform/facility administrator account using an authorization code.
+- **Request Body:**
+  ```json
+  {
+    "name": "Admin John Doe",
+    "email": "admin@example.com",
+    "password": "secure_admin_password_123",
+    "admin_code": "SM-ADMIN-AUTH-KEY"
+  }
+  ```
+- **Response Shape (200 OK / 201 Created):**
+  ```json
+  {
+    "token": "mock_jwt_admin_token_string",
+    "user": {
+      "id": "adm_101",
+      "name": "Admin John Doe",
+      "email": "admin@example.com",
+      "role": "admin"
+    }
+  }
+  ```
+- **Error Responses:**
+  - `400 Bad Request`: Password too short or invalid parameters.
+  - `401 Unauthorized`: Invalid or expired admin authorization code.
+  - `409 Conflict`: Email already registered.
+  - `422 Unprocessable Entity`: Validation failure.
+
 ### `POST /api/auth/logout`
 - **Calling Service / Page:** `src/services/authService.js` (`NavSidebar.jsx` / user profile menu)
 - **Purpose:** Invalidate current authentication token / session.
@@ -179,6 +209,7 @@ As stub functions are added to `src/services/`, they must be documented here.
     }
   }
   ```
+> **Note on Patient Registration Flow:** `deviceName` and `deviceId` are no longer collected during initial patient registration (`RegisterPatient.jsx`) and are no longer required in registration payloads (`POST /api/caregiver/patients`). Hardware linking and device identification now occur post-registration when a patient tablet completes hardware pairing. In newly registered patient records, `deviceStatus.linked` is `false` until paired.
 - **Error Responses:**
   - `401 Unauthorized`: Missing or invalid session token.
   - `404 Not Found`: Patient not found or unauthorized access.

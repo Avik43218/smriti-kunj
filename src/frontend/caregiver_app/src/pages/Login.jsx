@@ -392,20 +392,32 @@ export const Login = () => {
                     </button>
                   </div>
 
-                  {/* Link to Register - Only shown for caregivers */}
-                  {loginRole === 'caregiver' && (
-                    <div className="text-center pt-3 mt-1 border-t border-border/60 dark:border-ink-soft/30">
-                      <p className="text-xs text-ink-soft dark:text-cream/70">
-                        Don't have an account?{' '}
-                        <Link
-                          to="/register"
-                          className="text-terracotta hover:text-terracotta-dark font-semibold transition-colors focus:outline-none focus:underline"
-                        >
-                          Register
-                        </Link>
-                      </p>
-                    </div>
-                  )}
+                  {/* Link to Register */}
+                  <div className="text-center pt-3 mt-1 border-t border-border/60 dark:border-ink-soft/30">
+                    <p className="text-xs text-ink-soft dark:text-cream/70">
+                      {loginRole === 'admin' ? (
+                        <>
+                          Need an administrative account?{' '}
+                          <Link
+                            to="/admin/register"
+                            className="text-terracotta hover:text-terracotta-dark font-semibold transition-colors focus:outline-none focus:underline"
+                          >
+                            Register Admin
+                          </Link>
+                        </>
+                      ) : (
+                        <>
+                          Don't have an account?{' '}
+                          <Link
+                            to="/register"
+                            className="text-terracotta hover:text-terracotta-dark font-semibold transition-colors focus:outline-none focus:underline"
+                          >
+                            Register
+                          </Link>
+                        </>
+                      )}
+                    </p>
+                  </div>
                 </form>
               )}
 

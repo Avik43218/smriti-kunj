@@ -8,10 +8,9 @@ import {
   UserCheck,
   HeartHandshake,
   UserPlus,
-  ArrowRight,
+  ChevronRight,
   RefreshCw,
   Search,
-  Activity,
   AlertTriangle,
 } from 'lucide-react';
 
@@ -41,6 +40,8 @@ export const AdminDashboard = () => {
 
   useEffect(() => {
     loadData();
+    document.title = 'Smriti Kunj | Admin Portal';
+    return () => { document.title = 'Smriti Kunj | Caregiver Portal'; };
   }, []);
 
   const totalCaregivers = caregivers.length;
@@ -53,7 +54,7 @@ export const AdminDashboard = () => {
       {/* Header Banner */}
       <header className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-4 border-b border-border/60 dark:border-ink-soft/30 pb-4">
         <div className="flex items-center gap-3">
-          <div className="w-11 h-11 rounded-card bg-terracotta/10 dark:bg-terracotta/20 border border-terracotta/30 flex items-center justify-center text-terracotta shadow-xs">
+          <div className="w-10 h-10 rounded-card bg-cream dark:bg-ink-soft/30 border border-border/80 dark:border-ink-soft/40 flex items-center justify-center text-terracotta shadow-xs">
             <ShieldAlert className="w-6 h-6" />
           </div>
           <div>
@@ -61,7 +62,7 @@ export const AdminDashboard = () => {
               <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-ink dark:text-cream">
                 Admin Control Center
               </h1>
-              <span className="text-xs px-2 py-0.5 rounded-full font-semibold bg-terracotta/15 text-terracotta border border-terracotta/30">
+              <span className="text-xs px-2.5 py-0.5 rounded-full font-semibold bg-terracotta/15 text-terracotta border border-terracotta/30">
                 Tier 1 Administration
               </span>
             </div>
@@ -76,17 +77,18 @@ export const AdminDashboard = () => {
             type="button"
             onClick={loadData}
             disabled={loading}
-            className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-full bg-cream dark:bg-ink-soft/30 border border-border/80 dark:border-ink-soft/40 text-ink dark:text-cream hover:bg-cream/80 transition-colors"
+            aria-label="Refresh administrative overview"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-ink-soft dark:text-cream/80 hover:text-ink dark:hover:text-cream bg-surface dark:bg-ink-soft/20 border border-border/80 dark:border-ink-soft/40 hover:bg-cream dark:hover:bg-ink-soft/35 active:scale-95 transition-all outline-none focus-visible:ring-1 focus-visible:ring-terracotta"
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-3.5 h-3.5 text-terracotta ${loading ? 'animate-spin' : ''}`} />
             <span>Refresh</span>
           </button>
           <Link
             to="/admin/caregivers"
-            className="inline-flex items-center gap-2 px-3.5 py-1.5 text-xs font-semibold rounded-full bg-terracotta text-cream hover:bg-terracotta/90 shadow-sm transition-all"
+            className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-terracotta hover:bg-terracotta-dark text-cream text-xs sm:text-sm font-medium rounded-xl shadow-xs transition-colors shrink-0 outline-none focus-visible:ring-2 focus-visible:ring-terracotta/40"
           >
-            <UserPlus className="w-3.5 h-3.5" />
-            <span>Add Caregiver</span>
+            <UserPlus className="w-4 h-4" />
+            <span>Manage Caregivers</span>
           </Link>
         </div>
       </header>
@@ -98,54 +100,40 @@ export const AdminDashboard = () => {
         </div>
       )}
 
-      {/* Metric Cards Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* Metric Cards Grid - 3 evenly distributed cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {/* Card 1: Total Caregivers */}
-        <div className="p-4 rounded-card bg-surface dark:bg-ink border border-border dark:border-ink-soft/40 shadow-xs flex items-center justify-between">
+        <div className="p-5 sm:p-6 rounded-card bg-surface dark:bg-ink-soft/20 border border-border/80 dark:border-ink-soft/40 shadow-sm transition-colors flex items-center justify-between">
           <div>
-            <p className="text-xs font-medium text-ink-soft dark:text-cream/60">Total Caregivers</p>
-            <p className="text-2xl font-bold text-ink dark:text-cream mt-1">{totalCaregivers}</p>
-            <p className="text-[11px] text-sage font-medium mt-0.5">{activeCaregivers} active on roster</p>
+            <p className="text-xs sm:text-sm font-medium text-ink-soft dark:text-cream/70">Total Caregivers</p>
+            <p className="text-2xl sm:text-3xl font-bold tracking-tight text-ink dark:text-cream mt-1">{totalCaregivers}</p>
+            <p className="text-xs text-sage font-medium mt-0.5">{activeCaregivers} active on roster</p>
           </div>
-          <div className="w-10 h-10 rounded-full bg-cream dark:bg-ink-soft/20 flex items-center justify-center text-ink-soft dark:text-cream/70">
-            <Users className="w-5 h-5" />
+          <div className="w-10 h-10 rounded-full bg-cream dark:bg-ink-soft/30 border border-border/80 dark:border-ink-soft/40 flex items-center justify-center text-ink-soft dark:text-cream/70 shadow-xs">
+            <Users className="w-5 h-5 text-terracotta" />
           </div>
         </div>
 
         {/* Card 2: Total Patients */}
-        <div className="p-4 rounded-card bg-surface dark:bg-ink border border-border dark:border-ink-soft/40 shadow-xs flex items-center justify-between">
+        <div className="p-5 sm:p-6 rounded-card bg-surface dark:bg-ink-soft/20 border border-border/80 dark:border-ink-soft/40 shadow-sm transition-colors flex items-center justify-between">
           <div>
-            <p className="text-xs font-medium text-ink-soft dark:text-cream/60">Monitored Patients</p>
-            <p className="text-2xl font-bold text-ink dark:text-cream mt-1">{totalPatients}</p>
-            <p className="text-[11px] text-ink-soft dark:text-cream/60 mt-0.5">Across all facilities</p>
+            <p className="text-xs sm:text-sm font-medium text-ink-soft dark:text-cream/70">Monitored Patients</p>
+            <p className="text-2xl sm:text-3xl font-bold tracking-tight text-ink dark:text-cream mt-1">{totalPatients}</p>
+            <p className="text-xs text-ink-soft dark:text-cream/60 mt-0.5">Across all facilities</p>
           </div>
-          <div className="w-10 h-10 rounded-full bg-cream dark:bg-ink-soft/20 flex items-center justify-center text-ink-soft dark:text-cream/70">
+          <div className="w-10 h-10 rounded-full bg-cream dark:bg-ink-soft/30 border border-border/80 dark:border-ink-soft/40 flex items-center justify-center text-ink-soft dark:text-cream/70 shadow-xs">
             <HeartHandshake className="w-5 h-5 text-terracotta" />
           </div>
         </div>
 
-        {/* Card 3: Caregiver Distribution Ratio */}
-        <div className="p-4 rounded-card bg-surface dark:bg-ink border border-border dark:border-ink-soft/40 shadow-xs flex items-center justify-between">
+        {/* Card 3: Status Alerts */}
+        <div className="p-5 sm:p-6 rounded-card bg-surface dark:bg-ink-soft/20 border border-border/80 dark:border-ink-soft/40 shadow-sm transition-colors flex items-center justify-between">
           <div>
-            <p className="text-xs font-medium text-ink-soft dark:text-cream/60">Avg Patients / Caregiver</p>
-            <p className="text-2xl font-bold text-ink dark:text-cream mt-1">
-              {totalCaregivers > 0 ? (totalPatients / totalCaregivers).toFixed(1) : '0'}
-            </p>
-            <p className="text-[11px] text-ink-soft dark:text-cream/60 mt-0.5">Workload balance index</p>
+            <p className="text-xs sm:text-sm font-medium text-ink-soft dark:text-cream/70">Compliance Alerts</p>
+            <p className="text-2xl sm:text-3xl font-bold tracking-tight text-ink dark:text-cream mt-1">{alertPatients}</p>
+            <p className="text-xs text-alert font-medium mt-0.5">Patients needing check-in</p>
           </div>
-          <div className="w-10 h-10 rounded-full bg-cream dark:bg-ink-soft/20 flex items-center justify-center text-ink-soft dark:text-cream/70">
-            <Activity className="w-5 h-5 text-gold" />
-          </div>
-        </div>
-
-        {/* Card 4: Status Alerts */}
-        <div className="p-4 rounded-card bg-surface dark:bg-ink border border-border dark:border-ink-soft/40 shadow-xs flex items-center justify-between">
-          <div>
-            <p className="text-xs font-medium text-ink-soft dark:text-cream/60">Compliance Alerts</p>
-            <p className="text-2xl font-bold text-ink dark:text-cream mt-1">{alertPatients}</p>
-            <p className="text-[11px] text-alert font-medium mt-0.5">Patients needing check-in</p>
-          </div>
-          <div className="w-10 h-10 rounded-full bg-alert/10 flex items-center justify-center text-alert">
+          <div className="w-10 h-10 rounded-full bg-alert/10 border border-alert/20 flex items-center justify-center text-alert shadow-xs">
             <AlertTriangle className="w-5 h-5" />
           </div>
         </div>
@@ -155,41 +143,45 @@ export const AdminDashboard = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Link
           to="/admin/caregivers"
-          className="group p-5 rounded-card bg-surface dark:bg-ink border border-border dark:border-ink-soft/40 hover:border-terracotta/50 shadow-xs hover:shadow-md transition-all flex items-start justify-between"
+          className="group p-6 rounded-card bg-surface dark:bg-ink-soft/20 border border-border/80 dark:border-ink-soft/40 hover:border-terracotta/50 dark:hover:border-terracotta/50 shadow-sm hover:shadow-md transition-all flex items-start justify-between"
         >
           <div className="space-y-1.5">
             <div className="flex items-center gap-2">
-              <UserCheck className="w-4 h-4 text-terracotta" />
-              <h2 className="text-sm font-bold text-ink dark:text-cream group-hover:text-terracotta transition-colors">
-                Manage Caregiver Roster &rarr;
+              <div className="w-7 h-7 rounded-full bg-cream dark:bg-ink-soft/30 flex items-center justify-center text-terracotta">
+                <UserCheck className="w-4 h-4" />
+              </div>
+              <h2 className="text-base sm:text-lg font-bold text-ink dark:text-cream group-hover:text-terracotta transition-colors">
+                Manage Caregiver Roster
               </h2>
             </div>
-            <p className="text-xs text-ink-soft dark:text-cream/70 leading-relaxed">
+            <p className="text-xs sm:text-sm text-ink-soft dark:text-cream/70 leading-relaxed">
               Create caregiver logins directly without OTP verification, disable accounts, and monitor patient assignment counts.
             </p>
           </div>
-          <div className="p-2 rounded-full bg-cream dark:bg-ink-soft/20 group-hover:bg-terracotta group-hover:text-cream text-ink-soft dark:text-cream/70 transition-all shrink-0">
-            <ArrowRight className="w-4 h-4" />
+          <div className="w-8 h-8 rounded-full bg-cream/60 dark:bg-ink-soft/20 border border-border/60 dark:border-ink-soft/30 flex items-center justify-center text-ink-soft dark:text-cream/70 group-hover:text-terracotta group-hover:bg-cream dark:group-hover:bg-ink-soft/40 group-hover:translate-x-0.5 transition-all shrink-0">
+            <ChevronRight className="w-4 h-4" />
           </div>
         </Link>
 
         <Link
           to="/admin/patients"
-          className="group p-5 rounded-card bg-surface dark:bg-ink border border-border dark:border-ink-soft/40 hover:border-terracotta/50 shadow-xs hover:shadow-md transition-all flex items-start justify-between"
+          className="group p-6 rounded-card bg-surface dark:bg-ink-soft/20 border border-border/80 dark:border-ink-soft/40 hover:border-terracotta/50 dark:hover:border-terracotta/50 shadow-sm hover:shadow-md transition-all flex items-start justify-between"
         >
           <div className="space-y-1.5">
             <div className="flex items-center gap-2">
-              <HeartHandshake className="w-4 h-4 text-terracotta" />
-              <h2 className="text-sm font-bold text-ink dark:text-cream group-hover:text-terracotta transition-colors">
-                Cross-Caregiver Patient Directory &rarr;
+              <div className="w-7 h-7 rounded-full bg-cream dark:bg-ink-soft/30 flex items-center justify-center text-terracotta">
+                <HeartHandshake className="w-4 h-4" />
+              </div>
+              <h2 className="text-base sm:text-lg font-bold text-ink dark:text-cream group-hover:text-terracotta transition-colors">
+                Cross-Caregiver Patient Directory
               </h2>
             </div>
-            <p className="text-xs text-ink-soft dark:text-cream/70 leading-relaxed">
+            <p className="text-xs sm:text-sm text-ink-soft dark:text-cream/70 leading-relaxed">
               View all patients system-wide and reassign patients seamlessly when caregiver caseloads change or shift rotations occur.
             </p>
           </div>
-          <div className="p-2 rounded-full bg-cream dark:bg-ink-soft/20 group-hover:bg-terracotta group-hover:text-cream text-ink-soft dark:text-cream/70 transition-all shrink-0">
-            <ArrowRight className="w-4 h-4" />
+          <div className="w-8 h-8 rounded-full bg-cream/60 dark:bg-ink-soft/20 border border-border/60 dark:border-ink-soft/30 flex items-center justify-center text-ink-soft dark:text-cream/70 group-hover:text-terracotta group-hover:bg-cream dark:group-hover:bg-ink-soft/40 group-hover:translate-x-0.5 transition-all shrink-0">
+            <ChevronRight className="w-4 h-4" />
           </div>
         </Link>
       </div>
@@ -197,27 +189,32 @@ export const AdminDashboard = () => {
       {/* Caregiver Overview Preview */}
       <section className="space-y-3">
         <div className="flex items-center justify-between">
-          <h3 className="text-sm font-bold text-ink dark:text-cream uppercase tracking-wider text-[11px]">
-            Caregiver Roster Snapshot
-          </h3>
+          <div className="flex items-center gap-2.5">
+            <div className="w-7 h-7 rounded-full bg-cream dark:bg-ink-soft/30 flex items-center justify-center text-terracotta">
+              <Users className="w-4 h-4" />
+            </div>
+            <h2 className="text-lg sm:text-xl font-bold text-ink dark:text-cream">
+              Caregiver Roster Snapshot
+            </h2>
+          </div>
           <Link
             to="/admin/caregivers"
-            className="text-xs font-semibold text-terracotta hover:underline"
+            className="text-xs sm:text-sm font-semibold text-terracotta hover:underline"
           >
             View all ({totalCaregivers})
           </Link>
         </div>
 
-        <div className="rounded-card bg-surface dark:bg-ink border border-border dark:border-ink-soft/40 shadow-xs overflow-hidden">
+        <div className="rounded-card bg-surface dark:bg-ink-soft/20 border border-border/80 dark:border-ink-soft/40 shadow-sm overflow-hidden transition-colors">
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-cream/60 dark:bg-ink-soft/20 border-b border-border dark:border-ink-soft/40 text-ink-soft dark:text-cream/70">
+            <table className="w-full text-left text-xs sm:text-sm">
+              <thead className="bg-cream/40 dark:bg-ink-soft/30 border-b border-border/80 dark:border-ink-soft/40 text-ink-soft dark:text-cream/70 text-xs font-semibold">
                 <tr>
-                  <th className="py-2.5 px-4 font-semibold">Caregiver Name</th>
-                  <th className="py-2.5 px-4 font-semibold">Email</th>
-                  <th className="py-2.5 px-4 font-semibold">Language</th>
-                  <th className="py-2.5 px-4 font-semibold text-center">Status</th>
-                  <th className="py-2.5 px-4 font-semibold text-right">Assigned Patients</th>
+                  <th className="py-3 px-4">Caregiver Name</th>
+                  <th className="py-3 px-4">Email</th>
+                  <th className="py-3 px-4">Language</th>
+                  <th className="py-3 px-4 text-center">Status</th>
+                  <th className="py-3 px-4 text-right">Assigned Patients</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/60 dark:divide-ink-soft/30 text-ink dark:text-cream">
@@ -225,7 +222,7 @@ export const AdminDashboard = () => {
                   <tr key={cg.id} className="hover:bg-cream/30 dark:hover:bg-ink-soft/10 transition-colors">
                     <td className="py-3 px-4 font-semibold">{cg.name}</td>
                     <td className="py-3 px-4 text-ink-soft dark:text-cream/70">{cg.email}</td>
-                    <td className="py-3 px-4 uppercase text-[11px] font-mono">{cg.region_language || 'bn'}</td>
+                    <td className="py-3 px-4 uppercase text-xs font-mono">{cg.region_language || 'en'}</td>
                     <td className="py-3 px-4 text-center">
                       <span
                         className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold ${
@@ -238,7 +235,7 @@ export const AdminDashboard = () => {
                       </span>
                     </td>
                     <td className="py-3 px-4 text-right font-semibold">
-                      <span className="px-2 py-0.5 rounded-md bg-cream dark:bg-ink-soft/30 border border-border/80 dark:border-ink-soft/40">
+                      <span className="px-2.5 py-0.5 rounded-md bg-cream dark:bg-ink-soft/30 border border-border/80 dark:border-ink-soft/40 text-xs">
                         {cg.patient_count ?? 0}
                       </span>
                     </td>
