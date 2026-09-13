@@ -34,6 +34,21 @@ export const AuthProvider = ({ children }) => {
 
   const [loading, setLoading] = useState(false);
 
+  // ===== DEV BYPASS — REMOVE/COMMENT BEFORE BACKEND INTEGRATION =====
+  //  Uncomment this block to skip login during frontend-only development.
+  //  Comment it out (or delete) once the real backend login flow is being tested.
+  
+  useEffect(() => {
+    if (!token) {
+      const fakeToken = 'dev-bypass-token';
+      const fakeCaregiver = { id: 'dev1', name: 'Dev Caregiver', email: 'dev@test.com' };
+      setToken(fakeToken);
+      setCaregiver(fakeCaregiver);
+    }
+  }, []);
+  
+  //  ===== END DEV BYPASS =====
+
   // Validate session against /api/auth/me on mount if token is present
   useEffect(() => {
     let isMounted = true;
