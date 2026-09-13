@@ -1,8 +1,19 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
 import { fetchPatients } from '../services/patientService';
+import { getGameSessions, DOMAINS } from '../services/gameSessionService';
 import { PatientCard } from '../components/PatientCard';
+import {
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+} from 'recharts';
 import {
   Users,
   Sparkles,
@@ -12,15 +23,50 @@ import {
   Search,
   X,
   HeartHandshake,
+  Brain,
+  Eye,
+  Activity,
+  BarChart3,
 } from 'lucide-react';
+
+// Custom Recharts Tooltip styled to brand design tokens
+const DashboardChartTooltip = ({ active, payload, paramConfig }) => {
+  if (!active || !payload || !payload.length) return null;
+  const item = payload[0].payload;
+
+  return (
+    <div className="bg-surface dark:bg-ink border border-border dark:border-ink-soft/50 rounded-lg p-3 shadow-lg text-xs space-y-1.5 min-w-[190px]">
+      <div className="flex items-center justify-between border-b border-border/60 dark:border-ink-soft/30 pb-1.5">
+        <span className="font-bold text-ink dark:text-cream">{item.name}</span>
+        <span className="px-1.5 py-0.5 rounded bg-cream dark:bg-ink-soft/40 text-[10px] font-mono font-bold text-ink dark:text-cream">
+          {item.id}
+        </span>
+      </div>
+      <div className="flex items-center justify-between gap-3 pt-0.5">
+        <span className="text-ink-soft dark:text-cream/70">{paramConfig.label}:</span>
+        <span className="font-bold text-sm" style={{ color: paramConfig.color }}>
+          {item.hasData ? `${item.rawScore}%` : 'No sessions recorded'}
+        </span>
+      </div>
+      <div className="text-[10px] text-ink-soft dark:text-cream/60">
+        {item.totalSessions} total session{item.totalSessions !== 1 ? 's' : ''} on record
+      </div>
+    </div>
+  );
+};
 
 export const Dashboard = () => {
   const { caregiver } = useAuth();
+  const { theme } = useTheme();
+  const isDark = theme === 'dark';
   const [patients, setPatients] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all'); // 'all' | 'needs_attention' | 'stable'
+  const [selectedParam, setSelectedParam] = useState('memory'); // 'memory' | 'attention'
+  const [patientScores, setPatientScores] = useState({});
+  const [loadingScores, setLoadingScores] = useState(false);
 
   const loadPatients = async () => {
     try {
@@ -38,6 +84,122 @@ export const Dashboard = () => {
   useEffect(() => {
     loadPatients();
   }, []);
+
+  // Fetch session data for all patients to compute real average domain scores
+  useEffect(() => {
+    if (!patients || patients.length === 0) return;
+
+    let isMounted = true;
+    const fetchAllScores = async () => {
+      setLoadingScores(true);
+      const scoresMap = {};
+
+      await Promise.all(
+        patients.map(async (patient) => {
+          try {
+            const sessions = await getGameSessions(patient.id);
+            if (!Array.isArray(sessions) || sessions.length === 0) {
+              scoresMap[patient.id] = {
+                memory: null,
+                attention: null,
+                totalSessions: 0,
+              };
+              return;
+            }
+
+            // Filter for Working & Episodic Memory (Market Trip + Pair Matching)
+            const memorySessions = sessions.filter(
+              (s) =>
+                s.domain === 'memory' ||
+                s.game_type === 'pair_matching' ||
+                s.game_type === 'market_trip'
+            );
+
+            // Filter for Attention & Processing Speed (Tap the Target + Visual Search)
+            const attentionSessions = sessions.filter(
+              (s) =>
+                s.domain === 'attention' ||
+                s.game_type === 'tap_target' ||
+                s.game_type === 'visual_search'
+            );
+
+            const calcAvg = (sessionList) => {
+              if (!sessionList.length) return null;
+              const total = sessionList.reduce((sum, s) => {
+                const score = s.score_normalized ?? s.performance_score ?? 0;
+                return sum + score;
+              }, 0);
+              return Math.round((total / sessionList.length) * 100);
+            };
+
+            scoresMap[patient.id] = {
+              memory: calcAvg(memorySessions),
+              attention: calcAvg(attentionSessions),
+              totalSessions: sessions.length,
+            };
+          } catch (err) {
+            console.error(`Failed to fetch sessions for patient ${patient.id}:`, err);
+            scoresMap[patient.id] = {
+              memory: null,
+              attention: null,
+              totalSessions: 0,
+            };
+          }
+        })
+      );
+
+      if (isMounted) {
+        setPatientScores(scoresMap);
+        setLoadingScores(false);
+      }
+    };
+
+    fetchAllScores();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [patients]);
+
+  const PARAM_CONFIG = {
+    memory: {
+      label: 'Working & Episodic Memory',
+      shortLabel: 'Memory',
+      description: 'Market Trip & Pair Matching cognitive routines',
+      color: '#B5562F', // Terracotta
+      icon: Brain,
+    },
+    attention: {
+      label: 'Attention & Processing Speed',
+      shortLabel: 'Attention',
+      description: 'Tap the Target focus & motor latency tests',
+      color: '#C9962C', // Gold
+      icon: Eye,
+    },
+  };
+
+  const activeParamConfig = PARAM_CONFIG[selectedParam];
+
+  // Chart data preparation - each bar represents a patient
+  const chartData = useMemo(() => {
+    return patients.map((patient) => {
+      const scores = patientScores[patient.id];
+      const avgScore = scores ? scores[selectedParam] : null;
+
+      return {
+        id: patient.id,
+        name: patient.name,
+        displayName: `${patient.name} (${patient.id})`,
+        score: avgScore !== null ? avgScore : 0,
+        rawScore: avgScore,
+        hasData: avgScore !== null,
+        totalSessions: scores?.totalSessions || 0,
+      };
+    });
+  }, [patients, patientScores, selectedParam]);
+
+  const gridStroke = isDark ? 'rgba(228, 217, 196, 0.1)' : 'rgba(46, 42, 36, 0.08)';
+  const axisTickColor = isDark ? '#A89F91' : '#6B625A';
 
   // Filter & Search composition
   const filteredPatients = useMemo(() => {
@@ -132,7 +294,217 @@ export const Dashboard = () => {
         </div>
       </section>
 
-      {/* 3. Search + Filter Pills + Register New Patient Bar */}
+      {/* 3. Cognitive Parameter Performance Chart & Selector */}
+      <section
+        aria-label="Cognitive Parameter Performance"
+        className="bg-surface dark:bg-ink-soft/20 border border-border/80 dark:border-ink-soft/40 rounded-card p-5 sm:p-6 shadow-sm transition-colors space-y-4"
+      >
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-border/60 dark:border-ink-soft/30 pb-3">
+          <div className="flex items-center gap-2.5">
+            <div
+              className="w-8 h-8 rounded-lg flex items-center justify-center text-white shrink-0 shadow-xs"
+              style={{ backgroundColor: activeParamConfig.color }}
+            >
+              <BarChart3 className="w-4 h-4" />
+            </div>
+            <div>
+              <h3 className="text-base sm:text-lg font-bold text-ink dark:text-cream tracking-tight">
+                Cognitive Parameter Performance
+              </h3>
+              <p className="text-xs text-ink-soft dark:text-cream/60">
+                Comparative patient average scores across assessment domains
+              </p>
+            </div>
+          </div>
+          <span className="text-[11px] font-medium text-ink-soft dark:text-cream/60 self-start sm:self-center">
+            {loadingScores ? (
+              <span className="inline-flex items-center gap-1.5 text-terracotta">
+                <RefreshCw className="w-3 h-3 animate-spin" />
+                Aggregating scores...
+              </span>
+            ) : (
+              `Updated from ${patients.length} patient profile${patients.length !== 1 ? 's' : ''}`
+            )}
+          </span>
+        </div>
+
+        {/* Responsive Grid: Left Parameter Selector + Right Clustered Bar Chart */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
+          {/* Left Column: Parameter Selector (takes 4 cols on large screens) */}
+          <div className="lg:col-span-4 flex flex-col justify-between gap-3">
+            <div className="space-y-2.5">
+              <label className="block text-xs font-semibold uppercase tracking-wider text-ink-soft dark:text-cream/70">
+                Select Parameter
+              </label>
+
+              {/* Memory Option */}
+              <button
+                type="button"
+                onClick={() => setSelectedParam('memory')}
+                className={`w-full text-left p-3.5 rounded-xl border transition-all text-xs flex items-start gap-3 ${
+                  selectedParam === 'memory'
+                    ? 'bg-cream/90 dark:bg-ink-soft/50 border-terracotta shadow-xs ring-1 ring-terracotta/30'
+                    : 'bg-surface dark:bg-ink-soft/20 border-border/80 dark:border-ink-soft/40 hover:bg-cream/40 dark:hover:bg-ink-soft/30'
+                }`}
+              >
+                <div
+                  className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5 ${
+                    selectedParam === 'memory'
+                      ? 'bg-terracotta text-white'
+                      : 'bg-cream dark:bg-ink-soft/40 text-terracotta'
+                  }`}
+                >
+                  <Brain className="w-4 h-4" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between">
+                    <span className="font-semibold text-ink dark:text-cream text-xs sm:text-sm">
+                      Working & Episodic Memory
+                    </span>
+                    {selectedParam === 'memory' && (
+                      <span className="w-2 h-2 rounded-full bg-terracotta shrink-0 ml-1.5" />
+                    )}
+                  </div>
+                  <p className="text-[11px] text-ink-soft dark:text-cream/60 mt-0.5 leading-relaxed">
+                    Market Trip & Pair Matching tasks
+                  </p>
+                </div>
+              </button>
+
+              {/* Attention Option */}
+              <button
+                type="button"
+                onClick={() => setSelectedParam('attention')}
+                className={`w-full text-left p-3.5 rounded-xl border transition-all text-xs flex items-start gap-3 ${
+                  selectedParam === 'attention'
+                    ? 'bg-gold/10 dark:bg-gold/15 border-gold shadow-xs ring-1 ring-gold/30'
+                    : 'bg-surface dark:bg-ink-soft/20 border-border/80 dark:border-ink-soft/40 hover:bg-cream/40 dark:hover:bg-ink-soft/30'
+                }`}
+              >
+                <div
+                  className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5 ${
+                    selectedParam === 'attention'
+                      ? 'bg-gold text-white'
+                      : 'bg-cream dark:bg-ink-soft/40 text-gold'
+                  }`}
+                >
+                  <Eye className="w-4 h-4" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between">
+                    <span className="font-semibold text-ink dark:text-cream text-xs sm:text-sm">
+                      Attention & Processing Speed
+                    </span>
+                    {selectedParam === 'attention' && (
+                      <span className="w-2 h-2 rounded-full bg-gold shrink-0 ml-1.5" />
+                    )}
+                  </div>
+                  <p className="text-[11px] text-ink-soft dark:text-cream/60 mt-0.5 leading-relaxed">
+                    Tap the Target focus & motor latency tests
+                  </p>
+                </div>
+              </button>
+            </div>
+
+            {/* Active Parameter Summary Info Box */}
+            <div className="p-3 rounded-xl bg-cream/50 dark:bg-ink-soft/30 border border-border/60 dark:border-ink-soft/30 text-[11px] text-ink-soft dark:text-cream/70 space-y-1">
+              <div className="flex items-center gap-1.5 font-medium text-ink dark:text-cream">
+                <Activity className="w-3.5 h-3.5" style={{ color: activeParamConfig.color }} />
+                <span>Metric Legend</span>
+              </div>
+              <p className="leading-relaxed">
+                Displaying average percentage score (0–100%) computed across all recorded sessions for{' '}
+                <strong className="text-ink dark:text-cream">{activeParamConfig.label}</strong>.
+              </p>
+            </div>
+          </div>
+
+          {/* Right Column: Clustered Bar Chart (takes 8 cols on large screens) */}
+          <div className="lg:col-span-8 bg-cream/30 dark:bg-ink-soft/10 rounded-xl p-3 sm:p-4 border border-border/60 dark:border-ink-soft/30 flex flex-col justify-between min-h-[300px]">
+            <div className="flex items-center justify-between text-xs font-semibold text-ink-soft dark:text-cream/70 mb-2 px-1">
+              <span>Patient Comparison</span>
+              <span className="font-mono text-[10px] uppercase tracking-wider">Avg Score %</span>
+            </div>
+
+            {chartData.length === 0 ? (
+              <div className="flex-1 flex flex-col items-center justify-center py-12 text-center text-ink-soft dark:text-cream/60 text-xs">
+                <BarChart3 className="w-8 h-8 opacity-40 mb-2" />
+                <p>No patient records available to plot.</p>
+              </div>
+            ) : (
+              <div className="w-full h-64 sm:h-72">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart
+                    data={chartData}
+                    margin={{ top: 10, right: 16, left: -16, bottom: 24 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} vertical={false} />
+                    <XAxis
+                      dataKey="displayName"
+                      stroke={axisTickColor}
+                      fontSize={11}
+                      tickLine={false}
+                      axisLine={{ stroke: gridStroke }}
+                      interval={0}
+                      angle={chartData.length > 4 ? -25 : 0}
+                      textAnchor={chartData.length > 4 ? 'end' : 'middle'}
+                      height={chartData.length > 4 ? 45 : 30}
+                    />
+                    <YAxis
+                      domain={[0, 100]}
+                      ticks={[0, 25, 50, 75, 100]}
+                      stroke={axisTickColor}
+                      fontSize={11}
+                      tickLine={false}
+                      axisLine={{ stroke: gridStroke }}
+                      tickFormatter={(val) => `${val}%`}
+                    />
+                    <Tooltip
+                      content={<DashboardChartTooltip paramConfig={activeParamConfig} />}
+                      cursor={{ fill: isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.04)' }}
+                    />
+                    <Bar
+                      dataKey="score"
+                      fill={activeParamConfig.color}
+                      radius={[4, 4, 0, 0]}
+                      maxBarSize={48}
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+          </div>
+        </div>
+      </section>
+
+      {/* 4. Reserved Future Risk Factor Table Section */}
+      <section
+        aria-label="Risk Factor Analysis (Reserved)"
+        className="rounded-card border-2 border-dashed border-border/70 dark:border-ink-soft/40 p-4 sm:p-5 bg-surface/50 dark:bg-ink-soft/10 transition-colors"
+      >
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-ink-soft dark:text-cream/60">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-lg border border-border/70 dark:border-ink-soft/30 bg-cream/60 dark:bg-ink-soft/20 flex items-center justify-center text-ink-soft/70 dark:text-cream/50">
+              <Activity className="w-4 h-4" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h4 className="text-xs sm:text-sm font-semibold text-ink/80 dark:text-cream/80">
+                  Risk Factor Analysis & Longitudinal Indicators
+                </h4>
+                <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-cream dark:bg-ink-soft/40 border border-border/60 dark:border-ink-soft/30 text-ink-soft dark:text-cream/60 uppercase tracking-wider">
+                  Reserved Section
+                </span>
+              </div>
+              <p className="text-[11px] text-ink-soft/80 dark:text-cream/50 mt-0.5">
+                Future section for detailed multi-variable risk metrics, cognitive regression markers, and clinical indicator table.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* 5. Search + Filter Pills + Register New Patient Bar */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3.5">
         {/* Left: Search input + Filter pills */}
         <div className="flex flex-col sm:flex-row sm:items-center gap-3 flex-1">
