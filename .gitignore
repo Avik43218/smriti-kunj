@@ -50,7 +50,6 @@ src/patient_app/agents/ucb1_distilled_dataset.npz
 .svn/
 .swiftpm/
 migrate_working_dir/
-train_xg.py
 xgboost_patient_risk_model.pkl
 
 # IntelliJ related
