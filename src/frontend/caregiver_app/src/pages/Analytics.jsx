@@ -277,7 +277,7 @@ export const Analytics = () => {
                   {config.label}
                 </h3>
                 <span className="text-[11px] font-semibold text-ink-soft dark:text-cream/70 uppercase tracking-wider">
-                  Game: {config.gameLabel}
+                  {config.gameLabel.includes('&') ? 'Games' : 'Game'}: {config.gameLabel}
                 </span>
               </div>
             </div>
@@ -415,7 +415,7 @@ export const Analytics = () => {
               Cognitive Analytics & Trends
             </h1>
             <p className="text-sm text-ink-soft dark:text-cream/70 mt-1.5 max-w-2xl leading-relaxed">
-              Longitudinal performance tracking for <span className="font-semibold text-ink dark:text-cream">{patient?.name || 'Patient'}</span> across 3 core cognitive domains: episodic memory recall, language fluency, and attention speed.
+              Longitudinal performance tracking for <span className="font-semibold text-ink dark:text-cream">{patient?.name || 'Patient'}</span> across core cognitive domains: working & episodic memory recall, and attention processing speed.
             </p>
           </div>
 
