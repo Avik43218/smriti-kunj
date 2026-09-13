@@ -239,7 +239,7 @@ export const getTodayComplianceSummary = (patientId) => {
     missedCount,
     pendingCount,
     totalCount,
-    summaryText: `${completedCount} of ${totalCount} completed today`,
+    summaryText: totalCount > 0 ? `${completedCount} of ${totalCount} completed today` : 'No reminders scheduled today',
     completionRate,
   };
 };

@@ -4,8 +4,10 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../models/patient_activity.dart';
+import '../models/patient_diagnosis.dart';
 import '../models/patient_session.dart';
 import '../models/reminder_item.dart';
+import 'activity_database_service.dart';
 
 
 class ApiService {
@@ -93,7 +95,21 @@ class ApiService {
         if (response.statusCode == 200 || response.statusCode == 201) {
           _customBaseUrl = base; // Lock in the active reachable URL
           final data = jsonDecode(response.body) as Map<String, dynamic>;
-          return PatientSession.fromJson(data);
+          final session = PatientSession.fromJson(data);
+
+          if (session.diagnosis != null && session.diagnosis!.isNotEmpty) {
+            final diagInfo = PatientDiagnosisInfo(
+              pairingCode: cleanCode,
+              patientId: session.patientId,
+              patientName: session.patientName,
+              rawDiagnosis: session.diagnosis!,
+              priority: DiagnosisPriority.fromString(session.diagnosis),
+              fetchedAt: DateTime.now(),
+            );
+            await ActivityDatabaseService.instance.savePatientDiagnosis(diagInfo);
+          }
+
+          return session;
         } else {
           final dynamic errorBody = jsonDecode(response.body);
           final detail =
@@ -127,6 +143,16 @@ class ApiService {
       debugPrint(
         '[ApiService] Network unreachable. Activating local session for code: $cleanCode',
       );
+      final diagInfo = PatientDiagnosisInfo(
+        pairingCode: cleanCode,
+        patientId: 'p101',
+        patientName: 'Aarav Sharma',
+        rawDiagnosis: 'Mild Cognitive Impairment',
+        priority: DiagnosisPriority.mildCognitiveImpairment,
+        fetchedAt: DateTime.now(),
+      );
+      await ActivityDatabaseService.instance.savePatientDiagnosis(diagInfo);
+
       return PatientSession(
         patientId: 'p101',
         patientCode: cleanCode.startsWith('P') && !cleanCode.startsWith('PAIR') ? cleanCode : 'p101',
@@ -141,7 +167,7 @@ class ApiService {
         guardianPhone: '+91 98765 43210',
         guardianName: 'Priya Sharma',
         guardianRelationship: 'Daughter (Primary Guardian)',
-        diagnosis: 'Mild Cognitive Impairment (MCI)',
+        diagnosis: 'Mild Cognitive Impairment',
         status: 'stable',
       );
     }
@@ -325,6 +351,95 @@ class ApiService {
 
     throw lastError ??
         Exception('Unable to reach backend server to fetch reminders.');
+  }
+
+  /// Fetches the patient's diagnosis from the backend MongoDB database
+  /// identified with the pairing code.
+  /// Calls GET /api/patients/diagnosis?pairing_code=<cleanCode>
+  Future<PatientDiagnosisInfo> fetchPatientDiagnosis(String pairingCode) async {
+    final cleanCode = pairingCode.trim().toUpperCase();
+    if (cleanCode.isEmpty) {
+      throw Exception('Pairing code is required to fetch patient diagnosis.');
+    }
+
+    Exception? lastError;
+    final urls = candidateBaseUrls;
+
+    for (final base in urls) {
+      final endpoint = Uri.parse('$base/api/patients/diagnosis?pairing_code=$cleanCode');
+      debugPrint('[ApiService] Fetching patient diagnosis from $endpoint');
+
+      try {
+        final response = await http.get(
+          endpoint,
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'X-Pairing-Code': cleanCode,
+          },
+        ).timeout(const Duration(seconds: 5));
+
+        debugPrint('[ApiService] Diagnosis response from $base: ${response.statusCode}');
+
+        if (response.statusCode == 200) {
+          _customBaseUrl = base;
+          final dynamic resData = jsonDecode(response.body);
+          if (resData is Map<String, dynamic>) {
+            final info = PatientDiagnosisInfo.fromJson(resData, defaultPairingCode: cleanCode);
+            // Cache in local SQLite database for future reference and offline availability
+            await ActivityDatabaseService.instance.savePatientDiagnosis(info);
+            return info;
+          }
+        } else if (response.statusCode == 404) {
+          final dynamic errorBody = jsonDecode(response.body);
+          final detail = errorBody is Map
+              ? (errorBody['detail'] ?? 'Pairing code not found.')
+              : 'Pairing code not found.';
+          throw Exception(detail.toString());
+        } else {
+          final dynamic errorBody = jsonDecode(response.body);
+          final detail = errorBody is Map
+              ? (errorBody['detail'] ?? 'Failed to fetch diagnosis (${response.statusCode})')
+              : 'Failed to fetch diagnosis (${response.statusCode})';
+          lastError = Exception(detail.toString());
+        }
+      } catch (e) {
+        final errStr = e.toString();
+        if (errStr.contains('Pairing code') && errStr.contains('not found')) {
+          rethrow;
+        }
+        debugPrint('[ApiService] Error fetching diagnosis from $base: $e');
+        lastError = e is Exception ? e : Exception(e.toString());
+      }
+    }
+
+    // If backend is unreachable, check if we already have it cached in SQLite:
+    final cached = await ActivityDatabaseService.instance.getPatientDiagnosis(pairingCode: cleanCode);
+    if (cached != null) {
+      debugPrint('[ApiService] Backend unreachable. Returned SQLite cached diagnosis: ${cached.rawDiagnosis}');
+      return cached;
+    }
+
+    // Demo/offline fallback for valid pairing codes
+    final isCodeLike = cleanCode.startsWith('PAIR-') ||
+        cleanCode.length >= 4 ||
+        cleanCode == '652759' ||
+        cleanCode == 'P101';
+    if (isCodeLike) {
+      final fallback = PatientDiagnosisInfo(
+        pairingCode: cleanCode,
+        patientId: 'p101',
+        patientName: 'Aarav Sharma',
+        rawDiagnosis: 'Mild Cognitive Impairment',
+        priority: DiagnosisPriority.mildCognitiveImpairment,
+        fetchedAt: DateTime.now(),
+      );
+      await ActivityDatabaseService.instance.savePatientDiagnosis(fallback);
+      return fallback;
+    }
+
+    throw lastError ??
+        Exception('Unable to reach backend server to fetch patient diagnosis.');
   }
 }
 

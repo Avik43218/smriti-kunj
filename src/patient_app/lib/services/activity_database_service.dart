@@ -1,7 +1,10 @@
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 import 'package:sqflite/sqflite.dart';
+import '../models/game_recommendation.dart';
 import '../models/patient_activity.dart';
+import '../models/patient_diagnosis.dart';
 
 /// SQLite persistence service for local patient app activity.
 ///
@@ -18,6 +21,7 @@ class ActivityDatabaseService extends ChangeNotifier {
   static const _dbName = 'smriti_kunj_sessions.db';
   static const _table = 'patient_activities';
   static const _pairingTable = 'app_pairing_code';
+  static const _diagnosisTable = 'patient_diagnosis';
 
   Database? _db;
 
@@ -33,7 +37,7 @@ class ActivityDatabaseService extends ChangeNotifier {
 
     _db = await openDatabase(
       fullPath,
-      version: 6,
+      version: 7,
       onCreate: (db, version) async {
         await _createTables(db);
       },
@@ -54,6 +58,9 @@ class ActivityDatabaseService extends ChangeNotifier {
           try {
             await db.execute('ALTER TABLE $_pairingTable ADD COLUMN guardian_relationship TEXT;');
           } catch (_) {}
+        }
+        if (oldVersion < 7) {
+          await _createTables(db);
         }
       },
     );
@@ -108,6 +115,18 @@ class ActivityDatabaseService extends ChangeNotifier {
         is_completed INTEGER NOT NULL DEFAULT 0,
         pairing_code TEXT,
         created_at   TEXT NOT NULL
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS $_diagnosisTable (
+        id           INTEGER PRIMARY KEY AUTOINCREMENT,
+        pairing_code TEXT    NOT NULL UNIQUE,
+        patient_id   TEXT,
+        patient_name TEXT,
+        diagnosis    TEXT    NOT NULL,
+        priority     INTEGER NOT NULL,
+        fetched_at   TEXT    NOT NULL
       )
     ''');
   }
@@ -268,11 +287,178 @@ class ActivityDatabaseService extends ChangeNotifier {
     try {
       final db = await database;
       await db.delete(_pairingTable);
-      debugPrint('[ActivityDatabaseService] Cleared pairing code from SQLite.');
+      await db.delete(_diagnosisTable);
+      debugPrint('[ActivityDatabaseService] Cleared pairing code and diagnosis from SQLite.');
       notifyListeners();
     } catch (e) {
       debugPrint('[ActivityDatabaseService] Error clearing pairing code: $e');
     }
+  }
+
+  // ── Patient Diagnosis Persistence ─────────────────────────────────────────
+
+  /// Saves or updates the patient's clinical diagnosis in the local SQLite table.
+  Future<void> savePatientDiagnosis(PatientDiagnosisInfo info) async {
+    final clean = info.pairingCode.trim().toUpperCase();
+    if (clean.isEmpty) return;
+    try {
+      final db = await database;
+      await db.insert(
+        _diagnosisTable,
+        info.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+      debugPrint('[ActivityDatabaseService] Stored diagnosis in SQLite: ${info.rawDiagnosis} (Priority: ${info.priorityNumber}) for $clean');
+      notifyListeners();
+    } catch (e) {
+      debugPrint('[ActivityDatabaseService] Error saving patient diagnosis: $e');
+    }
+  }
+
+  /// Retrieves the patient's diagnosis record stored in SQLite.
+  Future<PatientDiagnosisInfo?> getPatientDiagnosis({String? pairingCode}) async {
+    try {
+      final db = await database;
+      final targetCode = pairingCode?.trim().toUpperCase() ?? await getActivePairingCode();
+      if (targetCode == null || targetCode.isEmpty) {
+        final rows = await db.query(
+          _diagnosisTable,
+          orderBy: 'id DESC',
+          limit: 1,
+        );
+        if (rows.isNotEmpty) {
+          return PatientDiagnosisInfo.fromMap(rows.first);
+        }
+        return null;
+      }
+
+      final candidates = <String>{targetCode};
+      if (targetCode.startsWith('PAIR-')) {
+        candidates.add(targetCode.substring(5));
+      } else {
+        candidates.add('PAIR-$targetCode');
+      }
+
+      final placeholders = List.filled(candidates.length, '?').join(',');
+      final rows = await db.rawQuery(
+        'SELECT * FROM $_diagnosisTable WHERE UPPER(pairing_code) IN ($placeholders) ORDER BY id DESC LIMIT 1',
+        candidates.toList(),
+      );
+      if (rows.isNotEmpty) {
+        return PatientDiagnosisInfo.fromMap(rows.first);
+      }
+    } catch (e) {
+      debugPrint('[ActivityDatabaseService] Error fetching patient diagnosis from SQLite: $e');
+    }
+    return null;
+  }
+
+  /// Clears stored diagnosis records from SQLite.
+  Future<void> clearPatientDiagnosis() async {
+    try {
+      final db = await database;
+      await db.delete(_diagnosisTable);
+      debugPrint('[ActivityDatabaseService] Cleared patient diagnosis from SQLite.');
+      notifyListeners();
+    } catch (e) {
+      debugPrint('[ActivityDatabaseService] Error clearing diagnosis: $e');
+    }
+  }
+
+  // ── Performance Metrics Aggregation ───────────────────────────────────────
+
+  /// Computes the historical performance snapshot (latency, accuracy, hesitation, error rate)
+  /// for a given game type based on recent rounds stored in SQLite.
+  Future<GamePerformanceSnapshot> getGamePerformanceSnapshot(String gameType, {int limit = 10}) async {
+    try {
+      final db = await database;
+      final rows = await db.query(
+        _table,
+        where: 'game_type = ?',
+        whereArgs: [gameType],
+        orderBy: 'session_date DESC',
+        limit: limit,
+      );
+
+      if (rows.isEmpty) {
+        return GamePerformanceSnapshot.empty(gameType);
+      }
+
+      double totalAccuracy = 0.0;
+      double totalLatency = 0.0;
+      double totalHesitation = 0.0;
+      double totalErrors = 0.0;
+      DateTime? lastDate;
+
+      for (final r in rows) {
+        final acc = (r['accuracy'] as num?)?.toDouble() ?? 0.0;
+        final lat = (r['avg_latency_ms'] as num?)?.toDouble() ?? 0.0;
+        final err = (r['error_rate'] as num?)?.toDouble() ?? 0.0;
+
+        double hes = 0.20;
+        final rawPayloadStr = r['raw_payload'] as String?;
+        if (rawPayloadStr != null && rawPayloadStr.isNotEmpty) {
+          try {
+            final payload = jsonDecode(rawPayloadStr);
+            if (payload is Map<String, dynamic>) {
+              Map<String, dynamic>? tel;
+              if (payload.containsKey('telemetry') && payload['telemetry'] is Map) {
+                tel = payload['telemetry'] as Map<String, dynamic>;
+              } else if (payload.containsKey('game_data') && payload['game_data'] is Map) {
+                final gd = payload['game_data'] as Map<String, dynamic>;
+                if (gd.containsKey('telemetry') && gd['telemetry'] is Map) {
+                  tel = gd['telemetry'] as Map<String, dynamic>;
+                }
+              }
+
+              if (tel != null && tel.containsKey('hesitation') && tel['hesitation'] is Map) {
+                final hMap = tel['hesitation'] as Map<String, dynamic>;
+                if (hMap.containsKey('hesitation_ratio') && hMap['hesitation_ratio'] is num) {
+                  hes = (hMap['hesitation_ratio'] as num).toDouble();
+                } else if (hMap.containsKey('is_hesitation') && hMap['is_hesitation'] is bool) {
+                  hes = (hMap['is_hesitation'] as bool) ? 0.70 : 0.15;
+                }
+              } else if (payload.containsKey('hesitation_ratio') && payload['hesitation_ratio'] is num) {
+                hes = (payload['hesitation_ratio'] as num).toDouble();
+              }
+            }
+          } catch (_) {}
+        }
+
+        totalAccuracy += acc;
+        totalLatency += lat;
+        totalHesitation += hes;
+        totalErrors += err;
+
+        if (lastDate == null && r['session_date'] != null) {
+          lastDate = DateTime.tryParse(r['session_date'].toString());
+        }
+      }
+
+      final count = rows.length;
+      return GamePerformanceSnapshot(
+        gameType: gameType,
+        accuracy: (totalAccuracy / count).clamp(0.0, 1.0),
+        avgLatencyMs: totalLatency / count,
+        hesitationRatio: (totalHesitation / count).clamp(0.0, 1.0),
+        errorRate: (totalErrors / count).clamp(0.0, 1.0),
+        roundsPlayed: count,
+        lastPlayed: lastDate,
+      );
+    } catch (e) {
+      debugPrint('[ActivityDatabaseService] Error computing performance for $gameType: $e');
+      return GamePerformanceSnapshot.empty(gameType);
+    }
+  }
+
+  /// Extracts performance snapshots across all standard games.
+  Future<Map<String, GamePerformanceSnapshot>> getAllGamesPerformanceSnapshots() async {
+    const games = ['market_trip', 'tap_target', 'pair_matching'];
+    final map = <String, GamePerformanceSnapshot>{};
+    for (final g in games) {
+      map[g] = await getGamePerformanceSnapshot(g);
+    }
+    return map;
   }
 
   // ── Game Activity Persistence ───────────────────────────────────────────────

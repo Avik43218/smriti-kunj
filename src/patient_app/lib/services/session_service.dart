@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import '../models/patient_diagnosis.dart';
 import '../models/patient_session.dart';
 import 'activity_database_service.dart';
 import 'api_service.dart';
@@ -23,6 +24,7 @@ class SessionService extends ChangeNotifier {
   String? _guardianName;
   String? _guardianRelationship;
   PatientSession? _currentSession;
+  PatientDiagnosisInfo? _diagnosisInfo;
   String? _errorMessage;
 
   bool get isPaired => _isPaired;
@@ -39,6 +41,9 @@ class SessionService extends ChangeNotifier {
   String? get guardianName => _guardianName;
   String? get guardianRelationship => _guardianRelationship;
   PatientSession? get currentSession => _currentSession;
+  PatientDiagnosisInfo? get diagnosisInfo => _diagnosisInfo;
+  String? get diagnosis => _diagnosisInfo?.rawDiagnosis ?? _currentSession?.diagnosis;
+  int get diagnosisPriorityNumber => _diagnosisInfo?.priorityNumber ?? 7;
   String? get errorMessage => _errorMessage;
 
   /// Checks the local SQLite database for a stored pairing code and automatically logs in.
@@ -53,6 +58,12 @@ class SessionService extends ChangeNotifier {
         _guardianPhone = savedContact['phone'];
         _guardianName = savedContact['name'];
         _guardianRelationship = savedContact['relationship'];
+      }
+
+      // Pre-load cached diagnosis from SQLite
+      final cachedDiag = await ActivityDatabaseService.instance.getPatientDiagnosis();
+      if (cachedDiag != null) {
+        _diagnosisInfo = cachedDiag;
       }
 
       final savedCode = await ActivityDatabaseService.instance.getActivePairingCode();
@@ -71,7 +82,7 @@ class SessionService extends ChangeNotifier {
   }
 
   /// Authenticate and register device with pairing code through ApiService.
-  /// Persists the pairing code and primary guardian phone number in the local SQLite database on success.
+  /// Persists the pairing code, primary guardian phone number, and diagnosis in SQLite on success.
   Future<bool> pairDevice(String code) async {
     final cleanCode = code.trim().toUpperCase();
     if (cleanCode.isEmpty) {
@@ -108,6 +119,25 @@ class SessionService extends ChangeNotifier {
         guardianRelationship: session.guardianRelationship,
       );
 
+      // Load or persist diagnosis
+      if (session.diagnosis != null && session.diagnosis!.isNotEmpty) {
+        final diagInfo = PatientDiagnosisInfo(
+          pairingCode: cleanCode,
+          patientId: session.patientId,
+          patientName: session.patientName,
+          rawDiagnosis: session.diagnosis!,
+          priority: DiagnosisPriority.fromString(session.diagnosis),
+          fetchedAt: DateTime.now(),
+        );
+        _diagnosisInfo = diagInfo;
+        await ActivityDatabaseService.instance.savePatientDiagnosis(diagInfo);
+      } else {
+        _diagnosisInfo = await ActivityDatabaseService.instance.getPatientDiagnosis(pairingCode: cleanCode);
+      }
+
+      // Proactively refresh latest diagnosis from backend MongoDB in background
+      refreshDiagnosis();
+
       notifyListeners();
       return true;
     } catch (e) {
@@ -118,11 +148,27 @@ class SessionService extends ChangeNotifier {
     }
   }
 
-  /// Reset session state, clear stored pairing code and guardian contact from SQLite, and unpair device.
+  /// Fetches latest diagnosis from backend MongoDB identified with active pairing code
+  /// and persists it to local SQLite table.
+  Future<void> refreshDiagnosis() async {
+    final code = _pairingCode ?? await ActivityDatabaseService.instance.getActivePairingCode();
+    if (code == null || code.isEmpty) return;
+
+    try {
+      final fetched = await ApiService.instance.fetchPatientDiagnosis(code);
+      _diagnosisInfo = fetched;
+      notifyListeners();
+    } catch (e) {
+      debugPrint('[SessionService] Background diagnosis refresh skipped: $e');
+    }
+  }
+
+  /// Reset session state, clear stored pairing code, diagnosis, and guardian contact from SQLite, and unpair device.
   Future<void> unpair() async {
     _isPaired = false;
     _pairingCode = null;
     _currentSession = null;
+    _diagnosisInfo = null;
     _authToken = null;
     _caregiverId = null;
     _emergencyContact = null;
@@ -131,10 +177,12 @@ class SessionService extends ChangeNotifier {
     _guardianRelationship = null;
     _errorMessage = null;
 
-    // Clear pairing code and guardian contact from SQLite so app does not auto-login again until paired
+    // Clear pairing code, diagnosis, and guardian contact from SQLite so app does not auto-login again until paired
     await ActivityDatabaseService.instance.clearSavedPairingCode();
+    await ActivityDatabaseService.instance.clearPatientDiagnosis();
 
     notifyListeners();
   }
 }
+
 

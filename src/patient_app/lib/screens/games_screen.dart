@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../models/game_recommendation.dart';
 import '../models/patient_activity.dart';
 import '../services/activity_database_service.dart';
 import '../services/app_strings.dart';
 import '../services/difficulty_database_service.dart';
+import '../services/game_personalization_service.dart';
 import '../services/locale_service.dart';
 import '../services/session_service.dart';
 import '../theme/theme.dart';
@@ -17,8 +19,46 @@ import '../games/pair_matching/services/pair_bank_service.dart';
 import '../games/pair_matching/models/game_session_result.dart';
 import '../widgets/voice_nav_button.dart';
 
-class GamesScreen extends StatelessWidget {
+class GamesScreen extends StatefulWidget {
   const GamesScreen({super.key});
+
+  @override
+  State<GamesScreen> createState() => _GamesScreenState();
+}
+
+class _GamesScreenState extends State<GamesScreen> {
+  GameRecommendation? _recommendation;
+  bool _isLoadingRecommendation = true;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadPersonalization();
+    });
+  }
+
+  Future<void> _loadPersonalization() async {
+    if (!mounted) return;
+    final session = context.read<SessionService>();
+    try {
+      final rec = await GamePersonalizationService.instance.getNextRecommendedGame(
+        diagnosisInfo: session.diagnosisInfo,
+        pairingCode: session.pairingCode,
+      );
+      if (mounted) {
+        setState(() {
+          _recommendation = rec;
+          _isLoadingRecommendation = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('[GamesScreen] Error loading personalization: $e');
+      if (mounted) {
+        setState(() => _isLoadingRecommendation = false);
+      }
+    }
+  }
 
   Future<void> _launchMarketTrip(
     BuildContext context,
@@ -75,6 +115,9 @@ class GamesScreen extends StatelessWidget {
         },
       ),
     ));
+
+    // Reload recommendation with fresh performance telemetry
+    _loadPersonalization();
   }
 
   Future<void> _launchTapTarget(
@@ -130,6 +173,9 @@ class GamesScreen extends StatelessWidget {
         },
       ),
     ));
+
+    // Reload recommendation with fresh performance telemetry
+    _loadPersonalization();
   }
 
   Future<void> _launchPairMatching(
@@ -186,6 +232,241 @@ class GamesScreen extends StatelessWidget {
         },
       ),
     ));
+
+    // Reload recommendation with fresh performance telemetry
+    _loadPersonalization();
+  }
+
+  Future<void> _launchRecommendedGame(
+    BuildContext context,
+    SessionService session,
+    LocaleService locale,
+    String gameType,
+  ) async {
+    switch (gameType) {
+      case 'market_trip':
+        await _launchMarketTrip(context, session, locale);
+        break;
+      case 'tap_target':
+        await _launchTapTarget(context, session, locale);
+        break;
+      case 'pair_matching':
+      default:
+        await _launchPairMatching(context, session, locale);
+        break;
+    }
+  }
+
+  Widget _buildRecommendationCard(
+    BuildContext context,
+    GameRecommendation rec,
+    AppStrings s,
+    SessionService session,
+    LocaleService locale,
+  ) {
+    final icon = switch (rec.gameType) {
+      'market_trip' => Icons.shopping_basket_rounded,
+      'tap_target' => Icons.touch_app_rounded,
+      _ => Icons.flip_rounded,
+    };
+    final cardColor = switch (rec.gameType) {
+      'market_trip' => AppColors.terracotta,
+      'tap_target' => AppColors.terracottaDark,
+      _ => AppColors.mugaGold,
+    };
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 24),
+      padding: const EdgeInsets.all(22),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: AppColors.sageGreen,
+          width: 2.5,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.sageGreen.withValues(alpha: 0.14),
+            blurRadius: 14,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Top header row: Recommendation badge + Priority pill
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                decoration: BoxDecoration(
+                  color: AppColors.sageGreen.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: AppColors.sageGreen, width: 1.5),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.stars_rounded, size: 22, color: AppColors.sageGreen),
+                    const SizedBox(width: 6),
+                    Text(
+                      s.recommendedForYou,
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.sageGreen,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Flexible(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                  decoration: BoxDecoration(
+                    color: AppColors.cream,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: AppColors.border, width: 1.5),
+                  ),
+                  child: Text(
+                    '${s.diagnosisPriorityLabel}: #${rec.priorityNumber}',
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.ink,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          // Clinical diagnosis display
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Icon(Icons.medical_information_outlined, size: 24, color: AppColors.inkSoft),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  rec.diagnosisName,
+                  style: const TextStyle(
+                    fontSize: 19,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.ink,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+
+          // Game presentation: Icon + Title + Domain badge
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Container(
+                width: 68,
+                height: 68,
+                decoration: BoxDecoration(
+                  color: cardColor,
+                  borderRadius: BorderRadius.circular(18),
+                ),
+                child: Icon(icon, size: 36, color: Colors.white),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      rec.gameTitle,
+                      style: const TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.ink,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: cardColor.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: cardColor.withValues(alpha: 0.4)),
+                      ),
+                      child: Text(
+                        rec.domain,
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
+                          color: cardColor,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+
+          // Clinical rationale note
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: AppColors.cream,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: AppColors.border),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(Icons.insights_rounded, size: 24, color: AppColors.sageGreen),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    rec.clinicalRationale,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      color: AppColors.inkSoft,
+                      height: 1.35,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 20),
+
+          // Play Recommended Game (>= 88dp touch target)
+          ElevatedButton.icon(
+            onPressed: () => _launchRecommendedGame(context, session, locale, rec.gameType),
+            icon: const Icon(Icons.play_circle_filled_rounded, size: 36),
+            label: Text(
+              s.playRecommended,
+              style: const TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 0.3,
+              ),
+            ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.sageGreen,
+              foregroundColor: Colors.white,
+              minimumSize: const Size(double.infinity, 88),
+              elevation: 2,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -214,6 +495,26 @@ class GamesScreen extends StatelessWidget {
         child: ListView(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
           children: [
+            // ── Personalized Game Recommendation ──────────────────────────
+            if (!_isLoadingRecommendation && _recommendation != null) ...[
+              _buildRecommendationCard(context, _recommendation!, s, session, locale),
+              Row(
+                children: [
+                  const Icon(Icons.grid_view_rounded, size: 24, color: AppColors.ink),
+                  const SizedBox(width: 8),
+                  Text(
+                    s.allGames,
+                    style: textTheme.titleLarge?.copyWith(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.ink,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+            ],
+
             // ── Market Trip (live) ──────────────────────────────────────────
             _GameCard(
               icon: Icons.shopping_basket_rounded,

@@ -367,6 +367,78 @@ async def get_patient_alias_reminders_endpoint(
     return await _handle_fetch_reminders_logic(pairing_code, x_pairing_code, payload)
 
 
+class PatientDiagnosisOut(BaseModel):
+    patient_id: str
+    patient_code: Optional[str] = None
+    patient_name: Optional[str] = None
+    pairing_code: str
+    diagnosis: Optional[str] = None
+    status: Optional[str] = None
+
+
+class PatientDiagnosisFetchRequest(BaseModel):
+    pairing_code: Optional[str] = None
+
+
+async def _handle_fetch_diagnosis_logic(
+    pairing_code: Optional[str],
+    x_pairing_code: Optional[str],
+    payload: Optional[PatientDiagnosisFetchRequest],
+) -> PatientDiagnosisOut:
+    raw_code = (
+        pairing_code
+        or x_pairing_code
+        or (payload.pairing_code if payload else None)
+        or ""
+    ).strip()
+
+    if not raw_code:
+        raise HTTPException(
+            status_code=400,
+            detail="Pairing code is required to fetch patient diagnosis",
+        )
+
+    patient = await find_patient_by_pairing_code(raw_code)
+    if not patient:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Pairing code '{raw_code}' was not found. Please verify the code or pair again.",
+        )
+
+    patient_key = patient.patient_code or str(patient.id)
+    return PatientDiagnosisOut(
+        patient_id=patient_key,
+        patient_code=patient.patient_code,
+        patient_name=patient.name,
+        pairing_code=raw_code,
+        diagnosis=patient.diagnosis,
+        status=patient.status or "active",
+    )
+
+
+@router.get("/diagnosis", response_model=PatientDiagnosisOut)
+@router.get("/diagnosis/patient", response_model=PatientDiagnosisOut)
+@router.post("/diagnosis", response_model=PatientDiagnosisOut)
+async def get_patient_diagnosis_endpoint(
+    pairing_code: Optional[str] = Query(None),
+    x_pairing_code: Optional[str] = Header(None, alias="X-Pairing-Code"),
+    payload: Optional[PatientDiagnosisFetchRequest] = None,
+):
+    """Patient app calls this endpoint to fetch diagnosis from MongoDB using pairing code."""
+    return await _handle_fetch_diagnosis_logic(pairing_code, x_pairing_code, payload)
+
+
+@patient_alias_router.get("/diagnosis", response_model=PatientDiagnosisOut)
+@patient_alias_router.post("/diagnosis", response_model=PatientDiagnosisOut)
+async def get_patient_alias_diagnosis_endpoint(
+    pairing_code: Optional[str] = Query(None),
+    x_pairing_code: Optional[str] = Header(None, alias="X-Pairing-Code"),
+    payload: Optional[PatientDiagnosisFetchRequest] = None,
+):
+    """Alias route for /api/patient/diagnosis."""
+    return await _handle_fetch_diagnosis_logic(pairing_code, x_pairing_code, payload)
+
+
 @router.get("/{patientId}/reminders", response_model=RemindersOut)
 
 async def get_reminders(patientId: str, caregiver: User = Depends(require_caregiver)):

@@ -51,7 +51,7 @@ export const CarePlan = () => {
   // Reminders State
   const [reminders, setReminders] = useState({
     medication: [],
-    hydration: { label: '', schedule: '', status: '', active: false, frequency: 'Every 1 hour' },
+    hydration: { label: '', schedule: '', status: '', active: false, frequency: '' },
     meals: [],
     custom: [],
   });
@@ -250,7 +250,7 @@ export const CarePlan = () => {
               schedule: '',
               status: '',
               active: false,
-              frequency: 'Every 1 hour',
+              frequency: '',
               ...(remindersData?.hydration || {}),
             },
           });
@@ -378,11 +378,17 @@ export const CarePlan = () => {
   };
 
   // Delete Custom Reminder
-  const handleDeleteCustomReminder = (reminderId) => {
+  const handleDeleteCustomReminder = async (reminderId) => {
+    const updatedCustom = (reminders.custom || []).filter((c) => c.id !== reminderId);
     setReminders((prev) => ({
       ...prev,
-      custom: (prev.custom || []).filter((c) => c.id !== reminderId),
+      custom: updatedCustom,
     }));
+    try {
+      await updateCategoryReminders(patientId, 'custom', updatedCustom);
+    } catch (err) {
+      console.warn('Failed to sync deleted custom reminder:', err);
+    }
   };
 
   // Process Audio File for Familiar Sounds
@@ -499,14 +505,14 @@ export const CarePlan = () => {
     setCategoryFormError('');
     setIsTimePickerOpen(false);
     if (category === 'medication') {
-      setCategoryDraft(JSON.parse(JSON.stringify(reminders.medication)));
+      setCategoryDraft(JSON.parse(JSON.stringify(reminders.medication || [])));
     } else if (category === 'hydration') {
       setCategoryDraft({
-        frequency: 'Every 1 hour',
+        frequency: '',
         ...reminders.hydration,
       });
     } else if (category === 'meals') {
-      setCategoryDraft(JSON.parse(JSON.stringify(reminders.meals)));
+      setCategoryDraft(JSON.parse(JSON.stringify(reminders.meals || [])));
     }
   };
 
@@ -516,14 +522,22 @@ export const CarePlan = () => {
     setCategoryFormError('');
 
     if (editingCategory === 'medication' || editingCategory === 'meals') {
-      if (!categoryDraft || categoryDraft.length === 0) {
-        setCategoryFormError(`Please add at least one ${editingCategory === 'medication' ? 'medication dose' : 'meal'}.`);
-        return;
+      if (Array.isArray(categoryDraft) && categoryDraft.length > 0) {
+        const hasEmptyLabel = categoryDraft.some((item) => !item.label || !item.label.trim());
+        if (hasEmptyLabel) {
+          setCategoryFormError('Please provide a label for every entry before saving.');
+          return;
+        }
       }
-      const hasEmptyLabel = categoryDraft.some((item) => !item.label || !item.label.trim());
-      if (hasEmptyLabel) {
-        setCategoryFormError('Please provide a label for every entry before saving.');
-        return;
+    }
+
+    if (editingCategory === 'hydration') {
+      if (!categoryDraft?.label || !categoryDraft.label.trim()) {
+        categoryDraft.label = '';
+        categoryDraft.schedule = '';
+        categoryDraft.status = '';
+        categoryDraft.active = false;
+        categoryDraft.frequency = '';
       }
     }
 
@@ -622,17 +636,7 @@ export const CarePlan = () => {
     if (Array.isArray(day.missedLabels) && day.missedLabels.length > 0) {
       return day.missedLabels.join(', ');
     }
-    const sampleNamesByOffset = {
-      1: ['Lunch'],
-      2: ['Evening Calcium'],
-      3: ['Hydration Window', 'Breakfast'],
-      4: ['Morning BP Medicine'],
-      5: ['Dinner'],
-    };
-    const mapped = sampleNamesByOffset[day.dayOffset] || [
-      reminders?.medication?.[0]?.label || 'Medication Dose',
-    ];
-    return mapped.slice(0, day.missed).join(', ');
+    return `${day.missed} reminder${day.missed > 1 ? 's' : ''}`;
   };
 
   return (
@@ -1721,19 +1725,42 @@ export const CarePlan = () => {
                     ))}
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setCategoryDraft((prev) => [
-                        ...prev,
-                        { id: `med_${Date.now()}`, label: '', time: '8:00 AM', active: true },
-                      ])
-                    }
-                    className="w-full py-2.5 px-3 border border-dashed border-border/80 dark:border-ink-soft/40 hover:border-terracotta/60 dark:hover:border-terracotta/60 rounded-lg bg-cream/40 dark:bg-ink-soft/20 hover:bg-cream/80 dark:hover:bg-ink-soft/30 text-xs font-semibold text-ink-soft dark:text-cream/80 hover:text-terracotta dark:hover:text-terracotta flex items-center justify-center gap-1.5 transition-colors min-h-[40px] outline-none select-none focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-terracotta"
-                  >
-                    <Plus className="w-4 h-4 text-terracotta" />
-                    <span>Add Medication Dose</span>
-                  </button>
+                  {categoryDraft.length === 0 && (
+                    <p className="text-xs text-ink-soft dark:text-cream/60 italic py-2 text-center">
+                      No medication doses scheduled. Click below to add a dose, or save to keep this schedule empty.
+                    </p>
+                  )}
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setCategoryDraft((prev) => [
+                          ...(prev || []),
+                          { id: `med_${Date.now()}`, label: '', time: '8:00 AM', active: true },
+                        ])
+                      }
+                      className="flex-1 py-2.5 px-3 border border-dashed border-border/80 dark:border-ink-soft/40 hover:border-terracotta/60 dark:hover:border-terracotta/60 rounded-lg bg-cream/40 dark:bg-ink-soft/20 hover:bg-cream/80 dark:hover:bg-ink-soft/30 text-xs font-semibold text-ink-soft dark:text-cream/80 hover:text-terracotta dark:hover:text-terracotta flex items-center justify-center gap-1.5 transition-colors min-h-[40px] outline-none select-none focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-terracotta"
+                    >
+                      <Plus className="w-4 h-4 text-terracotta" />
+                      <span>Add Medication Dose</span>
+                    </button>
+                    {categoryDraft.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          requestDelete(
+                            'Remove all medication doses from this schedule?',
+                            () => setCategoryDraft([])
+                          )
+                        }
+                        className="py-2.5 px-3 border border-border/80 dark:border-ink-soft/40 hover:border-alert/60 rounded-lg bg-cream/40 dark:bg-ink-soft/20 hover:bg-alert/10 text-xs font-semibold text-alert flex items-center justify-center gap-1.5 transition-colors min-h-[40px] outline-none select-none focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-alert"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        <span>Remove All</span>
+                      </button>
+                    )}
+                  </div>
                 </div>
               )}
 
@@ -1809,6 +1836,29 @@ export const CarePlan = () => {
                       Specifies how frequently to prompt {patientName || 'the patient'} to drink water within the active window.
                     </p>
                   </div>
+
+                  {Boolean(categoryDraft?.label) && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        requestDelete(
+                          'Clear the hydration reminder schedule for this patient?',
+                          () =>
+                            setCategoryDraft({
+                              label: '',
+                              schedule: '',
+                              frequency: '',
+                              status: '',
+                              active: false,
+                            })
+                        )
+                      }
+                      className="w-full py-2.5 px-3 border border-border/80 dark:border-ink-soft/40 hover:border-alert/60 rounded-lg bg-cream/40 dark:bg-ink-soft/20 hover:bg-alert/10 text-xs font-semibold text-alert flex items-center justify-center gap-1.5 transition-colors min-h-[40px] outline-none select-none focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-alert"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>Clear Hydration Schedule</span>
+                    </button>
+                  )}
                 </div>
               )}
 
@@ -1870,19 +1920,42 @@ export const CarePlan = () => {
                     ))}
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setCategoryDraft((prev) => [
-                        ...prev,
-                        { id: `meal_${Date.now()}`, label: '', time: '12:00 PM', active: true },
-                      ])
-                    }
-                    className="w-full py-2.5 px-3 border border-dashed border-border/80 dark:border-ink-soft/40 hover:border-terracotta/60 dark:hover:border-terracotta/60 rounded-lg bg-cream/40 dark:bg-ink-soft/20 hover:bg-cream/80 dark:hover:bg-ink-soft/30 text-xs font-semibold text-ink-soft dark:text-cream/80 hover:text-terracotta dark:hover:text-terracotta flex items-center justify-center gap-1.5 transition-colors min-h-[40px] outline-none select-none focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-terracotta"
-                  >
-                    <Plus className="w-4 h-4 text-terracotta" />
-                    <span>Add Meal</span>
-                  </button>
+                  {categoryDraft.length === 0 && (
+                    <p className="text-xs text-ink-soft dark:text-cream/60 italic py-2 text-center">
+                      No meals scheduled. Click below to add a meal, or save to keep this schedule empty.
+                    </p>
+                  )}
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setCategoryDraft((prev) => [
+                          ...(prev || []),
+                          { id: `meal_${Date.now()}`, label: '', time: '12:00 PM', active: true },
+                        ])
+                      }
+                      className="flex-1 py-2.5 px-3 border border-dashed border-border/80 dark:border-ink-soft/40 hover:border-terracotta/60 dark:hover:border-terracotta/60 rounded-lg bg-cream/40 dark:bg-ink-soft/20 hover:bg-cream/80 dark:hover:bg-ink-soft/30 text-xs font-semibold text-ink-soft dark:text-cream/80 hover:text-terracotta dark:hover:text-terracotta flex items-center justify-center gap-1.5 transition-colors min-h-[40px] outline-none select-none focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-terracotta"
+                    >
+                      <Plus className="w-4 h-4 text-terracotta" />
+                      <span>Add Meal</span>
+                    </button>
+                    {categoryDraft.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          requestDelete(
+                            'Remove all meals from this schedule?',
+                            () => setCategoryDraft([])
+                          )
+                        }
+                        className="py-2.5 px-3 border border-border/80 dark:border-ink-soft/40 hover:border-alert/60 rounded-lg bg-cream/40 dark:bg-ink-soft/20 hover:bg-alert/10 text-xs font-semibold text-alert flex items-center justify-center gap-1.5 transition-colors min-h-[40px] outline-none select-none focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-alert"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        <span>Remove All</span>
+                      </button>
+                    )}
+                  </div>
                 </div>
               )}
 
