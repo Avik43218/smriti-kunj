@@ -10,6 +10,7 @@ from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 
+from app.core.security import require_caregiver
 from app.models.analytics import Alert, DriftMetric
 from app.models.session import GameSession
 from app.models.user import RoleEnum, User
