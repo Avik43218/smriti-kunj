@@ -5,6 +5,7 @@ import { useTheme } from '../context/ThemeContext';
 import { fetchPatients } from '../services/patientService';
 import { getGameSessions, DOMAINS } from '../services/gameSessionService';
 import { PatientCard } from '../components/PatientCard';
+import { PatientRiskOverviewTable } from '../components/PatientRiskOverviewTable';
 import {
   ResponsiveContainer,
   BarChart,
@@ -477,32 +478,8 @@ export const Dashboard = () => {
         </div>
       </section>
 
-      {/* 4. Reserved Future Risk Factor Table Section */}
-      <section
-        aria-label="Risk Factor Analysis (Reserved)"
-        className="rounded-card border-2 border-dashed border-border/70 dark:border-ink-soft/40 p-4 sm:p-5 bg-surface/50 dark:bg-ink-soft/10 transition-colors"
-      >
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-ink-soft dark:text-cream/60">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-lg border border-border/70 dark:border-ink-soft/30 bg-cream/60 dark:bg-ink-soft/20 flex items-center justify-center text-ink-soft/70 dark:text-cream/50">
-              <Activity className="w-4 h-4" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h4 className="text-xs sm:text-sm font-semibold text-ink/80 dark:text-cream/80">
-                  Risk Factor Analysis & Longitudinal Indicators
-                </h4>
-                <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-cream dark:bg-ink-soft/40 border border-border/60 dark:border-ink-soft/30 text-ink-soft dark:text-cream/60 uppercase tracking-wider">
-                  Reserved Section
-                </span>
-              </div>
-              <p className="text-[11px] text-ink-soft/80 dark:text-cream/50 mt-0.5">
-                Future section for detailed multi-variable risk metrics, cognitive regression markers, and clinical indicator table.
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
+      {/* 4. XGBoost Real-Time Patient Risk Overview Table */}
+      <PatientRiskOverviewTable />
 
       {/* 5. Search + Filter Pills + Register New Patient Bar */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3.5">
