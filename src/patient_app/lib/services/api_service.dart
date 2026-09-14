@@ -23,11 +23,12 @@ class ApiService {
   List<String> get candidateBaseUrls {
     final defaultUrls = <String>[];
     if (kIsWeb) {
-      defaultUrls.addAll(['http://localhost:8000', 'http://127.0.0.1:8000']);
+      defaultUrls.addAll(['http://fedora:8000', 'http://localhost:8000', 'http://127.0.0.1:8000']);
     } else {
       try {
         if (Platform.isAndroid) {
           defaultUrls.addAll([
+            'http://fedora:8000',
             'http://10.0.2.2:8000',
             'http://127.0.0.1:8000',
             'http://localhost:8000',
@@ -36,6 +37,7 @@ class ApiService {
       } catch (_) {}
       if (defaultUrls.isEmpty) {
         defaultUrls.addAll([
+          'http://fedora:8000',
           'http://127.0.0.1:8000',
           'http://localhost:8000',
           'http://10.0.2.2:8000',

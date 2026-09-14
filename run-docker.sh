@@ -25,7 +25,7 @@ else
 fi
 
 printf "\n${C_YELLOW}[SYSTEM]${C_RESET} │ Building & starting Docker containers for backend and frontend...\n"
-docker compose up -d --build
+docker compose up -d --build --force-recreate
 
 printf "\n${C_GREEN}======================================================================${C_RESET}\n"
 printf "  Services successfully started!\n"
