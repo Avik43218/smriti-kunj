@@ -7,7 +7,13 @@
 const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 export const apiClient = async (endpoint, options = {}) => {
-  const token = localStorage.getItem('token') || localStorage.getItem('caregiver_auth_token'); 
+  let token = localStorage.getItem('token') || localStorage.getItem('caregiver_auth_token'); 
+  if (token && (token.startsWith('mock-') || token.startsWith('dev-') || token === 'null')) {
+    localStorage.removeItem('token');
+    localStorage.removeItem('caregiver_user_data');
+    localStorage.removeItem('caregiver_auth_token');
+    token = null;
+  }
 
   // Fast abort signal to prevent long hanging when running frontend-only
   const controller = new AbortController();
@@ -28,6 +34,14 @@ export const apiClient = async (endpoint, options = {}) => {
     // clearTimeout(timeoutId);
     
     if (!response.ok) {
+      if (response.status === 401) {
+        localStorage.removeItem('token');
+        localStorage.removeItem('caregiver_user_data');
+        localStorage.removeItem('caregiver_auth_token');
+        if (typeof window !== 'undefined' && !window.location.pathname.includes('/login') && !window.location.pathname.includes('/register')) {
+          window.location.href = '/login';
+        }
+      }
       const errorData = await response.json().catch(() => ({}));
       throw new Error(errorData.detail || errorData.message || 'Backend error');
     }

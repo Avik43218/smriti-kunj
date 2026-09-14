@@ -59,73 +59,6 @@ export const getCareStatusConfig = (status) => {
   }
 };
 
-const DEFAULT_PATIENTS = [
-  {
-    id: 'p101',
-    name: 'Aarav Sharma',
-    age: 72,
-    gender: 'Male',
-    dateOfBirth: 'March 14, 1954',
-    diagnosis: 'Mild Cognitive Impairment (MCI)',
-    healthIssue: 'Mild Cognitive Impairment (MCI) • Early-stage memory recall decline • Hypertension',
-    avatarUrl: null,
-    lastCheckIn: '10 mins ago',
-    notes: 'Morning memory recall exercise completed with 92% accuracy. Best response times before noon.',
-    preferredLanguage: 'Assamese',
-    pairingToken: 'PAIR-101742',
-    careStatus: 'normal',
-    statusLabel: 'Tablet active • Synced',
-    weight: '68 kg',
-    diabetic: 'Non-Diabetic',
-    nutritionDiet: 'Healthy & Balanced (Regular nutritious meals)',
-    alcoholLevel: 'None / Non-Drinker',
-    smokingStatus: 'Non-Smoker',
-    emergencyContact: {
-      name: 'Priya Sharma',
-      relationship: 'Daughter (Primary Guardian)',
-      phone: '+91 98765 43210',
-    },
-    deviceStatus: {
-      linked: true,
-      deviceName: "Lenovo Tab M10 Plus (Aarav's Unit)",
-      deviceId: 'DEV-M10-8492',
-      lastSynced: 'Today, 10:30 AM',
-    },
-  },
-  {
-    id: 'p102',
-    name: 'Sunita Das',
-    age: 68,
-    gender: 'Female',
-    dateOfBirth: 'August 22, 1958',
-    diagnosis: "Early Stage Alzheimer's",
-    healthIssue: "Early Stage Alzheimer's • Needs audio prompts for daily medication adherence",
-    avatarUrl: null,
-    lastCheckIn: '1 hour ago',
-    notes: 'Word association exercises show gradual improvement in recall latency.',
-    preferredLanguage: 'Bengali',
-    pairingToken: 'PAIR-204918',
-    careStatus: 'reminder_missed',
-    statusLabel: 'Medication pending',
-    weight: '61 kg',
-    diabetic: 'Type 2 Diabetic (Controlled)',
-    nutritionDiet: 'Specialized Diabetic / Low-Sodium Diet',
-    alcoholLevel: 'None / Non-Drinker',
-    smokingStatus: 'Non-Smoker',
-    emergencyContact: {
-      name: 'Rohan Das',
-      relationship: 'Son (Primary Guardian)',
-      phone: '+91 98123 45678',
-    },
-    deviceStatus: {
-      linked: true,
-      deviceName: "Samsung Galaxy Tab A8 (Sunita's Unit)",
-      deviceId: 'DEV-A8-3190',
-      lastSynced: 'Today, 09:15 AM',
-    },
-  },
-];
-
 const getStoredPatients = () => {
   try {
     const raw = localStorage.getItem('smriti_registered_patients');
@@ -135,16 +68,16 @@ const getStoredPatients = () => {
         return parsed;
       }
     }
-    return DEFAULT_PATIENTS;
+    return [];
   } catch (err) {
-    return DEFAULT_PATIENTS;
+    return [];
   }
 };
 
 /**
  * Fetches all patients assigned to the active caregiver with derived live careStatus.
  * 
- * Uses GET /api/caregiver/patients with local cache fallback.
+ * Uses GET /api/caregiver/patients.
  * 
  * @returns {Promise<Array>}
  */

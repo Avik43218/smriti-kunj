@@ -14,6 +14,7 @@ class TestPatientReminders(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
         db = MagicMock()
         db.command = AsyncMock(return_value={"version": "6.0.0", "versionArray": [6, 0]})
+        db.list_collection_names = AsyncMock(return_value=[])
         mock_coll = MagicMock()
         mock_coll.create_index = AsyncMock()
         mock_coll.create_indexes = AsyncMock()

@@ -7,6 +7,7 @@ import android.content.pm.PackageManager
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.provider.AlarmClock
 import android.speech.RecognitionListener
 import android.speech.RecognitionService
 import android.speech.RecognizerIntent
@@ -18,11 +19,14 @@ import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
+import java.util.Calendar
 
 class MainActivity : FlutterActivity() {
     companion object {
         private const val TAG = "MainActivitySpeech"
         private const val CHANNEL_NAME = "com.smritikunj.patient_app/speech_recognition"
+        private const val ALARM_CHANNEL_NAME = "com.smritikunj.patient_app/alarm"
+        private const val ALARM_TAG = "MainActivityAlarm"
         private const val PERMISSION_REQUEST_CODE = 4201
     }
 
@@ -39,6 +43,11 @@ class MainActivity : FlutterActivity() {
         methodChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL_NAME)
         methodChannel?.setMethodCallHandler { call, result ->
             handleMethodCall(call, result)
+        }
+
+        val alarmChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, ALARM_CHANNEL_NAME)
+        alarmChannel.setMethodCallHandler { call, result ->
+            handleAlarmMethodCall(call, result)
         }
     }
 
@@ -277,6 +286,95 @@ class MainActivity : FlutterActivity() {
             val granted = grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED
             pendingPermissionResult?.success(granted)
             pendingPermissionResult = null
+        }
+    }
+
+    private fun handleAlarmMethodCall(call: MethodCall, result: MethodChannel.Result) {
+        when (call.method) {
+            "isAlarmSupported" -> {
+                val intent = Intent(AlarmClock.ACTION_SET_ALARM)
+                val supported = intent.resolveActivity(packageManager) != null
+                result.success(supported)
+            }
+            "setDeviceAlarm" -> {
+                val label = call.argument<String>("label") ?: "Daily Reminder"
+                val hour = (call.argument<Number>("hour"))?.toInt() ?: 8
+                val minute = (call.argument<Number>("minute"))?.toInt() ?: 0
+                val skipUi = call.argument<Boolean>("skipUi") ?: true
+
+                val success = setAlarmIntent(label, hour, minute, skipUi)
+                result.success(mapOf(
+                    "success" to success,
+                    "label" to label,
+                    "hour" to hour,
+                    "minute" to minute,
+                    "everyday" to true
+                ))
+            }
+            "setDailyAlarms" -> {
+                val alarmsList = call.argument<List<Map<String, Any>>>("alarms") ?: emptyList()
+                val globalSkipUi = call.argument<Boolean>("skipUi") ?: true
+
+                if (alarmsList.isEmpty()) {
+                    result.success(mapOf("success" to true, "scheduledCount" to 0))
+                    return
+                }
+
+                for (i in alarmsList.indices) {
+                    val item = alarmsList[i]
+                    val label = (item["label"] as? String) ?: (item["title"] as? String) ?: "Daily Reminder"
+                    val hour = (item["hour"] as? Number)?.toInt() ?: 8
+                    val minute = (item["minute"] as? Number)?.toInt() ?: 0
+                    val skipUi = (item["skipUi"] as? Boolean) ?: globalSkipUi
+
+                    mainHandler.postDelayed({
+                        setAlarmIntent(label, hour, minute, skipUi)
+                    }, (i * 250).toLong())
+                }
+
+                result.success(mapOf(
+                    "success" to true,
+                    "scheduledCount" to alarmsList.size,
+                    "everyday" to true
+                ))
+            }
+            else -> result.notImplemented()
+        }
+    }
+
+    private fun setAlarmIntent(label: String, hour: Int, minute: Int, skipUi: Boolean): Boolean {
+        return try {
+            val everyday = arrayListOf(
+                Calendar.SUNDAY,
+                Calendar.MONDAY,
+                Calendar.TUESDAY,
+                Calendar.WEDNESDAY,
+                Calendar.THURSDAY,
+                Calendar.FRIDAY,
+                Calendar.SATURDAY
+            )
+
+            val intent = Intent(AlarmClock.ACTION_SET_ALARM).apply {
+                putExtra(AlarmClock.EXTRA_MESSAGE, label)
+                putExtra(AlarmClock.EXTRA_HOUR, hour)
+                putExtra(AlarmClock.EXTRA_MINUTES, minute)
+                putIntegerArrayListExtra(AlarmClock.EXTRA_DAYS, everyday)
+                putExtra(AlarmClock.EXTRA_SKIP_UI, skipUi)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+
+            if (intent.resolveActivity(packageManager) != null) {
+                startActivity(intent)
+                Log.d(ALARM_TAG, "AlarmClock intent sent for '$label' at $hour:$minute (everyday)")
+                true
+            } else {
+                startActivity(intent)
+                Log.d(ALARM_TAG, "Direct startActivity sent for '$label' at $hour:$minute")
+                true
+            }
+        } catch (e: Exception) {
+            Log.e(ALARM_TAG, "Failed to set alarm for '$label' at $hour:$minute: ${e.message}", e)
+            false
         }
     }
 

@@ -4,7 +4,9 @@ import {
   UserCheck,
   TrendingUp,
   CalendarCheck,
+  ShieldCheck,
 } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
 /**
  * useFinePointer
@@ -34,6 +36,7 @@ const useFinePointer = () => {
 };
 
 export const Navbar = () => {
+  const { role, isAdmin } = useAuth();
   const location = useLocation();
   const params = useParams();
   const patientId = params.id || location.pathname.split('/patients/')[1]?.split('/')[0] || 'p101';
@@ -66,6 +69,17 @@ export const Navbar = () => {
       icon: CalendarCheck,
       matchExact: false,
     },
+    ...(isAdmin || role === 'admin'
+      ? [
+          {
+            id: 'admin',
+            name: 'Admin Panel',
+            path: '/admin/dashboard',
+            icon: ShieldCheck,
+            matchExact: false,
+          },
+        ]
+      : []),
   ];
 
   /**

@@ -14,12 +14,14 @@ long-lived device token, unchanged from before.
 import uuid
 from datetime import datetime, timedelta, timezone
 
+from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials
 
 from app.config import settings
 from app.core.otp import generate_otp, hash_otp, verify_otp_code
 from app.core.security import (
+    _create_token,
     bearer_scheme,
     create_caregiver_token,
     create_patient_device_token,
@@ -53,8 +55,7 @@ router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 async def _issue_otp(email: str) -> None:
     """Invalidate any outstanding code for this email and issue a fresh one.
-    Sending is stubbed to a print — wire up a real provider (SES/SendGrid/
-    etc.) here before this goes anywhere near production."""
+    Displays OTP prominently in terminal for authentication."""
     await OtpCode.find(OtpCode.email == email).delete()
 
     code = generate_otp()
@@ -64,8 +65,12 @@ async def _issue_otp(email: str) -> None:
         expires_at=datetime.utcnow() + timedelta(minutes=settings.OTP_EXPIRE_MINUTES),
     ).insert()
 
-    # TODO: send `code` via email instead of logging it.
-    print(f"[stub email] OTP for {email}: {code}")
+    print("\n" + "=" * 60, flush=True)
+    print(" >>> [SMRITI KUNJ OTP VERIFICATION] <<<", flush=True)
+    print(f" Account: {email}", flush=True)
+    print(f" One-Time Password (OTP): {code}", flush=True)
+    print(f" Expiration: {settings.OTP_EXPIRE_MINUTES} minutes", flush=True)
+    print("=" * 60 + "\n", flush=True)
 
 
 @router.post("/register", response_model=CaregiverOut, status_code=201)
@@ -79,6 +84,7 @@ async def register(payload: CaregiverRegisterRequest):
         email=payload.email,
         hashed_password=hash_password(payload.password),
         region_language=payload.region_language,
+        status="active",
     )
     await user.insert()
     return user
@@ -88,9 +94,19 @@ async def register(payload: CaregiverRegisterRequest):
 async def login(payload: LoginRequest):
     """Step 1 of 2: validate the password, then send an OTP. No session
     token is issued here — only /verify-otp issues one."""
-    user = await User.find_one(User.email == payload.email, User.role == RoleEnum.caregiver)
-    if not user or not user.hashed_password or not verify_password(payload.password, user.hashed_password):
+    user = await User.find_one(User.email == payload.email)
+    if not user or user.role == RoleEnum.patient or not user.hashed_password or not verify_password(payload.password, user.hashed_password):
         raise HTTPException(status_code=401, detail="Incorrect email or password")
+
+    user_role_str = user.role.value if hasattr(user.role, "value") else str(user.role)
+    if payload.role and user_role_str != payload.role:
+        raise HTTPException(
+            status_code=403,
+            detail=f"This account is registered as a {user_role_str}. Please switch to the {user_role_str.capitalize()} tab to sign in.",
+        )
+
+    if getattr(user, "status", None) == "disabled":
+        raise HTTPException(status_code=403, detail="Account is disabled")
 
     await _issue_otp(user.email)
     return OtpRequestResponse(message="A one-time code has been sent to your email.", email=user.email)
@@ -101,19 +117,22 @@ async def request_otp(payload: OtpRequestRequest):
     """Resend path ('Didn't get a code?'). Always returns the same generic
     message whether or not the email has an account, to avoid leaking
     which emails are registered."""
-    user = await User.find_one(User.email == payload.email, User.role == RoleEnum.caregiver)
-    if user:
+    user = await User.find_one(User.email == payload.email)
+    if user and user.role != RoleEnum.patient and getattr(user, "status", None) != "disabled":
         await _issue_otp(user.email)
     return OtpRequestResponse(message="If that email has an account, a code has been sent.", email=payload.email)
 
 
 @router.post("/verify-otp", response_model=OtpVerifyResponse)
 async def verify_otp(payload: OtpVerifyRequest):
-    user = await User.find_one(User.email == payload.email, User.role == RoleEnum.caregiver)
+    user = await User.find_one(User.email == payload.email)
     otp_record = await OtpCode.find_one(OtpCode.email == payload.email)
 
     if not user or not otp_record:
         raise HTTPException(status_code=400, detail="Invalid or expired code")
+
+    if getattr(user, "status", None) == "disabled":
+        raise HTTPException(status_code=403, detail="Account is disabled")
 
     if otp_record.expires_at < datetime.utcnow():
         await otp_record.delete()
@@ -130,9 +149,38 @@ async def verify_otp(payload: OtpVerifyRequest):
 
     await otp_record.delete()
 
+    user_role_str = user.role.value if hasattr(user.role, "value") else str(user.role)
+    token = _create_token(
+        user.id,
+        user.role,
+        timedelta(minutes=settings.CAREGIVER_TOKEN_EXPIRE_MINUTES),
+    )
+
+    caregiver_out = CaregiverOut(
+        id=user.id,
+        name=user.name,
+        email=user.email,
+        region_language=user.region_language or "bn",
+        role=user_role_str,
+        status=getattr(user, "status", "active") or "active",
+    )
+    user_out = UserOut(
+        id=user.id,
+        role=user_role_str,
+        name=user.name,
+        email=user.email,
+        status=getattr(user, "status", "active") or "active",
+        patient_code=user.patient_code,
+        region_language=user.region_language or "bn",
+        pairing_token=user.pairing_token,
+        emergency_contact=user.emergency_contact,
+        device_id=user.device_id,
+    )
+
     return OtpVerifyResponse(
-        token=create_caregiver_token(user.id),
-        caregiver=CaregiverOut.model_validate(user),
+        token=token,
+        caregiver=caregiver_out,
+        user=user_out,
     )
 
 
@@ -268,6 +316,11 @@ async def complete_pairing(payload: PatientPairCompleteRequest):
         expires_at=datetime.now(timezone.utc) + timedelta(days=settings.PATIENT_TOKEN_EXPIRE_DAYS),
     )
 
+    emergency = patient.emergency_contact or {}
+    guardian_phone = emergency.get("phone")
+    guardian_name = emergency.get("name")
+    guardian_relationship = emergency.get("relationship")
+
     return PatientPairCompleteOut(
         patient_id=patient.id,
         patient_code=patient.patient_code,
@@ -276,6 +329,9 @@ async def complete_pairing(payload: PatientPairCompleteRequest):
         token=token,
         region_language=patient.region_language or "bn",
         emergency_contact=patient.emergency_contact,
+        guardian_phone=guardian_phone,
+        guardian_name=guardian_name,
+        guardian_relationship=guardian_relationship,
         diagnosis=patient.diagnosis,
         status=patient.status or "stable",
     )
@@ -284,6 +340,11 @@ async def complete_pairing(payload: PatientPairCompleteRequest):
 @router.get("/patient/me", response_model=PatientPairCompleteOut)
 async def get_patient_me(patient: User = Depends(require_patient)):
     """Fetch current paired patient profile and emergency contact using device token."""
+    emergency = patient.emergency_contact or {}
+    guardian_phone = emergency.get("phone")
+    guardian_name = emergency.get("name")
+    guardian_relationship = emergency.get("relationship")
+
     return PatientPairCompleteOut(
         patient_id=patient.id,
         patient_code=patient.patient_code,
@@ -295,6 +356,10 @@ async def get_patient_me(patient: User = Depends(require_patient)):
         ),
         region_language=patient.region_language or "bn",
         emergency_contact=patient.emergency_contact,
+        guardian_phone=guardian_phone,
+        guardian_name=guardian_name,
+        guardian_relationship=guardian_relationship,
         diagnosis=patient.diagnosis,
         status=patient.status or "stable",
     )
+

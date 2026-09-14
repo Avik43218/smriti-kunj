@@ -10,6 +10,7 @@ class UserOut(BaseModel):
     role: str
     name: str
     email: Optional[str] = None
+    status: Optional[str] = "active"
     patient_code: Optional[str] = None
     region_language: Optional[str] = "bn"
     pairing_token: Optional[str] = None
@@ -24,7 +25,9 @@ class CaregiverOut(BaseModel):
     id: uuid.UUID
     name: str
     email: EmailStr
-    region_language: str
+    region_language: Optional[str] = "bn"
+    role: str = "caregiver"
+    status: Optional[str] = "active"
 
     class Config:
         from_attributes = True
@@ -46,6 +49,7 @@ class CaregiverRegisterRequest(BaseModel):
 class LoginRequest(BaseModel):
     email: EmailStr
     password: str
+    role: Optional[str] = None
 
 
 class OtpRequestRequest(BaseModel):
@@ -68,6 +72,7 @@ class OtpVerifyResponse(BaseModel):
 
     token: str
     caregiver: CaregiverOut
+    user: Optional[UserOut] = None
 
 
 class LogoutResponse(BaseModel):
@@ -95,5 +100,9 @@ class PatientPairCompleteOut(BaseModel):
     token: TokenOut
     region_language: Optional[str] = "bn"
     emergency_contact: Optional[Dict[str, Any]] = None
+    guardian_phone: Optional[str] = None
+    guardian_name: Optional[str] = None
+    guardian_relationship: Optional[str] = None
     diagnosis: Optional[str] = None
     status: Optional[str] = "stable"
+

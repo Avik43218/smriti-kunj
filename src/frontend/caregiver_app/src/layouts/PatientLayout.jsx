@@ -3,10 +3,15 @@ import { Outlet, Link } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import { Navbar } from '../components/Navbar';
 import { TopControls } from '../components/TopControls';
+import { Footer } from '../components/Footer';
+import { MotifBackground } from '../components/MotifBackground';
 
 export const PatientLayout = () => {
   return (
     <div className="min-h-screen bg-cream dark:bg-ink text-ink dark:text-cream font-sans transition-colors duration-200 flex flex-col relative">
+      {/* Ambient Cultural Motif Background Pattern */}
+      <MotifBackground />
+
       {/* Return to All Patients / Dashboard Button (Top-Left: Icon-only on mobile, labeled pill on sm+) */}
       <Link
         to="/dashboard"
@@ -24,9 +29,12 @@ export const PatientLayout = () => {
       <TopControls showSettings={true} />
 
       {/* Main Content Area: Responsive spacing clearing top controls on mobile, top dock on desktop, and bottom dock on mobile */}
-      <main className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 pt-14 sm:pt-20 pb-24 sm:pb-20">
+      <main className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 pt-14 sm:pt-20 pb-16 sm:pb-20 relative z-10">
         <Outlet />
       </main>
+
+      {/* Site Identity Line Design Footer */}
+      <Footer className="pb-24 sm:pb-5" />
     </div>
   );
 };

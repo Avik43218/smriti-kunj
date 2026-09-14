@@ -158,7 +158,9 @@ DEFAULT_DAILY_REMINDERS = {
 }
 
 
-def _build_unified_reminders_list(rem: PatientReminder) -> List[Dict[str, Any]]:
+def _build_unified_reminders_list(rem: Optional[PatientReminder]) -> List[Dict[str, Any]]:
+    if not rem:
+        return []
     items: List[Dict[str, Any]] = []
 
     # Medication
@@ -273,21 +275,11 @@ async def find_patient_by_pairing_code(raw_code: str) -> Optional[User]:
         if patient:
             return patient
 
-    # 3. Seed / demo fallback (p101 -> PAIR-652759)
+    # 3. Check existing patient code match (e.g. p101)
     if clean_code in ["PAIR-652759", "652759", "P101"]:
         patient = await User.find_one(User.patient_code == "p101", User.role == RoleEnum.patient)
-        if not patient:
-            patient = User(
-                role=RoleEnum.patient,
-                name="Aarav Sharma",
-                patient_code="p101",
-                pairing_token="PAIR-652759",
-                region_language="bn",
-                status="stable",
-                status_label="Active • Tablet synced",
-            )
-            await patient.insert()
-        return patient
+        if patient:
+            return patient
 
     return None
 
@@ -328,7 +320,6 @@ async def _handle_fetch_reminders_logic(
     if not rem and patient.pairing_token:
         rem = await PatientReminder.find_one(PatientReminder.patient_id == patient.pairing_token)
 
-    # Initialize default daily reminders in MongoDB if patient doesn't have any yet
     if not rem or (not rem.medication and not rem.hydration and not rem.meals and not rem.custom):
         if not rem:
             rem = PatientReminder(patient_id=patient_key)
@@ -345,10 +336,10 @@ async def _handle_fetch_reminders_logic(
         patient_id=patient_key,
         patient_name=patient.name,
         pairing_code=raw_code,
-        medication=rem.medication or [],
-        hydration=rem.hydration or {},
-        meals=rem.meals or [],
-        custom=rem.custom or [],
+        medication=(rem.medication if rem else []) or [],
+        hydration=(rem.hydration if rem else {}) or {},
+        meals=(rem.meals if rem else []) or [],
+        custom=(rem.custom if rem else []) or [],
         reminders=unified_list,
     )
 
@@ -374,6 +365,78 @@ async def get_patient_alias_reminders_endpoint(
 ):
     """Alias route for /api/patient/reminders."""
     return await _handle_fetch_reminders_logic(pairing_code, x_pairing_code, payload)
+
+
+class PatientDiagnosisOut(BaseModel):
+    patient_id: str
+    patient_code: Optional[str] = None
+    patient_name: Optional[str] = None
+    pairing_code: str
+    diagnosis: Optional[str] = None
+    status: Optional[str] = None
+
+
+class PatientDiagnosisFetchRequest(BaseModel):
+    pairing_code: Optional[str] = None
+
+
+async def _handle_fetch_diagnosis_logic(
+    pairing_code: Optional[str],
+    x_pairing_code: Optional[str],
+    payload: Optional[PatientDiagnosisFetchRequest],
+) -> PatientDiagnosisOut:
+    raw_code = (
+        pairing_code
+        or x_pairing_code
+        or (payload.pairing_code if payload else None)
+        or ""
+    ).strip()
+
+    if not raw_code:
+        raise HTTPException(
+            status_code=400,
+            detail="Pairing code is required to fetch patient diagnosis",
+        )
+
+    patient = await find_patient_by_pairing_code(raw_code)
+    if not patient:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Pairing code '{raw_code}' was not found. Please verify the code or pair again.",
+        )
+
+    patient_key = patient.patient_code or str(patient.id)
+    return PatientDiagnosisOut(
+        patient_id=patient_key,
+        patient_code=patient.patient_code,
+        patient_name=patient.name,
+        pairing_code=raw_code,
+        diagnosis=patient.diagnosis,
+        status=patient.status or "active",
+    )
+
+
+@router.get("/diagnosis", response_model=PatientDiagnosisOut)
+@router.get("/diagnosis/patient", response_model=PatientDiagnosisOut)
+@router.post("/diagnosis", response_model=PatientDiagnosisOut)
+async def get_patient_diagnosis_endpoint(
+    pairing_code: Optional[str] = Query(None),
+    x_pairing_code: Optional[str] = Header(None, alias="X-Pairing-Code"),
+    payload: Optional[PatientDiagnosisFetchRequest] = None,
+):
+    """Patient app calls this endpoint to fetch diagnosis from MongoDB using pairing code."""
+    return await _handle_fetch_diagnosis_logic(pairing_code, x_pairing_code, payload)
+
+
+@patient_alias_router.get("/diagnosis", response_model=PatientDiagnosisOut)
+@patient_alias_router.post("/diagnosis", response_model=PatientDiagnosisOut)
+async def get_patient_alias_diagnosis_endpoint(
+    pairing_code: Optional[str] = Query(None),
+    x_pairing_code: Optional[str] = Header(None, alias="X-Pairing-Code"),
+    payload: Optional[PatientDiagnosisFetchRequest] = None,
+):
+    """Alias route for /api/patient/diagnosis."""
+    return await _handle_fetch_diagnosis_logic(pairing_code, x_pairing_code, payload)
 
 
 @router.get("/{patientId}/reminders", response_model=RemindersOut)

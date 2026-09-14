@@ -28,14 +28,14 @@ export const GAME_TYPES = {
 export const DOMAIN_CONFIG = {
   memory: {
     key: 'memory',
-    label: 'Episodic Memory',
+    label: 'Working & Episodic Memory',
     gameType: 'pair_matching',
-    gameLabel: 'Pair Matching',
+    gameLabel: 'Pair Matching & Market Trip',
     color: '#B5562F', // Terracotta
     bgLight: 'bg-terracotta/10',
     borderLight: 'border-terracotta/30',
     textLight: 'text-terracotta',
-    description: 'Visual memory retention, card pair recall & face-name recognition',
+    description: 'Visual memory retention, card pair recall & shopping list delayed recall',
     targetParam: 'Correct Match Rate & Latency',
   },
   working_memory: {
@@ -64,9 +64,9 @@ export const DOMAIN_CONFIG = {
   },
   attention: {
     key: 'attention',
-    label: 'Attention & Processing',
-    gameType: 'visual_search',
-    gameLabel: 'Visual Search',
+    label: 'Attention & Processing Speed',
+    gameType: 'tap_target',
+    gameLabel: 'Tap the Target',
     color: '#C9962C', // Gold
     bgLight: 'bg-gold/10',
     borderLight: 'border-gold/30',

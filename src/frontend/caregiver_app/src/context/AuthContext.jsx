@@ -1,10 +1,11 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import {
-  login as apiLogin,
   logout as apiLogout,
+  login as apiLogin,
   verifyOtp as apiVerifyOtp,
   requestOtp as apiRequestOtp,
 } from '../services/authService';
+import { apiClient } from '../services/apiClient';
 
 const AuthContext = createContext(null);
 
@@ -14,7 +15,6 @@ const STORAGE_KEYS = {
 };
 
 export const AuthProvider = ({ children }) => {
-  // Pulls from the vault on first load
   const [token, setToken] = useState(() => {
     try {
       return localStorage.getItem(STORAGE_KEYS.TOKEN) || null;
@@ -37,17 +37,43 @@ export const AuthProvider = ({ children }) => {
   // ===== DEV BYPASS — REMOVE/COMMENT BEFORE BACKEND INTEGRATION =====
   //  Uncomment this block to skip login during frontend-only development.
   //  Comment it out (or delete) once the real backend login flow is being tested.
-
-  // useEffect(() => {
-  //   if (!token) {
-  //     const fakeToken = 'dev-bypass-token';
-  //     const fakeCaregiver = { id: 'dev1', name: 'Dev Caregiver', email: 'dev@test.com' };
-  //     setToken(fakeToken);
-  //     setCaregiver(fakeCaregiver);
-  //   }
-  // }, []);
-
+  
+  useEffect(() => {
+    if (!token) {
+      const fakeToken = 'dev-bypass-token';
+      const fakeCaregiver = { id: 'dev1', name: 'Dev Caregiver', email: 'dev@test.com' };
+      setToken(fakeToken);
+      setCaregiver(fakeCaregiver);
+    }
+  }, []);
+  
   //  ===== END DEV BYPASS =====
+
+  // Validate session against /api/auth/me on mount if token is present
+  useEffect(() => {
+    let isMounted = true;
+    const verifyExistingSession = async () => {
+      if (!token) return;
+      try {
+        const me = await apiClient('/api/auth/me');
+        if (isMounted && me && me.id) {
+          setCaregiver((prev) => ({ ...prev, ...me }));
+        }
+      } catch (err) {
+        console.warn('Session expired or invalid:', err.message);
+        if (isMounted) {
+          setToken(null);
+          setCaregiver(null);
+          localStorage.removeItem(STORAGE_KEYS.TOKEN);
+          localStorage.removeItem(STORAGE_KEYS.USER);
+        }
+      }
+    };
+    verifyExistingSession();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // Syncs the User data whenever it changes
   useEffect(() => {
@@ -58,7 +84,6 @@ export const AuthProvider = ({ children }) => {
     }
   }, [caregiver]);
 
-  // Syncs the Token to keep it aligned with authService
   useEffect(() => {
     if (token) {
       localStorage.setItem(STORAGE_KEYS.TOKEN, token);
@@ -67,10 +92,11 @@ export const AuthProvider = ({ children }) => {
     }
   }, [token]);
 
-  const login = useCallback(async (email, password) => {
+  // Real backend credential submission (triggers OTP)
+  const login = useCallback(async (email, password, roleType = 'caregiver') => {
     setLoading(true);
     try {
-      return await apiLogin(email, password);
+      return await apiLogin(email, password, roleType);
     } finally {
       setLoading(false);
     }
@@ -84,8 +110,9 @@ export const AuthProvider = ({ children }) => {
     setLoading(true);
     try {
       const response = await apiVerifyOtp(email, otp);
+      const userObj = response.caregiver || response.user;
       setToken(response.token);
-      setCaregiver(response.caregiver);
+      setCaregiver(userObj);
       return response;
     } finally {
       setLoading(false);
@@ -106,9 +133,14 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const isAuthenticated = Boolean(token && caregiver);
+  const role = caregiver?.role || 'caregiver';
+  const isAdmin = role === 'admin';
 
   const value = {
+    user: caregiver,
     caregiver,
+    role,
+    isAdmin,
     token,
     login,
     requestOtp,

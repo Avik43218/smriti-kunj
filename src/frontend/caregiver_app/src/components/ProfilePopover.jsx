@@ -2,10 +2,10 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { SettingsDropdown } from './SettingsDropdown';
-import { LogOut, ChevronDown, User, Settings } from 'lucide-react';
+import { LogOut, ChevronDown, User, Settings, ShieldCheck } from 'lucide-react';
 
 export const ProfilePopover = () => {
-  const { caregiver, logout } = useAuth();
+  const { caregiver, logout, role, isAdmin } = useAuth();
   const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -94,6 +94,21 @@ export const ProfilePopover = () => {
 
           {/* Menu Items */}
           <div className="space-y-0.5">
+            {(isAdmin || role === 'admin') && (
+              <button
+                type="button"
+                aria-label="Admin Control Center"
+                onClick={() => {
+                  setIsOpen(false);
+                  navigate('/admin/dashboard');
+                }}
+                className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs text-terracotta hover:bg-cream dark:hover:bg-ink-soft/20 flex items-center gap-2 transition-colors font-semibold"
+              >
+                <ShieldCheck className="w-3.5 h-3.5 text-terracotta" />
+                <span>Admin Center</span>
+              </button>
+            )}
+
             {/* Settings Trigger Option */}
             <button
               type="button"

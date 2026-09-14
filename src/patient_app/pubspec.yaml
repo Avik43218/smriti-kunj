@@ -9,7 +9,7 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-
+  # flutter_tts: ^3.8.3
   # State management (Provider — see AGENTS.md §3)
   provider: ^6.1.2
 
@@ -24,6 +24,7 @@ dependencies:
   flutter_svg: ^2.0.10+1
 
   tflite_flutter: ^0.10.4
+  url_launcher: ^6.3.2
 
 dev_dependencies:
   flutter_test:

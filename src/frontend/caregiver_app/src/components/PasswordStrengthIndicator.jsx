@@ -4,11 +4,11 @@ import React from 'react';
  * PasswordStrengthIndicator Component
  * 
  * Evaluates password strength. Displays a 5-segment visual meter and text label:
- * 1. Very Weak (status-urgent: #8C2C24)
- * 2. Weak (terracotta: #B5562F)
- * 3. Fair (gold: #C9962C)
- * 4. Strong (terracotta: #B5562F)
- * 5. Very Strong (sage: #6E8C6A)
+ * 1. Very Weak (passwordStrength.1: #E2A48E)
+ * 2. Weak (passwordStrength.2: #D47D5C)
+ * 3. Fair (passwordStrength.3: #C55F35)
+ * 4. Strong (passwordStrength.4: #A8441F)
+ * 5. Very Strong (passwordStrength.5: #7E2D11)
  * 
  * Criteria:
  * - Length: 8+ chars (base requirement for Fair+), 12+ chars bonus, 16+ chars bonus
@@ -32,63 +32,69 @@ export const PasswordStrengthIndicator = ({ password = '' }) => {
 
   let score = 1; // Default: 1 (Very Weak)
 
-  if (!hasMinLength) {
-    // Under 8 chars: at best Weak if mixed, otherwise Very Weak
-    score = (length >= 5 && varietyCount >= 2) ? 2 : 1;
+  if (length < 6) {
+    // Under 6 chars is always Very Weak
+    score = 1;
+  } else if (length < 8) {
+    // 6-7 characters: Weak if mixed, otherwise Very Weak
+    score = varietyCount >= 2 ? 2 : 1;
   } else {
-    // 8+ chars base
-    if (hasLength16 && varietyCount >= 3) {
-      // 16+ chars with good variety
-      score = 5; // Very Strong
-    } else if (hasLength12 && varietyCount === 4) {
-      // 12+ chars with all 4 character types
-      score = 5; // Very Strong
-    } else if (hasLength12 && varietyCount >= 2) {
-      // 12+ chars with moderate variety
-      score = 4; // Strong
-    } else if (varietyCount >= 3) {
-      // 8-11 chars with 3+ character types
-      score = 4; // Strong
-    } else if (varietyCount === 2) {
-      // 8-11 chars with 2 character types
-      score = 3; // Fair
-    } else {
-      // 8+ chars but all single type (e.g. "aaaaaaaa" or "12345678")
+    // 8+ chars base requirement satisfied
+    if (varietyCount === 1) {
+      // 8+ chars but single character type (e.g. "aaaaaaaa" or "12345678")
       score = 2; // Weak
+    } else if (
+      (length >= 14 && varietyCount >= 3) ||
+      (length >= 12 && varietyCount === 4) ||
+      (length >= 16 && varietyCount >= 2)
+    ) {
+      // Long passphrase with good variety or full 4-type 12+ char password
+      score = 5; // Very Strong
+    } else if (
+      (length >= 12 && varietyCount >= 2) ||
+      (length >= 10 && varietyCount >= 3) ||
+      varietyCount === 4
+    ) {
+      // 10+ chars with 3 types, or 8+ chars with all 4 types (symbols included)
+      score = 4; // Strong
+    } else {
+      // Standard 8-9 chars with 2-3 types (e.g. "Password", "Pass1234") or 10-11 chars with 2 types
+      score = 3; // Fair
     }
   }
 
   // Tier configuration based on score (1 to 5)
+  // Uses dedicated passwordStrength terracotta monochromatic gradient tokens from tailwind.config.js
   const TIERS = {
     1: {
       label: 'Very Weak',
       barCount: 1,
-      color: 'bg-status-urgent',
-      textColor: 'text-status-urgent',
+      color: 'bg-passwordStrength-1',
+      textColor: 'text-passwordStrength-2 dark:text-passwordStrength-1',
     },
     2: {
       label: 'Weak',
       barCount: 2,
-      color: 'bg-terracotta',
-      textColor: 'text-terracotta',
+      color: 'bg-passwordStrength-2',
+      textColor: 'text-passwordStrength-3 dark:text-passwordStrength-2',
     },
     3: {
       label: 'Fair',
       barCount: 3,
-      color: 'bg-gold',
-      textColor: 'text-gold',
+      color: 'bg-passwordStrength-3',
+      textColor: 'text-passwordStrength-3 dark:text-passwordStrength-2',
     },
     4: {
       label: 'Strong',
       barCount: 4,
-      color: 'bg-terracotta',
-      textColor: 'text-terracotta',
+      color: 'bg-passwordStrength-4',
+      textColor: 'text-passwordStrength-4 dark:text-passwordStrength-2',
     },
     5: {
       label: 'Very Strong',
       barCount: 5,
-      color: 'bg-sage',
-      textColor: 'text-sage',
+      color: 'bg-passwordStrength-5',
+      textColor: 'text-passwordStrength-5 dark:text-passwordStrength-1',
     },
   };
 

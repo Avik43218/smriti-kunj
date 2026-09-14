@@ -16,6 +16,14 @@ module.exports = {
         border: '#E4D9C4',
         'status-urgent': '#8C2C24',
         'status-info': '#2C4A6E',
+        // Functional exception: 5-step monochromatic terracotta progression for password meter (not part of core brand tokens)
+        passwordStrength: {
+          1: '#E2A48E', // Level 1 (Very Weak): Muted pale terracotta
+          2: '#D47D5C', // Level 2 (Weak): Soft warm terracotta
+          3: '#C55F35', // Level 3 (Fair): Vibrant mid-tone terracotta
+          4: '#A8441F', // Level 4 (Strong): Rich deep terracotta
+          5: '#7E2D11', // Level 5 (Very Strong): Intense roasted terracotta
+        },
       },
       fontFamily: {
         sans: ['"Noto Sans"', '"Noto Sans Bengali"', '"Noto Sans Devanagari"', 'sans-serif'],

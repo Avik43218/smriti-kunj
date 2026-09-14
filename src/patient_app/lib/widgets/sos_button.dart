@@ -1,6 +1,36 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
+import '../services/session_service.dart';
 import '../theme/theme.dart';
+
+/// Cleans a phone number string and launches the system dialer pre-filled with the URI `tel:<cleanNumber>`.
+Future<bool> launchGuardianDialer({String? phoneNumber}) async {
+  final rawPhone = phoneNumber ??
+      SessionService.instance.guardianPhone ??
+      SessionService.instance.emergencyContact?['phone']?.toString() ??
+      '+91 98765 43210';
+
+  // Keep leading '+' and all digits, stripping whitespace, hyphens, and parenthesis
+  final cleanDigits = rawPhone.replaceAll(RegExp(r'[^\d]'), '');
+  final hasPlus = rawPhone.trim().startsWith('+');
+  final cleanPhone = hasPlus ? '+$cleanDigits' : cleanDigits;
+
+  final telUri = Uri(scheme: 'tel', path: cleanPhone);
+  debugPrint('[SOS] Launching device dialer with guardian phone: $cleanPhone');
+
+  try {
+    if (await canLaunchUrl(telUri)) {
+      return await launchUrl(telUri, mode: LaunchMode.externalApplication);
+    } else {
+      // Fallback direct attempt
+      return await launchUrl(telUri, mode: LaunchMode.externalApplication);
+    }
+  } catch (e) {
+    debugPrint('[SOS] Could not launch dialer intent: $e');
+    return false;
+  }
+}
 
 class SosButton extends StatelessWidget {
   final VoidCallback? onPressed;
@@ -15,10 +45,12 @@ class SosButton extends StatelessWidget {
   });
 
   void _triggerSos(BuildContext context) {
-    // 1. Immediately mock-trigger alert (log/print) with zero confirmation friction
     debugPrint('[SOS ALERT] Emergency trigger dispatched at ${DateTime.now().toIso8601String()} for active patient session');
 
-    // 2. Open full-screen "Help is on the way" confirmation screen with auto-dismiss
+    // 1. Immediately launch system dialer pre-filled with guardian number
+    launchGuardianDialer();
+
+    // 2. Open full-screen confirmation screen with contact details and fallback dial action
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => const SosConfirmationScreen(),
@@ -88,7 +120,7 @@ class SosButton extends StatelessWidget {
 }
 
 /// Full-screen confirmation displayed immediately upon tapping the SOS button.
-/// Auto-dismisses back to Home after a few seconds or when dismissed manually.
+/// Shows guardian contact information, pre-fills device dialer, and provides quick call retry.
 class SosConfirmationScreen extends StatefulWidget {
   const SosConfirmationScreen({super.key});
 
@@ -97,34 +129,26 @@ class SosConfirmationScreen extends StatefulWidget {
 }
 
 class _SosConfirmationScreenState extends State<SosConfirmationScreen> {
-  Timer? _autoDismissTimer;
-
-  @override
-  void initState() {
-    super.initState();
-    // Auto-dismiss after 4 seconds
-    _autoDismissTimer = Timer(const Duration(seconds: 4), () {
-      if (mounted && Navigator.of(context).canPop()) {
-        Navigator.of(context).pop();
-      }
-    });
-  }
-
-  @override
-  void dispose() {
-    _autoDismissTimer?.cancel();
-    super.dispose();
-  }
-
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
+    final session = SessionService.instance;
+
+    final guardianName = session.guardianName ??
+        session.emergencyContact?['name']?.toString() ??
+        'Primary Guardian';
+    final guardianRelationship = session.guardianRelationship ??
+        session.emergencyContact?['relationship']?.toString() ??
+        'Emergency Contact';
+    final guardianPhone = session.guardianPhone ??
+        session.emergencyContact?['phone']?.toString() ??
+        '+91 98765 43210';
 
     return Scaffold(
       backgroundColor: AppColors.cream,
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 32.0),
+          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 24.0),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -134,8 +158,8 @@ class _SosConfirmationScreenState extends State<SosConfirmationScreen> {
               // Alert icon badge
               Center(
                 child: Container(
-                  width: 120,
-                  height: 120,
+                  width: 104,
+                  height: 104,
                   decoration: BoxDecoration(
                     color: AppColors.alertRed.withValues(alpha: 0.12),
                     shape: BoxShape.circle,
@@ -146,12 +170,12 @@ class _SosConfirmationScreenState extends State<SosConfirmationScreen> {
                   ),
                   child: const Icon(
                     Icons.notifications_active_rounded,
-                    size: 64,
+                    size: 54,
                     color: AppColors.alertRed,
                   ),
                 ),
               ),
-              const SizedBox(height: 32),
+              const SizedBox(height: 20),
 
               // Reassuring title
               Text(
@@ -160,36 +184,141 @@ class _SosConfirmationScreenState extends State<SosConfirmationScreen> {
                 style: textTheme.displayLarge?.copyWith(
                   fontWeight: FontWeight.w700,
                   color: AppColors.ink,
-                  height: 1.25,
+                  fontSize: 28,
+                  height: 1.2,
                 ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 10),
 
               // Clear details in reassuring language
               Text(
-                'Your caregiver and emergency contacts have been alerted.',
+                'Opening your phone dialer to reach your emergency contact.',
                 textAlign: TextAlign.center,
                 style: textTheme.bodyLarge?.copyWith(
                   fontWeight: FontWeight.w600,
                   color: AppColors.ink,
-                  height: 1.4,
+                  height: 1.3,
                 ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 20),
+
+              // Guardian Contact Card
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: AppColors.terracotta.withValues(alpha: 0.25),
+                    width: 1.5,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.ink.withValues(alpha: 0.05),
+                      blurRadius: 10,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 52,
+                      height: 52,
+                      decoration: BoxDecoration(
+                        color: AppColors.alertRed.withValues(alpha: 0.12),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.phone_in_talk_rounded,
+                        color: AppColors.alertRed,
+                        size: 26,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            guardianName,
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.ink,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            guardianRelationship,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                              color: AppColors.inkSoft,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            guardianPhone,
+                            style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.terracotta,
+                              letterSpacing: 0.4,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 16),
 
               Text(
                 'Please stay calm and seated. Someone is reaching out to you.',
                 textAlign: TextAlign.center,
                 style: textTheme.bodyMedium?.copyWith(
                   color: AppColors.inkSoft,
+                  fontSize: 13,
                   height: 1.4,
                 ),
               ),
 
               const Spacer(),
 
-              // Dismiss button (≥ 88dp height target per patient accessibility standard)
+              // Primary Action: Open Phone Dialer Again
               ElevatedButton.icon(
+                onPressed: () => launchGuardianDialer(phoneNumber: guardianPhone),
+                icon: const Icon(
+                  Icons.phone_forwarded_rounded,
+                  size: 26,
+                  color: Colors.white,
+                ),
+                label: Text(
+                  'Call $guardianName',
+                  style: const TextStyle(
+                    fontSize: 19,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                  ),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.alertRed,
+                  foregroundColor: Colors.white,
+                  minimumSize: const Size(double.infinity, 72),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  elevation: 3,
+                ),
+              ),
+
+              const SizedBox(height: 12),
+
+              // Secondary Dismiss Action (Back to Home)
+              OutlinedButton.icon(
                 onPressed: () {
                   if (Navigator.of(context).canPop()) {
                     Navigator.of(context).pop();
@@ -197,25 +326,27 @@ class _SosConfirmationScreenState extends State<SosConfirmationScreen> {
                 },
                 icon: const Icon(
                   Icons.check_circle_outline_rounded,
-                  size: 28,
-                  color: Colors.white,
+                  size: 24,
+                  color: AppColors.ink,
                 ),
                 label: const Text(
                   'I Understand (Back to Home)',
                   style: TextStyle(
-                    fontSize: 20,
+                    fontSize: 17,
                     fontWeight: FontWeight.w600,
-                    color: Colors.white,
+                    color: AppColors.ink,
                   ),
                 ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.terracotta,
-                  foregroundColor: Colors.white,
-                  minimumSize: const Size(double.infinity, 88),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.ink,
+                  side: BorderSide(
+                    color: AppColors.ink.withValues(alpha: 0.2),
+                    width: 1.5,
+                  ),
+                  minimumSize: const Size(double.infinity, 64),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(20),
                   ),
-                  elevation: 2,
                 ),
               ),
             ],

@@ -59,6 +59,17 @@ class AppStrings {
   String get tapTargetSubtitle  => _t("Tap the right item as it appears",        "সঠিক বস্তু দেখা গ'লে টেপ কৰক",       "সঠিক বস্তু দেখলে ট্যাপ করুন",             "सोलोंथाव बस्तु बोखायो हांखो टेप खालामो");
   String get attention          => _t("Attention",                               "মনোযোগ",                               "মনোযোগ",                                   "मनोयोग");
 
+  // ── Personalization strings ───────────────────────────────────────────────
+  String get recommendedForYou     => _t('Recommended For You',                    'আপোনাৰ বাবে প্রস্তাবিত',               'আপনার জন্য প্রস্তাবিত',                    'नोंनि थाखाय बांखायनाय');
+  String get topRecommendation     => _t('Top Clinical Recommendation',            'শীর্ষ চিকিৎসা পৰামৰ্শ',                'শীর্ষ ক্লিনিক্যাল পরামর্শ',               'गोजौनि सिफारिस');
+  String get playRecommended       => _t('Play Recommended Game',                  'প্রস্তাবিত খেল খেলক',                  'প্রস্তাবিত খেলাটি খেলুন',                  'बांखायनाय खेल खेलो');
+  String get allGames              => _t('All Brain Games',                        'সকলো মগজুৰ খেল',                       'সকল মস্তিষ্কের খেলা',                       'सोब मानसिनि खेल');
+  String get diagnosisPriorityLabel => _t('Clinical Priority',                     'চিকিৎসা অগ্ৰাধিকাৰ',                    'ক্লিনিক্যাল অগ্রাধিকার',                   'अग्रधिकार');
+  String get latencyLabel          => _t('Latency',                                'সময়',                                 'সময়/বিলম্ব',                              'लेटेंसी');
+  String get accuracyLabel         => _t('Accuracy',                               'সঠিকতা',                               'নির্ভুলতা',                                'सथाय');
+  String get hesitationLabel       => _t('Hesitation',                             'দ্বিধা',                               'দ্বিধা',                                   'संदेह');
+  String get errorsLabel           => _t('Errors',                                 'ভুল',                                  'ভুল',                                      'गुलथि');
+
   // ── Sync strings ──────────────────────────────────────────────────────────
   String get syncButton         => _t('Sync',                                    'সিংক',                                 'সিঙ্ক',                                     'सिंक');
   String get helpButton         => _t('Help',                                    'সহায়',                                 'সাহায্য',                                   'नाथाय');

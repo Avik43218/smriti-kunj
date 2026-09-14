@@ -17,13 +17,15 @@ enum SpeechRecognitionState {
 /// Service wrapping Android's built-in [SpeechRecognizer] engine
 /// via platform method channel, supporting continuous "always-active" listening.
 class SpeechRecognitionService extends ChangeNotifier {
-  static final SpeechRecognitionService instance = SpeechRecognitionService._internal();
+  static final SpeechRecognitionService instance =
+      SpeechRecognitionService._internal();
   SpeechRecognitionService._internal() {
     _initChannel();
   }
   factory SpeechRecognitionService() => instance;
 
-  static const String channelName = 'com.smritikunj.patient_app/speech_recognition';
+  static const String channelName =
+      'com.smritikunj.patient_app/speech_recognition';
   MethodChannel _channel = const MethodChannel(channelName);
 
   SpeechRecognitionState _state = SpeechRecognitionState.idle;
@@ -66,7 +68,8 @@ class SpeechRecognitionService extends ChangeNotifier {
   Future<dynamic> Function(MethodCall call)? _mockMethodCallHandler;
 
   @visibleForTesting
-  void setMockMethodCallHandler(Future<dynamic> Function(MethodCall call)? handler) {
+  void setMockMethodCallHandler(
+      Future<dynamic> Function(MethodCall call)? handler) {
     _mockMethodCallHandler = handler;
   }
 
@@ -101,8 +104,11 @@ class SpeechRecognitionService extends ChangeNotifier {
           notifyListeners();
 
           // Check partial result for instant keyword match in always-active mode
-          if (_isAlwaysActive && !_isExecutingAction && _partialText.isNotEmpty) {
-            final match = VoiceNavigationService.instance.parseSingle(_partialText);
+          if (_isAlwaysActive &&
+              !_isExecutingAction &&
+              _partialText.isNotEmpty) {
+            final match =
+                VoiceNavigationService.instance.parseSingle(_partialText);
             if (match != null && match.confidence >= 0.88) {
               _triggerCommand(match.command);
             }
@@ -133,7 +139,8 @@ class SpeechRecognitionService extends ChangeNotifier {
 
         case 'onSpeechError':
           final code = call.arguments?['code'] as int? ?? -1;
-          final msg = call.arguments?['message'] as String? ?? 'Recognition error';
+          final msg =
+              call.arguments?['message'] as String? ?? 'Recognition error';
           _lastError = '$msg ($code)';
           _updateState(SpeechRecognitionState.error);
 
@@ -194,7 +201,8 @@ class SpeechRecognitionService extends ChangeNotifier {
     if (!hasPerm) {
       final granted = await requestPermission();
       if (!granted) {
-        _showToast(context, 'Microphone permission required for Voice Navigation');
+        _showToast(
+            context, 'Microphone permission required for Voice Navigation');
         return false;
       }
     }
@@ -229,13 +237,17 @@ class SpeechRecognitionService extends ChangeNotifier {
     final isBengali = _currentLanguage.startsWith('bn');
     _showToast(
       context,
-      isBengali ? '🎙️ ভয়েস নির্দেশিকা বন্ধ করা হয়েছে' : '🎙️ Voice listening paused',
+      isBengali
+          ? '🎙️ ভয়েস নির্দেশিকা বন্ধ করা হয়েছে'
+          : '🎙️ Voice listening paused',
       isActive: false,
     );
   }
 
-  void _showToast(BuildContext? context, String message, {bool isActive = false}) {
-    final ctx = context ?? VoiceNavigationCoordinator.navigatorKey.currentContext;
+  void _showToast(BuildContext? context, String message,
+      {bool isActive = false}) {
+    final ctx =
+        context ?? VoiceNavigationCoordinator.navigatorKey.currentContext;
     if (ctx == null) return;
 
     try {
@@ -246,9 +258,11 @@ class SpeechRecognitionService extends ChangeNotifier {
       messenger.showSnackBar(
         SnackBar(
           duration: const Duration(seconds: 2),
-          backgroundColor: isActive ? const Color(0xFF2E6F40) : const Color(0xFF2C2523),
+          backgroundColor:
+              isActive ? const Color(0xFF2E6F40) : const Color(0xFF2C2523),
           behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           content: Text(
             message,
             style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
@@ -283,7 +297,8 @@ class SpeechRecognitionService extends ChangeNotifier {
   /// Checks if speech recognition service is available on Android.
   Future<bool> isAvailable() async {
     if (_mockMethodCallHandler != null) {
-      final res = await _mockMethodCallHandler!(const MethodCall('isAvailable'));
+      final res =
+          await _mockMethodCallHandler!(const MethodCall('isAvailable'));
       return res as bool? ?? false;
     }
     try {
@@ -297,7 +312,8 @@ class SpeechRecognitionService extends ChangeNotifier {
   /// Checks if RECORD_AUDIO permission is granted.
   Future<bool> hasPermission() async {
     if (_mockMethodCallHandler != null) {
-      final res = await _mockMethodCallHandler!(const MethodCall('hasPermission'));
+      final res =
+          await _mockMethodCallHandler!(const MethodCall('hasPermission'));
       return res as bool? ?? false;
     }
     try {
@@ -311,7 +327,8 @@ class SpeechRecognitionService extends ChangeNotifier {
   /// Requests microphone permission if not yet granted.
   Future<bool> requestPermission() async {
     if (_mockMethodCallHandler != null) {
-      final res = await _mockMethodCallHandler!(const MethodCall('requestPermission'));
+      final res =
+          await _mockMethodCallHandler!(const MethodCall('requestPermission'));
       return res as bool? ?? false;
     }
     try {
@@ -353,7 +370,8 @@ class SpeechRecognitionService extends ChangeNotifier {
   /// Requests SpeechRecognizer to stop listening.
   Future<bool> stopListening() async {
     if (_mockMethodCallHandler != null) {
-      final res = await _mockMethodCallHandler!(const MethodCall('stopListening'));
+      final res =
+          await _mockMethodCallHandler!(const MethodCall('stopListening'));
       return res as bool? ?? false;
     }
     try {

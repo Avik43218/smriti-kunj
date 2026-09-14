@@ -27,6 +27,7 @@ env/
 Thumbs.db
 
 # Files
+export_patient_analytics.py
 assets/file-structure.md
 src/backend/.env.example
 src/frontend/caregiver_app/frontend_structure.md
@@ -49,6 +50,7 @@ src/patient_app/agents/ucb1_distilled_dataset.npz
 .svn/
 .swiftpm/
 migrate_working_dir/
+xgboost_patient_risk_model.pkl
 
 # IntelliJ related
 *.iml
