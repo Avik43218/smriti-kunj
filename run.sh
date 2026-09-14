@@ -31,6 +31,12 @@ cleanup() {
 # Trap INT, TERM, and EXIT signals
 trap cleanup SIGINT SIGTERM EXIT
 
+# Support running containerized stack via --docker flag
+if [ "$1" = "--docker" ] || [ "$DOCKER" = "1" ]; then
+  trap - SIGINT SIGTERM EXIT
+  exec ./run-docker.sh
+fi
+
 # 1. Start MongoDB via Podman (-a attaches logs to stream them cleanly)
 printf "${C_SYS}%-9s${C_RESET} │ Spinning up MongoDB via Podman...\n" "[SYSTEM]"
 podman start "$CONTAINER_NAME" 2>&1 \

@@ -1,0 +1,31 @@
+services:
+  backend:
+    image: smritikunj-backend:latest
+    build:
+      context: ./src/backend
+      dockerfile: Dockerfile
+    container_name: smritikunj-backend
+    ports:
+      - "8000:8000"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+      - "fedora:host-gateway"
+    environment:
+      - MONGODB_URL=mongodb://host.docker.internal:27017
+      - MONGODB_DB_NAME=cognitive_assist
+      - JWT_SECRET_KEY=change-me-to-a-long-random-string
+    restart: unless-stopped
+
+  frontend:
+    image: smritikunj-frontend:latest
+    build:
+      context: ./src/frontend/caregiver_app
+      dockerfile: Dockerfile
+      args:
+        - VITE_API_URL=http://fedora:8000
+    container_name: smritikunj-frontend
+    ports:
+      - "5173:5173"
+    depends_on:
+      - backend
+    restart: unless-stopped
