@@ -59,9 +59,10 @@ Smriti Kunj (Caregiver Portal) and Smriti Kunj (Patient Tablet App) comprise an 
 
 ### Provider & Architecture Services (`src/patient_app/lib/services/`)
 - Application State: `SessionService` (authentication and pairing state), `LocaleService` (Assamese, Bengali, Bodo, English language selection), `SpeechRecognitionService` (voice command transcription).
+- Clinical & AI Personalization: `GamePersonalizationService` (clinical diagnosis recommendation engine based on 7 priority tiers, historical performance analytics, and adaptive exercise recommendations), `DifficultyService` (on-device dynamic difficulty calibration).
 - Data Persistence: `ActivityDatabaseService` (SQLite storage for patient activities and sync queue), `ReminderDatabaseService` (SQLite storage for daily reminders), `DifficultyDatabaseService` (SQLite storage for dynamic difficulty levels and pending adjustments), `GameSessionRepository` (SQLite storage for full game telemetry payloads).
-- Networking & Telemetry: `ApiService` (HTTP client with automatic network candidate resolution across localhost, emulator 10.0.2.2, and local LAN IPs), `GameSyncService` (background synchronization worker).
-- Interaction & Accessibility: `VoiceNavigationCoordinator` & `VoiceNavigationService` (comprehensive 14-command multilingual voice navigation supporting Home, Sync, SOS/Help, Daily Reminders, Memory Gallery, real-time Language switching across Assamese, Bengali, Bodo, English, cognitive games navigation, and logout; includes phonetic romanization and English speech recognizer compatibility for regional pronunciations), `TtsService` (text-to-speech audio feedback), `BackgroundMusicService` (ambient audio management), `AppColors` & `patientTheme` (`src/patient_app/lib/theme/theme.dart`).
+- Networking, Alarms & Telemetry: `ApiService` (HTTP client with automatic network candidate resolution across localhost, emulator 10.0.2.2, and local LAN IPs), `DeviceAlarmService` (native device alarm synchronization from caregiver schedules), `GameSyncService` (background synchronization worker).
+- Interaction & Accessibility: `VoiceNavigationCoordinator` & `VoiceNavigationService` (comprehensive 14-command multilingual voice navigation supporting Home, Sync, SOS/Help, Daily Reminders, Memory Gallery, real-time Language switching across Assamese, Bengali, Bodo, English, cognitive games navigation, and logout; includes phonetic romanization and English speech recognizer compatibility for regional pronunciations), `BackgroundMusicService` (ambient audio management), `AppColors` & `patientTheme` (`src/patient_app/lib/theme/theme.dart`).
 
 ---
 
@@ -71,7 +72,7 @@ Smriti Kunj (Caregiver Portal) and Smriti Kunj (Patient Tablet App) comprise an 
 
 | Game | Cognitive Domain | Implementation State | Verification Findings |
 |---|---|---|---|
-| **The Market Trip** | Working Memory & Delayed Recall | **Live / Functional** | Implemented under `src/patient_app/lib/games/market_trip/`. Audio/visual prompt lists items to buy; features distractor task interaction, visual recall grid, item bank service (`item_bank_service.dart`), multi-trial latency tracking, and normalized scoring. Launched via `_launchMarketTrip` in `games_screen.dart`. |
+| **The Market Trip** | Working Memory & Delayed Recall | **Live / Functional** | Implemented under `src/patient_app/lib/games/market_trip/`. Prompt delivery via dedicated `PromptDeliveryService` with `item_bank_service.dart` (culturally localized items), distractor task interaction, visual recall grid, multi-trial latency tracking, and normalized scoring. Launched via `_launchMarketTrip` in `games_screen.dart`. |
 | **Tap the Target** | Attention & Processing Speed | **Live / Functional** | Implemented under `src/patient_app/lib/games/tap_target/`. Culturally customized target detection (`target_bank_service.dart` with items like Japi, bell, flower), distractor interference, millisecond-level reaction time and hesitation telemetry, omission and false positive tracking. Launched via `_launchTapTarget` in `games_screen.dart`. |
 | **Pair Matching** | Episodic Memory | **Live / Functional** | Implemented under `src/patient_app/lib/games/pair_matching/`. Card-flip matching game (`pair_bank_service.dart`), dynamic grid scaling (4, 6, 8 pairs), flip counters, repeat error calculation, and support for personalized family photo cards. Launched via `_launchPairMatching` in `games_screen.dart`. |
 | **Family & Village Finder** | Semantic Memory & Object Recognition | **Stub / Placeholder** | Represented in `src/patient_app/lib/screens/games_screen.dart` as an inactive card (`isLive: false`, `comingSoonLabel: 'Coming soon'`). Full specification documented in `src/docs/GAMES_ANALYTICS_README.md`, but no screen or logic implementation directory exists under `src/patient_app/lib/games/`. |
@@ -139,6 +140,25 @@ Smriti Kunj (Caregiver Portal) and Smriti Kunj (Patient Tablet App) comprise an 
 4. **Backend Email Dispatch Stubbed:** `_issue_otp` in `src/backend/app/api/routes/auth.py` logs generated OTP codes to stdout (`[stub email] OTP for ...`) rather than integrating with an SMTP, SES, or SendGrid email transport service.
 5. **Base URL IP Configuration in Flutter:** `ApiService.baseUrl` in `src/patient_app/lib/main.dart` defaults to a fixed LAN address (`http://192.168.1.240:8000`). While `candidateBaseUrls` falls back to `localhost` and `10.0.2.2`, testing across variable local networks requires updating this address or injecting it dynamically.
 6. **Authentication Flow Documentation Drift:** `API_ENDPOINTS_NEEDED.md` §1 documents `POST /api/auth/login` returning session tokens directly, whereas the actual codebase implements a more secure two-step OTP verification flow (`/login` followed by `/verify-otp`).
+7. **`DifficultyDatabaseService` Not Initialized in Widget Tests:** Some widget/integration tests that exercise game screens emit `databaseFactory not initialized` log warnings because `sqfliteFfiInit()` is not called in the test harness setup for those suites. Tests still pass as these are non-fatal diagnostic prints, not assertion failures.
+
+---
+
+## 9. Code Quality & Test Coverage
+
+*Status as of September 16, 2026:*
+
+- **`flutter analyze`:** ✅ **0 issues** — All linter warnings and infos resolved across the entire `src/patient_app` package, including:
+  - Removed 3 redundant game screen stub files (`market_trip_game_screen.dart`, `pair_matching_game_screen.dart`, `tap_target_game_screen.dart`) that imported a non-existent `tts_service.dart`.
+  - Removed unused local variables, unused imports, and redundant `const` keywords.
+  - Added `context.mounted` / `if (!context.mounted) return` guards across all async gaps in `reminders_screen.dart` and `speech_recognition_service.dart` to resolve `use_build_context_synchronously` lints.
+
+- **`flutter test`:** ✅ **94 / 94 tests passed** across:
+  - `game_personalization_test.dart` — 8 tests (diagnosis priority mapping, clinical recommendation engine, difficulty isolation)
+  - `voice_navigation_service_test.dart` — English, Bengali, and Assamese command parsing, romanized phonetic matching, and fallback evaluation
+  - `sos_button_dialer_test.dart` — SOS button rendering and SOS confirmation screen
+  - `voice_navigation_widget_test.dart` — Always-active recognizer widget integration
+  - `widget_test.dart` — SmritiKunjApp smoke test
 
 ---
 
@@ -217,27 +237,29 @@ The following 68 repository files were read and analyzed to generate this snapsh
 - `src/patient_app/lib/services/activity_database_service.dart`
 - `src/patient_app/lib/services/reminder_database_service.dart`
 - `src/patient_app/lib/services/difficulty_database_service.dart`
+- `src/patient_app/lib/services/game_personalization_service.dart`
+- `src/patient_app/lib/services/device_alarm_service.dart`
 - `src/patient_app/lib/services/difficulty_service.dart`
 - `src/patient_app/lib/services/locale_service.dart`
 - `src/patient_app/lib/services/speech_recognition_service.dart`
-- `src/patient_app/lib/services/tts_service.dart`
 - `src/patient_app/lib/services/voice_navigation_coordinator.dart`
 - `src/patient_app/lib/services/voice_navigation_service.dart`
 - `src/patient_app/lib/services/background_music_service.dart`
 - `src/patient_app/lib/services/app_strings.dart`
 - `src/patient_app/lib/games/market_trip/screens/market_trip_game.dart`
-- `src/patient_app/lib/games/market_trip/screens/market_trip_game_screen.dart`
 - `src/patient_app/lib/games/market_trip/services/item_bank_service.dart`
+- `src/patient_app/lib/games/market_trip/services/prompt_delivery_service.dart`
 - `src/patient_app/lib/games/market_trip/models/game_session_result.dart`
 - `src/patient_app/lib/games/tap_target/screens/tap_target_game.dart`
-- `src/patient_app/lib/games/tap_target/screens/tap_target_game_screen.dart`
 - `src/patient_app/lib/games/tap_target/services/target_bank_service.dart`
 - `src/patient_app/lib/games/pair_matching/screens/pair_matching_game.dart`
-- `src/patient_app/lib/games/pair_matching/screens/pair_matching_game_screen.dart`
 - `src/patient_app/lib/games/pair_matching/services/pair_bank_service.dart`
 - `src/patient_app/lib/games/pair_matching/models/game_session_result.dart`
 - `src/patient_app/lib/games/shared/services/game_session_repository.dart`
 - `src/patient_app/lib/games/shared/services/game_sync_service.dart`
+- `src/patient_app/test/game_personalization_test.dart`
+- `src/patient_app/test/voice_navigation_service_test.dart`
+- `src/patient_app/test/sos_button_dialer_test.dart`
 
 ### Backend Source Files
 - `src/backend/app/main.py`
@@ -264,4 +286,4 @@ The following 68 repository files were read and analyzed to generate this snapsh
 
 ## 10. Last Updated
 
-**September 12, 2026**
+**September 16, 2026**
