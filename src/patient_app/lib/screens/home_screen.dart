@@ -305,8 +305,8 @@ class _HeaderMenuDropdown extends StatelessWidget {
                       color: AppColors.terracottaDark,
                       size: 24,
                     ),
-                    const SizedBox(width: 12),
-                    const Expanded(
+                    SizedBox(width: 12),
+                    Expanded(
                       child: Text(
                         'Log Out',
                         style: TextStyle(
@@ -481,7 +481,11 @@ class _PatientBottomNavBar extends StatelessWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
-            _NavBarSyncButton(session: session, strings: strings),
+            _NavBarSyncButton(
+              session: session,
+              strings: strings,
+              size: 80.0,
+            ),
             VoiceNavButton(
               size: 80.0,
               inactiveLabel: strings.voiceButton,
