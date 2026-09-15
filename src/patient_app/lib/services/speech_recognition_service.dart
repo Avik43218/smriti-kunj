@@ -201,6 +201,7 @@ class SpeechRecognitionService extends ChangeNotifier {
     if (!hasPerm) {
       final granted = await requestPermission();
       if (!granted) {
+        if (context != null && !context.mounted) return false;
         _showToast(
             context, 'Microphone permission required for Voice Navigation');
         return false;
@@ -214,6 +215,7 @@ class SpeechRecognitionService extends ChangeNotifier {
 
     notifyListeners();
 
+    if (context != null && !context.mounted) return success;
     final isBengali = lang.startsWith('bn');
     _showToast(
       context,
@@ -234,6 +236,7 @@ class SpeechRecognitionService extends ChangeNotifier {
     await cancel();
     notifyListeners();
 
+    if (context != null && !context.mounted) return;
     final isBengali = _currentLanguage.startsWith('bn');
     _showToast(
       context,
@@ -248,7 +251,7 @@ class SpeechRecognitionService extends ChangeNotifier {
       {bool isActive = false}) {
     final ctx =
         context ?? VoiceNavigationCoordinator.navigatorKey.currentContext;
-    if (ctx == null) return;
+    if (ctx == null || !ctx.mounted) return;
 
     try {
       final messenger = ScaffoldMessenger.maybeOf(ctx);

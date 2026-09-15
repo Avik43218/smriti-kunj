@@ -342,6 +342,7 @@ class _RemindersScreenState extends State<RemindersScreen> {
                 : () async {
                     String? code = session.pairingCode;
                     code ??= await ActivityDatabaseService.instance.getActivePairingCode();
+                    if (!context.mounted) return;
                     if (code != null && code.isNotEmpty) {
                       await _fetchFromBackend(code, showFeedback: true);
                     } else {
@@ -464,6 +465,7 @@ class _RemindersScreenState extends State<RemindersScreen> {
                   : () async {
                       String? code = session.pairingCode;
                       code ??= await ActivityDatabaseService.instance.getActivePairingCode();
+                      if (!context.mounted) return;
                       if (code != null && code.isNotEmpty) {
                         await _fetchFromBackend(code, showFeedback: true);
                       } else {
