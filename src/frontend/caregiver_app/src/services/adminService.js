@@ -3,7 +3,7 @@ import apiClient from './apiClient';
 /**
  * Admin Service
  * 
- * Provides administrative management for caregivers and cross-caregiver patient roster.
+ * Provides administrative management for caregivers and cross-caregiver patient portal.
  * Protected under the Admin role.
  */
 

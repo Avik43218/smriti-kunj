@@ -12,7 +12,7 @@ import {
   HeartPulse,
   Clock,
   Phone,
-  Tablet,
+  Smartphone,
   AlertCircle,
   Calendar,
   Activity,
@@ -112,11 +112,11 @@ export const CONDITION_OPTIONS = [
     key: 'alert',
     label: 'Critical / High Alert',
     shortLabel: 'Urgent Care',
-    badgeBg: 'bg-alert/15',
-    badgeText: 'text-alert',
-    badgeBorder: 'border-alert/30',
-    dotColor: 'bg-alert',
-    ringColor: 'ring-alert/40',
+    badgeBg: 'bg-status-urgent/15',
+    badgeText: 'text-status-urgent',
+    badgeBorder: 'border-status-urgent/30',
+    dotColor: 'bg-status-urgent',
+    ringColor: 'ring-status-urgent/40',
     description: 'Acute distress / anomaly • Prompt check needed',
     icon: AlertCircle,
   },
@@ -493,8 +493,8 @@ export const PatientDetails = () => {
     );
   }
 
-  // Derive paired device code consistently
-  const pairedCode =
+  // Derive paired device code consistently (without PAIR- prefix)
+  const pairedCode = ((
     patient.pairingToken ||
     (patient.deviceStatus?.deviceId &&
     patient.deviceStatus.deviceId !== 'UNLINKED' &&
@@ -504,15 +504,16 @@ export const PatientDetails = () => {
     (() => {
       try {
         const stored = localStorage.getItem(`smriti_pairing_token_${patient.id}`);
-        if (stored) return stored;
+        if (stored) return stored.replace(/^PAIR-/, '');
       } catch (e) {}
       const num = (patient.id || '').replace(/\D/g, '') || '101';
-      const generated = `PAIR-${((parseInt(num, 10) * 73939 + 184920) % 900000) + 100000}`;
+      const generated = `${((parseInt(num, 10) * 73939 + 184920) % 900000) + 100000}`;
       try {
         localStorage.setItem(`smriti_pairing_token_${patient.id}`, generated);
       } catch (e) {}
       return generated;
-    })();
+    })()
+  ) || '').replace(/^PAIR-/, '');
 
   const initials = getInitials(patient.name);
   const activeConditionConfig =
@@ -639,7 +640,7 @@ export const PatientDetails = () => {
             <div className="w-full sm:w-auto flex items-center justify-between sm:justify-end gap-3 bg-cream/70 dark:bg-ink-soft/30 border border-border/80 dark:border-ink-soft/40 rounded-xl px-3.5 py-2 shadow-2xs">
               <div className="flex items-center gap-2.5 min-w-0">
                 <div className="w-8 h-8 rounded-lg bg-terracotta/10 dark:bg-terracotta/20 text-terracotta flex items-center justify-center shrink-0">
-                  <Tablet className="w-4 h-4" />
+                  <Smartphone className="w-4 h-4" />
                 </div>
                 <div className="min-w-0">
                   <div className="flex items-center gap-1.5">
@@ -682,7 +683,7 @@ export const PatientDetails = () => {
               <button
                 type="button"
                 onClick={() => setShowDeleteModal(true)}
-                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-alert/10 hover:bg-alert/20 text-alert border border-alert/30 text-[11px] font-semibold transition-colors cursor-pointer select-none"
+                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-terracotta/10 hover:bg-terracotta/20 text-terracotta border border-terracotta/30 text-[11px] font-semibold transition-colors cursor-pointer select-none"
                 title="Delete Patient Profile"
               >
                 <Trash2 className="w-3.5 h-3.5" />
@@ -834,7 +835,7 @@ export const PatientDetails = () => {
               <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border mt-1 ${
                 (patient.smokingStatus || '').toLowerCase().includes('non') || (patient.smokingStatus || '').toLowerCase().includes('quit')
                   ? 'bg-sage/15 text-sage border-sage/30'
-                  : 'bg-alert/15 text-alert border-alert/30'
+                  : 'bg-terracotta/15 text-terracotta border-terracotta/30'
               }`}>
                 {(patient.smokingStatus || '').toLowerCase().includes('non') ? 'Non-Smoker' : (patient.smokingStatus || '').toLowerCase().includes('quit') ? 'Former' : 'Active Smoker'}
               </span>
@@ -906,7 +907,7 @@ export const PatientDetails = () => {
           <div className="flex items-center justify-between gap-2 mb-4 pb-3 border-b border-border/60 dark:border-ink-soft/30">
             <div className="flex items-center gap-2.5">
               <div className="w-8 h-8 rounded-full bg-cream dark:bg-ink-soft/30 flex items-center justify-center text-sage">
-                <Tablet className="w-4 h-4" />
+                <Smartphone className="w-4 h-4" />
               </div>
               <h2 className="text-base font-bold text-ink dark:text-cream">
                 Pairing & Device Status
@@ -931,7 +932,7 @@ export const PatientDetails = () => {
                   Linked Hardware Unit
                 </p>
                 <p className="text-sm sm:text-base font-bold text-ink dark:text-cream">
-                  {patient.deviceStatus.deviceName || 'Patient Tablet'}
+                  {patient.deviceStatus.deviceName || 'Patient Device'}
                 </p>
                 <div className="flex items-center gap-2 mt-1">
                   <p className="text-xs text-ink-soft dark:text-cream/70 font-mono">
@@ -1145,7 +1146,7 @@ export const PatientDetails = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
           <div className="bg-surface dark:bg-ink border border-border/80 dark:border-ink-soft/60 rounded-2xl max-w-md w-full p-6 shadow-xl space-y-4">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-alert/15 text-alert flex items-center justify-center shrink-0">
+              <div className="w-10 h-10 rounded-full bg-terracotta/15 text-terracotta flex items-center justify-center shrink-0">
                 <AlertCircle className="w-5 h-5" />
               </div>
               <div>
@@ -1163,7 +1164,7 @@ export const PatientDetails = () => {
             </p>
 
             {deleteError && (
-              <p className="text-xs text-alert font-medium bg-alert/10 p-2.5 rounded-lg border border-alert/30">
+              <p className="text-xs text-terracotta font-medium bg-terracotta/10 p-2.5 rounded-lg border border-terracotta/30">
                 {deleteError}
               </p>
             )}
@@ -1181,7 +1182,7 @@ export const PatientDetails = () => {
                 type="button"
                 disabled={isDeleting}
                 onClick={handleDeletePatient}
-                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold text-cream bg-alert hover:bg-red-700 active:scale-95 transition-all shadow-xs disabled:opacity-60 disabled:cursor-not-allowed"
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold text-cream bg-terracotta hover:bg-terracotta-dark active:scale-95 transition-all shadow-xs disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 {isDeleting ? (
                   <>
@@ -1231,7 +1232,7 @@ export const PatientDetails = () => {
             {/* Modal Body - Scrollable */}
             <form id="edit-patient-form" onSubmit={handleSaveEdit} className="flex-1 overflow-y-auto p-6 space-y-6">
               {editError && (
-                <div className="p-3 rounded-xl bg-alert/10 border border-alert/30 text-alert text-xs flex items-center gap-2 font-medium">
+                <div className="p-3 rounded-xl bg-status-urgent/10 border border-status-urgent/30 text-status-urgent text-xs flex items-center gap-2 font-medium">
                   <AlertCircle className="w-4 h-4 shrink-0" />
                   <span>{editError}</span>
                 </div>
@@ -1274,7 +1275,7 @@ export const PatientDetails = () => {
                       <button
                         type="button"
                         onClick={() => setEditFormData((prev) => ({ ...prev, avatarUrl: null }))}
-                        className="px-2.5 py-1.5 rounded-lg bg-cream dark:bg-ink-soft/40 hover:bg-alert/10 hover:text-alert text-ink-soft dark:text-cream/70 text-xs font-medium transition-colors border border-border/60 dark:border-ink-soft/40"
+                        className="px-2.5 py-1.5 rounded-lg bg-cream dark:bg-ink-soft/40 hover:bg-status-urgent/10 hover:text-status-urgent text-ink-soft dark:text-cream/70 text-xs font-medium transition-colors border border-border/60 dark:border-ink-soft/40"
                       >
                         Remove
                       </button>

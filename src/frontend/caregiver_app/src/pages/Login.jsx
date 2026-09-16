@@ -212,7 +212,7 @@ export const Login = () => {
             <div className="relative pl-4 border-l-stripe border-terracotta/60 py-1 max-w-xl">
               <p className="text-xs sm:text-sm md:text-[15px] text-cream/90 leading-relaxed font-normal">
                 {loginRole === 'admin'
-                  ? "Access the administrative console to provision staff credentials, oversee cross-caregiver rosters, and manage platform synchronization securely."
+                  ? "Access the administrative console to provision staff credentials, oversee cross-caregiver portals, and manage platform synchronization securely."
                   : "Every memory is sacred, and every voice carries timeless dignity. You are never defined by what fades, but by the love, wisdom, and heritage that will always remain. Smriti Kunj stands beside you and your family—treasuring your stories, honoring every moment, and keeping the light of your spirit alive."
                 }
               </p>

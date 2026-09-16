@@ -37,7 +37,7 @@ class User(Document):
 
     # Patient profile attributes
     patient_code: Optional[str] = None  # e.g. "p101"
-    pairing_token: Optional[str] = None  # e.g. "PAIR-123456"
+    pairing_token: Optional[str] = None  # e.g. "123456"
     age: Optional[int] = None
     gender: Optional[str] = None
     date_of_birth: Optional[str] = None
@@ -45,7 +45,7 @@ class User(Document):
     health_issue: Optional[str] = None
     avatar_url: Optional[str] = None
     status: Optional[str] = "active"
-    status_label: Optional[str] = "Active • Tablet synced"
+    status_label: Optional[str] = "Active • Device synced"
     last_check_in: Optional[str] = None
     notes: Optional[str] = None
     emergency_contact: Optional[Dict[str, Any]] = None
@@ -81,7 +81,7 @@ class User(Document):
 
 class DevicePairingToken(Document):
     """Short-lived, single-use token behind the caregiver's QR code / magic
-    link, used to pair a patient's tablet into Patient Mode. Separate from
+    link, used to pair a patient's device into Patient Mode. Separate from
     the JWT the device is issued once pairing completes."""
 
     id: uuid.UUID = Field(default_factory=uuid.uuid4)

@@ -66,7 +66,7 @@ class _RemindersScreenState extends State<RemindersScreen> {
     } else {
       if (mounted && _reminders.isEmpty) {
         setState(() {
-          _statusMessage = 'Device not paired. Pair your tablet to receive caregiver reminders.';
+          _statusMessage = 'Device not paired. Pair your device to receive caregiver reminders.';
         });
       }
     }
@@ -162,7 +162,7 @@ class _RemindersScreenState extends State<RemindersScreen> {
           style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: AppColors.ink),
         ),
         content: const Text(
-          'This will flush all reminders stored in your local tablet database.',
+          'This will flush all reminders stored in your local device database.',
           style: TextStyle(fontSize: 18, color: AppColors.inkSoft),
         ),
         actions: [

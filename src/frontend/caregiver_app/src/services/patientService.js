@@ -4,7 +4,7 @@ import apiClient from './apiClient';
 /**
  * Patient Service
  * 
- * Provides patient roster retrieval and profile inspection for the caregiver portal.
+ * Provides patient portal retrieval and profile inspection for the caregiver portal.
  * Derives patient careStatus dynamically from live reminder compliance data.
  */
 
@@ -37,11 +37,11 @@ export const getCareStatusConfig = (status) => {
       return {
         key: 'alert',
         label: 'Active alert',
-        dotColor: 'bg-alert',
-        ringColor: 'ring-alert/40',
-        badgeBg: 'bg-alert/15',
-        badgeText: 'text-alert',
-        badgeBorder: 'border-alert/30',
+        dotColor: 'bg-status-urgent',
+        ringColor: 'ring-status-urgent/40',
+        badgeBg: 'bg-status-urgent/15',
+        badgeText: 'text-status-urgent',
+        badgeBorder: 'border-status-urgent/30',
         shortLabel: 'Active Alert',
       };
     case 'normal':

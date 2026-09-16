@@ -651,7 +651,7 @@ class _NavBarSyncButtonState extends State<_NavBarSyncButton>
               Icon(Icons.cloud_off_rounded, color: Colors.white, size: 20),
               SizedBox(width: 8),
               Expanded(
-                child: Text('Saved locally on tablet. Will sync once backend is reachable.'),
+                child: Text('Saved locally on device. Will sync once backend is reachable.'),
               ),
             ],
           ),

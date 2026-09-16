@@ -87,7 +87,7 @@ class ApiService {
               body: jsonEncode({
                 'pairing_code': cleanCode,
                 'device_id': deviceId ?? 'DEV-${DateTime.now().millisecondsSinceEpoch}',
-                'device_name': deviceName ?? 'Smriti Kunj Patient Tablet',
+                'device_name': deviceName ?? 'Smriti Kunj Patient Device',
               }),
             )
             .timeout(const Duration(seconds: 4));

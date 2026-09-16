@@ -21,10 +21,12 @@ export const StyledSelect = ({
   placeholder,
   className = '',
   buttonClassName = '',
+  size = 'md',
+  align = 'auto',
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [positionAbove, setPositionAbove] = useState(false);
-  const [alignRight, setAlignRight] = useState(false);
+  const [autoAlignRight, setAutoAlignRight] = useState(false);
 
   const containerRef = useRef(null);
 
@@ -55,7 +57,7 @@ export const StyledSelect = ({
     if (!isOpen || !containerRef.current) return;
     const rect = containerRef.current.getBoundingClientRect();
     // Align right when near right viewport edge (panel ~220px wide)
-    setAlignRight(window.innerWidth - rect.left < 220);
+    setAutoAlignRight(window.innerWidth - rect.left < 220);
 
     const spaceBelow = window.innerHeight - rect.bottom;
     const spaceAbove = rect.top;
@@ -66,6 +68,9 @@ export const StyledSelect = ({
       setPositionAbove(false);
     }
   }, [isOpen]);
+
+  const isAlignRight = align === 'right' || (align === 'auto' && autoAlignRight);
+  const isSm = size === 'sm';
 
   return (
     <div className={`relative ${className}`} ref={containerRef}>
@@ -97,7 +102,11 @@ export const StyledSelect = ({
         onClick={() => setIsOpen((prev) => !prev)}
         aria-haspopup="listbox"
         aria-expanded={isOpen}
-        className={`w-full inline-flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 outline-none select-none focus:outline-none focus:ring-2 focus:ring-terracotta/40 min-h-[42px] border ${
+        className={`w-full inline-flex items-center justify-between font-medium transition-all duration-200 outline-none select-none focus:outline-none focus:ring-2 focus:ring-terracotta/40 border ${
+          isSm
+            ? 'px-2.5 py-1.5 rounded-lg text-xs min-h-[32px]'
+            : 'px-3.5 py-2.5 rounded-xl text-sm min-h-[42px]'
+        } ${
           isOpen
             ? 'bg-cream/90 dark:bg-ink-soft/40 border-terracotta dark:border-terracotta text-ink dark:text-cream ring-2 ring-terracotta/40'
             : 'bg-cream/40 dark:bg-ink-soft/20 border-border/80 dark:border-ink-soft/40 text-ink dark:text-cream hover:border-terracotta/60 dark:hover:border-terracotta/50 shadow-xs'
@@ -105,7 +114,9 @@ export const StyledSelect = ({
       >
         <span className="truncate text-left">{selectedObj.label}</span>
         <ChevronDown
-          className={`w-4 h-4 text-ink-soft dark:text-cream/60 transition-transform duration-200 shrink-0 ml-2 ${
+          className={`${
+            isSm ? 'w-3.5 h-3.5 ml-1.5' : 'w-4 h-4 ml-2'
+          } text-ink-soft dark:text-cream/60 transition-transform duration-200 shrink-0 ${
             isOpen ? 'rotate-180 text-terracotta' : ''
           }`}
         />
@@ -115,10 +126,12 @@ export const StyledSelect = ({
       {isOpen && (
         <div
           role="listbox"
-          className={`absolute ${alignRight ? 'right-0' : 'left-0'} ${
+          className={`absolute ${isAlignRight ? 'right-0' : 'left-0'} ${
             positionAbove ? 'bottom-full mb-1.5' : 'top-full mt-1.5'
-          } w-full min-w-[200px] bg-surface dark:bg-ink border border-border/80 dark:border-ink-soft/40 rounded-xl shadow-lg p-1.5 z-50 max-h-56 overflow-y-auto ss-scrollbar animate-in fade-in zoom-in-95 duration-150 ${
-            alignRight
+          } ${
+            isSm ? 'w-full min-w-[170px] p-1 rounded-lg' : 'w-full min-w-[200px] p-1.5 rounded-xl'
+          } bg-surface dark:bg-ink border border-border/80 dark:border-ink-soft/40 shadow-lg z-50 max-h-56 overflow-y-auto ss-scrollbar animate-in fade-in zoom-in-95 duration-150 ${
+            isAlignRight
               ? positionAbove ? 'origin-bottom-right' : 'origin-top-right'
               : positionAbove ? 'origin-bottom-left' : 'origin-top-left'
           }`}
@@ -135,14 +148,22 @@ export const StyledSelect = ({
                   onChange(opt.value);
                   setIsOpen(false);
                 }}
-                className={`w-full px-3 py-2 rounded-lg text-xs sm:text-sm flex items-center justify-between transition-colors text-left cursor-pointer outline-none select-none ${
+                className={`w-full ${
+                  isSm ? 'px-2.5 py-1.5 rounded-md text-xs' : 'px-3 py-2 rounded-lg text-xs sm:text-sm'
+                } flex items-center justify-between transition-colors text-left cursor-pointer outline-none select-none ${
                   isSelected
                     ? 'bg-terracotta/15 dark:bg-terracotta/25 text-terracotta font-semibold'
                     : 'text-ink dark:text-cream hover:bg-cream dark:hover:bg-ink-soft/30 font-medium'
                 }`}
               >
-                <span>{opt.label}</span>
-                {isSelected && <Check className="w-4 h-4 text-terracotta shrink-0 ml-2" />}
+                <span className="truncate">{opt.label}</span>
+                {isSelected && (
+                  <Check
+                    className={`${
+                      isSm ? 'w-3.5 h-3.5 ml-1.5' : 'w-4 h-4 ml-2'
+                    } text-terracotta shrink-0`}
+                  />
+                )}
               </button>
             );
           })}

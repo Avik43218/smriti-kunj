@@ -28,7 +28,7 @@ def _user_to_patient_summary(user: User) -> PatientSummaryOut:
         diagnosis=user.diagnosis,
         avatarUrl=user.avatar_url,
         status=user.status or "stable",
-        statusLabel=user.status_label or "Active • Tablet synced",
+        statusLabel=user.status_label or "Active • Device synced",
         lastCheckIn=user.last_check_in or "Just registered",
         pairingToken=user.pairing_token,
     )
@@ -60,7 +60,7 @@ def _user_to_patient_detail(user: User) -> PatientDetailOut:
         healthIssue=user.health_issue,
         avatarUrl=user.avatar_url,
         status=user.status or "stable",
-        statusLabel=user.status_label or "Active • Tablet synced",
+        statusLabel=user.status_label or "Active • Device synced",
         lastCheckIn=user.last_check_in or "Just registered",
         emergencyContact=ec,
         deviceStatus=ds,
@@ -120,7 +120,7 @@ async def register_patient(
     pairing_token = (
         payload.pairingToken.strip().upper()
         if payload.pairingToken and payload.pairingToken.strip()
-        else f"PAIR-{random.randint(100000, 999999)}"
+        else f"{random.randint(100000, 999999)}"
     )
 
     existing = await User.find_one(
@@ -136,7 +136,7 @@ async def register_patient(
         existing.health_issue = payload.healthIssue
         existing.avatar_url = payload.avatarUrl
         existing.status = payload.status or "stable"
-        existing.status_label = payload.statusLabel or "Active • Tablet synced"
+        existing.status_label = payload.statusLabel or "Active • Device synced"
         existing.notes = payload.notes
         existing.pairing_token = pairing_token
         if payload.emergencyContact:
@@ -159,7 +159,7 @@ async def register_patient(
             health_issue=payload.healthIssue,
             avatar_url=payload.avatarUrl,
             status=payload.status or "stable",
-            status_label=payload.statusLabel or "Active • Tablet synced",
+            status_label=payload.statusLabel or "Active • Device synced",
             last_check_in="Just registered",
             notes=payload.notes,
             emergency_contact=payload.emergencyContact,

@@ -24,7 +24,7 @@ class PatientSummaryOut(BaseModel):
     diagnosis: Optional[str] = None
     avatarUrl: Optional[str] = None
     status: str = "stable"
-    statusLabel: str = "Active • Tablet synced"
+    statusLabel: str = "Active • Device synced"
     lastCheckIn: Optional[str] = None
     pairingToken: Optional[str] = None
 
@@ -38,7 +38,7 @@ class PatientDetailOut(BaseModel):
     healthIssue: Optional[str] = None
     avatarUrl: Optional[str] = None
     status: str = "stable"
-    statusLabel: str = "Active • Tablet synced"
+    statusLabel: str = "Active • Device synced"
     lastCheckIn: Optional[str] = None
     emergencyContact: Optional[EmergencyContact] = None
     deviceStatus: Optional[DeviceStatus] = None

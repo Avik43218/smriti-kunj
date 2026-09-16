@@ -22,7 +22,7 @@ import {
   ArrowLeft,
   ChevronDown,
   ChevronUp,
-  Tablet,
+  Smartphone,
   HeartHandshake
 } from 'lucide-react';
 
@@ -366,7 +366,7 @@ export const ManageCaregivers = () => {
               {isExpanded && (
                 <div className="bg-cream/40 dark:bg-ink-soft/10 border-t border-border/60 dark:border-ink-soft/30 p-5 sm:p-6">
                   <h4 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-ink-soft dark:text-cream/70 mb-3 flex items-center gap-2">
-                    <HeartHandshake className="w-3.5 h-3.5 text-terracotta" /> Assigned Patients Roster
+                    <HeartHandshake className="w-3.5 h-3.5 text-terracotta" /> Assigned Patients Portal
                   </h4>
 
                   {assignedPatients.length === 0 ? (
@@ -391,7 +391,7 @@ export const ManageCaregivers = () => {
                                 {pt.status_label || 'Active'}
                               </span>
                               <span className="text-[10px] font-mono text-ink-soft dark:text-cream/50 flex items-center gap-1">
-                                <Tablet className="w-2.5 h-2.5" /> {pt.patient_code || 'No Code'}
+                                <Smartphone className="w-2.5 h-2.5" /> {pt.patient_code || 'No Code'}
                               </span>
                             </div>
                           </div>

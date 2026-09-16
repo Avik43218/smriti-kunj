@@ -296,7 +296,7 @@ export const RegisterPatient = () => {
 
     // Generate unique ID following schema (e.g. p103)
     const newPatientId = `p${Math.floor(103 + Math.random() * 890)}`;
-    const pairingToken = `PAIR-${Math.floor(100000 + Math.random() * 900000)}`;
+    const pairingToken = `${Math.floor(100000 + Math.random() * 900000)}`;
 
     const effectiveHealthIssue =
       formData.healthIssue.trim() ||
@@ -343,7 +343,7 @@ export const RegisterPatient = () => {
       createdAt: new Date().toISOString(),
     };
 
-    // Save to patientService and localStorage for roster synchronization
+    // Save to patientService and localStorage for portal synchronization
     try {
       await registerPatient(newPatientRecord);
     } catch (err) {
