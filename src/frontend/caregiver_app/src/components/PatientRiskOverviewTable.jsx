@@ -12,6 +12,14 @@ import {
   ShieldAlert,
 } from 'lucide-react';
 import { fetchPatientRiskOverview, RISK_LEVEL_CONFIG } from '../services/riskService';
+import { StyledSelect } from './StyledSelect';
+
+const SORT_OPTIONS = [
+  { value: 'risk_desc', label: 'Risk: High → Low' },
+  { value: 'risk_asc', label: 'Risk: Low → High' },
+  { value: 'alerts_desc', label: 'Alerts: Most → Least' },
+  { value: 'alerts_asc', label: 'Alerts: Least → Most' },
+];
 
 /**
  * PatientRiskOverviewTable
@@ -84,7 +92,7 @@ export const PatientRiskOverviewTable = () => {
 
   return (
     <section
-      aria-label="XGBoost Patient Risk Overview"
+      aria-label="Patient Risk Overview"
       className="bg-surface dark:bg-ink-soft/10 rounded-card border border-border/90 dark:border-ink-soft/40 shadow-xs overflow-hidden"
     >
       {/* Header */}
@@ -98,9 +106,9 @@ export const PatientRiskOverviewTable = () => {
               <h3 className="text-sm font-bold text-ink dark:text-cream">
                 Real-Time Patient Risk Grading
               </h3>
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                xgboost_patient_risk_model.pkl
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-sage/15 text-sage border border-sage/30">
+                <span className="w-1.5 h-1.5 rounded-full bg-sage animate-pulse" />
+                Live Assessment
               </span>
             </div>
             <p className="text-[11px] text-ink-soft dark:text-cream/70 mt-0.5">
@@ -136,59 +144,59 @@ export const PatientRiskOverviewTable = () => {
         </div>
 
         {/* High Risk */}
-        <div className="p-3 rounded-xl bg-[#e74c3c]/6 border border-[#e74c3c]/25 flex flex-col gap-1.5">
-          <div className="flex items-center justify-between text-[#e74c3c]">
+        <div className="p-3 rounded-xl bg-terracotta/10 border border-terracotta/25 flex flex-col gap-1.5">
+          <div className="flex items-center justify-between text-terracotta">
             <span className="text-[11px] font-semibold">High Risk</span>
             <AlertTriangle className="w-3.5 h-3.5" />
           </div>
           <div className="flex items-baseline gap-1.5">
-            <span className="text-xl font-bold text-[#e74c3c]">
+            <span className="text-xl font-bold text-terracotta">
               {loading ? '—' : summary.high_risk_count}
             </span>
-            <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded bg-[#e74c3c]/15 text-[#e74c3c]">
+            <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded bg-terracotta/15 text-terracotta">
               Grade 2
             </span>
           </div>
-          <span className="text-[10px] font-medium text-[#e74c3c]/90">Immediate Intervention</span>
+          <span className="text-[10px] font-medium text-terracotta/90">Immediate Intervention</span>
         </div>
 
         {/* Moderate Risk */}
-        <div className="p-3 rounded-xl bg-[#f39c12]/6 border border-[#f39c12]/25 flex flex-col gap-1.5">
-          <div className="flex items-center justify-between text-[#f39c12]">
+        <div className="p-3 rounded-xl bg-gold/10 border border-gold/25 flex flex-col gap-1.5">
+          <div className="flex items-center justify-between text-gold">
             <span className="text-[11px] font-semibold">Moderate Risk</span>
             <Activity className="w-3.5 h-3.5" />
           </div>
           <div className="flex items-baseline gap-1.5">
-            <span className="text-xl font-bold text-[#f39c12]">
+            <span className="text-xl font-bold text-gold">
               {loading ? '—' : summary.moderate_risk_count}
             </span>
-            <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded bg-[#f39c12]/15 text-[#f39c12]">
+            <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded bg-gold/15 text-gold">
               Grade 1
             </span>
           </div>
-          <span className="text-[10px] font-medium text-[#f39c12]/90">Adapt Difficulty</span>
+          <span className="text-[10px] font-medium text-gold/90">Adapt Difficulty</span>
         </div>
 
         {/* Low Risk */}
-        <div className="p-3 rounded-xl bg-[#2ecc71]/6 border border-[#2ecc71]/25 flex flex-col gap-1.5">
-          <div className="flex items-center justify-between text-[#2ecc71]">
+        <div className="p-3 rounded-xl bg-sage/10 border border-sage/25 flex flex-col gap-1.5">
+          <div className="flex items-center justify-between text-sage">
             <span className="text-[11px] font-semibold">Low Risk</span>
             <CheckCircle2 className="w-3.5 h-3.5" />
           </div>
           <div className="flex items-baseline gap-1.5">
-            <span className="text-xl font-bold text-[#2ecc71]">
+            <span className="text-xl font-bold text-sage">
               {loading ? '—' : summary.low_risk_count}
             </span>
-            <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded bg-[#2ecc71]/15 text-[#2ecc71]">
+            <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded bg-sage/15 text-sage">
               Grade 0
             </span>
           </div>
-          <span className="text-[10px] font-medium text-[#2ecc71]/90">Routine Check</span>
+          <span className="text-[10px] font-medium text-sage/90">Routine Check</span>
         </div>
       </div>
 
       {/* Table Controls: Search + Filter Tabs + Sort */}
-      <div className="px-4 pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 border-b border-border/70 dark:border-ink-soft/30">
+      <div className="relative z-20 px-4 pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 border-b border-border/70 dark:border-ink-soft/30">
         {/* Search */}
         <div className="relative flex-1 max-w-xs">
           <Search className="w-3.5 h-3.5 text-ink-soft/70 dark:text-cream/50 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
@@ -216,23 +224,38 @@ export const PatientRiskOverviewTable = () => {
           {/* Filter tabs */}
           <div className="flex items-center gap-0.5 bg-cream/70 dark:bg-ink-soft/30 p-0.5 rounded-lg border border-border/70 dark:border-ink-soft/30 select-none">
             {[
-              { key: 'all', label: `All (${summary.total_patients})`, color: null },
-              { key: 'high', label: `High (${summary.high_risk_count})`, color: '#e74c3c' },
-              { key: 'moderate', label: `Mod (${summary.moderate_risk_count})`, color: '#f39c12' },
-              { key: 'low', label: `Low (${summary.low_risk_count})`, color: '#2ecc71' },
-            ].map(({ key, label, color }) => (
+              {
+                key: 'all',
+                label: `All (${summary.total_patients})`,
+                activeClass: 'bg-surface dark:bg-ink-soft/50 text-ink dark:text-cream shadow-2xs',
+                inactiveClass: 'text-ink-soft dark:text-cream/70 hover:text-ink dark:hover:text-cream',
+              },
+              {
+                key: 'high',
+                label: `High (${summary.high_risk_count})`,
+                activeClass: 'bg-terracotta text-cream shadow-2xs',
+                inactiveClass: 'text-terracotta hover:opacity-90',
+              },
+              {
+                key: 'moderate',
+                label: `Mod (${summary.moderate_risk_count})`,
+                activeClass: 'bg-gold text-cream shadow-2xs',
+                inactiveClass: 'text-gold hover:opacity-90',
+              },
+              {
+                key: 'low',
+                label: `Low (${summary.low_risk_count})`,
+                activeClass: 'bg-sage text-cream shadow-2xs',
+                inactiveClass: 'text-sage hover:opacity-90',
+              },
+            ].map(({ key, label, activeClass, inactiveClass }) => (
               <button
                 key={key}
                 type="button"
                 onClick={() => setRiskFilter(key)}
-                className="px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all"
-                style={
-                  riskFilter === key && color
-                    ? { backgroundColor: color, color: '#fff' }
-                    : riskFilter === key
-                    ? { backgroundColor: 'var(--color-surface, #fff)', color: 'var(--color-ink, #222)' }
-                    : { color: color || 'var(--color-ink-soft, #888)' }
-                }
+                className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all ${
+                  riskFilter === key ? activeClass : inactiveClass
+                }`}
               >
                 {label}
               </button>
@@ -240,18 +263,16 @@ export const PatientRiskOverviewTable = () => {
           </div>
 
           {/* Sort */}
-          <div className="flex items-center gap-1">
-            <ArrowUpDown className="w-3 h-3 text-ink-soft/70 dark:text-cream/50 shrink-0" />
-            <select
+          <div className="flex items-center gap-1.5">
+            <ArrowUpDown className="w-3.5 h-3.5 text-ink-soft/70 dark:text-cream/50 shrink-0" />
+            <StyledSelect
               value={sortBy}
-              onChange={(e) => setSortBy(e.target.value)}
-              className="bg-surface dark:bg-ink-soft/20 border border-border/80 dark:border-ink-soft/40 text-ink dark:text-cream text-[11px] rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-terracotta"
-            >
-              <option value="risk_desc">Risk: High → Low</option>
-              <option value="risk_asc">Risk: Low → High</option>
-              <option value="alerts_desc">Alerts: Most → Least</option>
-              <option value="alerts_asc">Alerts: Least → Most</option>
-            </select>
+              onChange={(val) => setSortBy(val)}
+              options={SORT_OPTIONS}
+              size="sm"
+              align="right"
+              className="w-40 sm:w-44"
+            />
           </div>
         </div>
       </div>
@@ -290,7 +311,7 @@ export const PatientRiskOverviewTable = () => {
               {/* Error */}
               {!loading && error && (
                 <tr>
-                  <td colSpan={6} className="py-6 text-center text-alert">
+                  <td colSpan={6} className="py-6 text-center text-status-urgent">
                     <div className="flex flex-col items-center gap-2">
                       <ShieldAlert className="w-5 h-5" />
                       <p className="text-xs font-semibold">{error}</p>
@@ -363,7 +384,7 @@ export const PatientRiskOverviewTable = () => {
                       {/* 4. Active Alerts Count */}
                       <td className="py-3 px-3 whitespace-nowrap text-center">
                         {patient.active_alerts_count > 0 ? (
-                          <span className="inline-flex items-center justify-center px-1.5 py-0.5 rounded-full text-[11px] font-bold bg-alert/15 text-alert border border-alert/30 min-w-[20px]">
+                          <span className="inline-flex items-center justify-center px-1.5 py-0.5 rounded-full text-[11px] font-bold bg-terracotta/15 text-terracotta border border-terracotta/30 min-w-[20px]">
                             {patient.active_alerts_count}
                           </span>
                         ) : (
@@ -374,14 +395,9 @@ export const PatientRiskOverviewTable = () => {
                       {/* 5. Risk Level badge */}
                       <td className="py-3 px-3 whitespace-nowrap">
                         <span
-                          className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold"
-                          style={{
-                            backgroundColor: `${config.badgeColor}22`,
-                            color: config.badgeColor,
-                            border: `1px solid ${config.badgeColor}55`,
-                          }}
+                          className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${config.badgeBg || 'bg-sage/15'} ${config.badgeText || 'text-sage'} ${config.badgeBorder || 'border-sage/30'}`}
                         >
-                          <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: config.badgeColor }} />
+                          <span className={`w-1.5 h-1.5 rounded-full ${config.dotBg || 'bg-sage'}`} />
                           {config.level}
                         </span>
                       </td>
@@ -404,9 +420,7 @@ export const PatientRiskOverviewTable = () => {
       {/* Footer */}
       <div className="px-4 py-2 bg-cream/20 dark:bg-ink-soft/10 border-t border-border/60 dark:border-ink-soft/20 flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-[10px] text-ink-soft/70 dark:text-cream/50">
         <span>
-          Model:{' '}
-          <span className="font-mono font-semibold text-ink dark:text-cream">GradientBoosting Classifier</span>
-          {' · '}Features: [age, accuracy_rate_pct, reaction_time_ms, drift_slope_7d, active_alert_count]
+          Real-time cognitive risk monitoring
         </span>
         <span>
           {filteredAndSortedPatients.length} of {data.patients.length} records

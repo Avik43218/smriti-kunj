@@ -12,7 +12,7 @@ import {
   RefreshCw,
   X,
   ArrowLeft,
-  Tablet,
+  Smartphone,
   User,
 } from 'lucide-react';
 
@@ -43,7 +43,7 @@ export const AllPatients = () => {
       setPatients(ptData || []);
       setCaregivers(cgData || []);
     } catch (err) {
-      setError(err?.message || 'Failed to load system-wide patient roster.');
+      setError(err?.message || 'Failed to load system-wide patient portal data.');
     } finally {
       setLoading(false);
     }
@@ -131,11 +131,11 @@ export const AllPatients = () => {
             type="button"
             onClick={loadData}
             disabled={loading}
-            aria-label="Refresh patient roster"
+            aria-label="Refresh patient portal"
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-ink-soft dark:text-cream/80 hover:text-ink dark:hover:text-cream bg-surface dark:bg-ink-soft/20 border border-border/80 dark:border-ink-soft/40 hover:bg-cream dark:hover:bg-ink-soft/35 active:scale-95 transition-all outline-none focus-visible:ring-1 focus-visible:ring-terracotta"
           >
             <RefreshCw className={`w-3.5 h-3.5 text-terracotta ${loading ? 'animate-spin' : ''}`} />
-            <span>Refresh Roster</span>
+            <span>Refresh Portal</span>
           </button>
         </div>
       </header>
@@ -215,7 +215,7 @@ export const AllPatients = () => {
                 <th className="py-3 px-4">Diagnosis</th>
                 <th className="py-3 px-4">Current Caregiver</th>
                 <th className="py-3 px-4 text-center">Status</th>
-                <th className="py-3 px-4">Hardware / Tablet</th>
+                <th className="py-3 px-4">Hardware / Device</th>
                 <th className="py-3 px-4 text-right">Reassign</th>
               </tr>
             </thead>
@@ -263,8 +263,8 @@ export const AllPatients = () => {
 
                   <td className="py-3.5 px-4 font-mono text-xs text-ink-soft dark:text-cream/70">
                     <div className="flex items-center gap-1.5">
-                      <Tablet className="w-3.5 h-3.5 text-ink-soft/70" />
-                      <span>{patient.device_id || 'Tablet Not Linked'}</span>
+                      <Smartphone className="w-3.5 h-3.5 text-ink-soft/70" />
+                      <span>{patient.device_id || 'Device Not Linked'}</span>
                     </div>
                   </td>
 

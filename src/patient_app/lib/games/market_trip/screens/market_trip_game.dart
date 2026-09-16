@@ -210,7 +210,6 @@ class _MarketTripGameScreenState extends State<MarketTripGameScreen> {
       delayDuration = _distractorEndTime!.difference(_distractorStartTime!).inMilliseconds / 1000.0;
     }
 
-    final bank = await _itemBankService.loadItemBank();
     final targetItemIds = _promptItems.map((e) => e.id).toSet();
 
     int correctCount = 0;

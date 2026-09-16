@@ -296,12 +296,12 @@ async def complete_pairing(payload: PatientPairCompleteRequest):
     # Link device to patient
     patient.device_id = device_id
     patient.status = "stable"
-    patient.status_label = "Active • Tablet synced"
+    patient.status_label = "Active • Device synced"
     patient.last_check_in = "Just paired"
     patient.device_status = {
         "linked": True,
         "deviceId": device_id,
-        "deviceName": payload.device_name or "Patient Tablet",
+        "deviceName": payload.device_name or "Patient Device",
         "lastSynced": datetime.utcnow().isoformat(),
     }
     await patient.save()

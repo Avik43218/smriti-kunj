@@ -277,13 +277,13 @@ export const Dashboard = () => {
           <div>
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-cream dark:bg-ink-soft/40 text-terracotta text-xs font-semibold uppercase tracking-wider mb-3">
               <Sparkles className="w-3.5 h-3.5" />
-              <span>Caregiver Roster</span>
+              <span>Caregiver Portal</span>
             </div>
             <h2 className="text-xl sm:text-2xl font-bold text-ink dark:text-cream tracking-tight">
               Welcome, {caregiver?.name || 'Caregiver'}
             </h2>
             <p className="text-xs sm:text-sm text-ink-soft dark:text-cream/70 mt-1.5 max-w-2xl leading-relaxed">
-              Monitor active patient cognitive routines, longitudinal trends, and tablet synchronization status from your dashboard portal.
+              Monitor active patient cognitive routines, longitudinal trends, and device synchronization status from your dashboard portal.
             </p>
           </div>
 
@@ -478,7 +478,7 @@ export const Dashboard = () => {
         </div>
       </section>
 
-      {/* 4. XGBoost Real-Time Patient Risk Overview Table */}
+      {/* 4. Real-Time Patient Risk Overview Table */}
       <PatientRiskOverviewTable />
 
       {/* 5. Search + Filter Pills + Register New Patient Bar */}
@@ -554,8 +554,8 @@ export const Dashboard = () => {
         </Link>
       </div>
 
-      {/* 4. Patient Roster Section */}
-      <section aria-label="Assigned Patients Roster" className="space-y-4">
+      {/* 4. Patient Portal Section */}
+      <section aria-label="Assigned Patients Portal" className="space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <div className="w-7 h-7 rounded-full bg-cream dark:bg-ink-soft/30 flex items-center justify-center text-terracotta">
@@ -578,7 +578,7 @@ export const Dashboard = () => {
             type="button"
             onClick={loadPatients}
             disabled={loading}
-            aria-label="Refresh patient roster"
+            aria-label="Refresh patient portal"
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-ink-soft dark:text-cream/80 hover:text-ink dark:hover:text-cream bg-surface dark:bg-ink-soft/20 border border-border/80 dark:border-ink-soft/40 hover:bg-cream dark:hover:bg-ink-soft/35 active:scale-95 transition-all outline-none focus-visible:ring-1 focus-visible:ring-terracotta"
           >
             <RefreshCw className={`w-3.5 h-3.5 text-terracotta ${loading ? 'animate-spin' : ''}`} />
@@ -640,7 +640,7 @@ export const Dashboard = () => {
               No Patients Assigned
             </h3>
             <p className="text-xs sm:text-sm text-ink-soft dark:text-cream/70 max-w-sm mx-auto leading-relaxed">
-              Pair a patient tablet via device pairing to begin monitoring care metrics and cognitive routines.
+              Pair a patient device via device pairing to begin monitoring care metrics and cognitive routines.
             </p>
           </div>
         )}

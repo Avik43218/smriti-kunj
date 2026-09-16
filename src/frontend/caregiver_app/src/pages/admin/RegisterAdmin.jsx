@@ -175,7 +175,7 @@ export const RegisterAdmin = () => {
             {/* Administrative Tagline */}
             <div className="relative pl-4 border-l-stripe border-terracotta/60 py-1 max-w-xl">
               <p className="text-xs sm:text-sm md:text-[15px] text-cream/90 leading-relaxed font-normal">
-                Access the administrative console to provision staff credentials, oversee cross-caregiver rosters, and manage platform synchronization securely.
+                Access the administrative console to provision staff credentials, oversee cross-caregiver portals, and manage platform synchronization securely.
               </p>
             </div>
 

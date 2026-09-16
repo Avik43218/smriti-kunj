@@ -1,6 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
-import 'package:patient_app/models/game_recommendation.dart';
 import 'package:patient_app/models/patient_activity.dart';
 import 'package:patient_app/models/patient_diagnosis.dart';
 import 'package:patient_app/services/activity_database_service.dart';
