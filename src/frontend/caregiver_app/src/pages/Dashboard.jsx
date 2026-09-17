@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { fetchPatients } from '../services/patientService';
+import emptyStateBg from '../assets/regional/image4.avif';
 import { getGameSessions, DOMAINS } from '../services/gameSessionService';
 import { PatientCard } from '../components/PatientCard';
 import { PatientRiskOverviewTable } from '../components/PatientRiskOverviewTable';
@@ -254,6 +255,9 @@ export const Dashboard = () => {
               </h1>
               <span className="text-sm font-medium text-ink-soft dark:text-cream/60">
                 স্মৃতি কুঞ্জ
+              </span>
+              <span className="text-xs font-medium text-ink-soft/70 dark:text-cream/40 hidden md:inline">
+                स्मृति कुञ्ज
               </span>
             </div>
             <p className="text-xs text-ink-soft dark:text-cream/60">
@@ -630,18 +634,24 @@ export const Dashboard = () => {
           </div>
         )}
 
-        {/* STATE 3: Empty State (No Patients in System) */}
+        {/* STATE 3: Empty State (No Patients in System) — regional image4 */}
         {!loading && !error && patients.length === 0 && (
-          <div className="bg-surface dark:bg-ink-soft/20 border border-border/80 dark:border-ink-soft/40 rounded-card p-8 sm:p-12 text-center space-y-3">
-            <div className="w-12 h-12 rounded-full bg-cream dark:bg-ink-soft/30 flex items-center justify-center text-ink-soft dark:text-cream/60 mx-auto">
-              <UserPlus className="w-6 h-6" />
+          <div
+            className="relative overflow-hidden border border-border/80 dark:border-ink-soft/40 rounded-card p-8 sm:p-12 text-center space-y-3"
+            style={{ backgroundImage: `url(${emptyStateBg})`, backgroundSize: 'cover', backgroundPosition: 'center' }}
+          >
+            <div className="absolute inset-0 bg-ink/60" />
+            <div className="relative z-10 flex flex-col items-center space-y-3">
+              <div className="w-12 h-12 rounded-full bg-ink/40 border border-ink-soft/30 flex items-center justify-center text-cream/80 mx-auto">
+                <UserPlus className="w-6 h-6" />
+              </div>
+              <h3 className="text-base font-bold text-cream">
+                No Patients Assigned
+              </h3>
+              <p className="text-xs sm:text-sm text-cream/70 max-w-sm mx-auto leading-relaxed">
+                Pair a patient device via device pairing to begin monitoring care metrics and cognitive routines.
+              </p>
             </div>
-            <h3 className="text-base font-bold text-ink dark:text-cream">
-              No Patients Assigned
-            </h3>
-            <p className="text-xs sm:text-sm text-ink-soft dark:text-cream/70 max-w-sm mx-auto leading-relaxed">
-              Pair a patient device via device pairing to begin monitoring care metrics and cognitive routines.
-            </p>
           </div>
         )}
 
