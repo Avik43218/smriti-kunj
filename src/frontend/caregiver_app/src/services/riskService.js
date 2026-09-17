@@ -65,7 +65,7 @@ export async function fetchPatientRiskOverview() {
   // Primary: real data path — backend aggregates DB telemetry & runs the model
   try {
     const data = await apiClient('/api/risk/patient-overview');
-    if (data && data.summary && Array.isArray(data.patients) && data.patients.length > 0) {
+    if (data && data.summary && Array.isArray(data.patients)) {
       return data;
     }
   } catch (err) {

@@ -331,8 +331,12 @@ export const PatientRiskOverviewTable = () => {
               {!loading && !error && filteredAndSortedPatients.length === 0 && (
                 <tr>
                   <td colSpan={6} className="py-8 text-center text-ink-soft dark:text-cream/60">
-                    <p className="text-xs font-semibold">No patients match the current filter.</p>
-                    {(searchQuery || riskFilter !== 'all') && (
+                    <p className="text-xs font-semibold">
+                      {data.patients.length === 0
+                        ? 'No patients registered'
+                        : 'No patients match the current filter.'}
+                    </p>
+                    {data.patients.length > 0 && (searchQuery || riskFilter !== 'all') && (
                       <button
                         type="button"
                         onClick={() => { setSearchQuery(''); setRiskFilter('all'); }}
