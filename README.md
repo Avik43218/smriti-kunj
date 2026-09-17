@@ -1,4 +1,4 @@
-# Smriti Setu (স্মৃতি সেতু / স্মৃতি কুঞ্জ)
+# Smriti Kunj (স্মৃতি কুঞ্জ)
 
 **AI-Powered Offline-First Cognitive & Memory Assistance Ecosystem for Elderly Care**
 
