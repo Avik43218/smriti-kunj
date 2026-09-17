@@ -5,7 +5,7 @@ WORKDIR /app
 # Set environment defaults
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
-    MONGODB_URL="mongodb://host.docker.internal:27017" \
+    MONGODB_URL="" \
     MONGODB_DB_NAME="cognitive_assist"
 
 # Install curl for container health check
@@ -27,5 +27,5 @@ EXPOSE 8000
 HEALTHCHECK --interval=15s --timeout=5s --start-period=10s --retries=3 \
     CMD curl -f http://localhost:8000/health || exit 1
 
-# Launch FastAPI with Uvicorn
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Launch FastAPI with Uvicorn (adapts to Render dynamic $PORT or defaults to 8000)
+CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]

@@ -13,7 +13,13 @@ import 'theme/theme.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   // Pre-initialize TFLite dynamic difficulty model in background
-  ApiService.instance.baseUrl = 'http://fedora:8000';
+  // Production Render URL: 'https://<YOUR_RENDER_BACKEND_URL>.onrender.com'
+  // Local development: 'http://fedora:8000'
+  const String backendUrl = String.fromEnvironment(
+    'API_BASE_URL',
+    defaultValue: 'https://smriti-kunj.onrender.com', // REPLACE: 'https://<YOUR_RENDER_BACKEND_URL>.onrender.com'
+  );
+  ApiService.instance.baseUrl = backendUrl;
   DynamicDifficultyService.instance.init();
   // Auto-login using pairing code stored in local SQLite database
   await SessionService.instance.tryAutoLogin();

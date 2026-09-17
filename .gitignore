@@ -6,7 +6,7 @@ src/frontend/caregiver_app/dist/
 build/
 
 # Environment files
-.env
+*.env
 .env.local
 .env.*.local
 
