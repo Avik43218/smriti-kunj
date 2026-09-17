@@ -20,6 +20,7 @@ from fastapi.security import HTTPAuthorizationCredentials
 
 from app.config import settings
 from app.core.otp import generate_otp, hash_otp, verify_otp_code
+from app.services.email_service import send_otp_email
 from app.core.security import (
     _create_token,
     bearer_scheme,
@@ -54,8 +55,8 @@ router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 
 async def _issue_otp(email: str) -> None:
-    """Invalidate any outstanding code for this email and issue a fresh one.
-    Displays OTP prominently in terminal for authentication."""
+    """Invalidate any outstanding code for this email, store a fresh one,
+    and dispatch an email via Brevo while logging to terminal as fallback."""
     await OtpCode.find(OtpCode.email == email).delete()
 
     code = generate_otp()
@@ -71,6 +72,9 @@ async def _issue_otp(email: str) -> None:
     print(f" One-Time Password (OTP): {code}", flush=True)
     print(f" Expiration: {settings.OTP_EXPIRE_MINUTES} minutes", flush=True)
     print("=" * 60 + "\n", flush=True)
+
+    # Asynchronously dispatch transactional email via Brevo
+    await send_otp_email(email=email, otp=code, expire_minutes=settings.OTP_EXPIRE_MINUTES)
 
 
 @router.post("/register", response_model=CaregiverOut, status_code=201)

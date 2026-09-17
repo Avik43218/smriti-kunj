@@ -5,7 +5,13 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=(".env", "atlas-credentials.env", "../../atlas-credentials.env"),
+        env_file=(
+            ".env",
+            "atlas-credentials.env",
+            "../../atlas-credentials.env",
+            "brevo-credentials.env",
+            "../../brevo-credentials.env",
+        ),
         extra="ignore",
     )
 
@@ -42,6 +48,11 @@ class Settings(BaseSettings):
     OTP_LENGTH: int = 6
     OTP_EXPIRE_MINUTES: int = 10
     OTP_MAX_ATTEMPTS: int = 5
+
+    # Brevo Transactional Email Service
+    BREVO_API_KEY: Optional[str] = None
+    BREVO_SENDER_EMAIL: str = "noreply@smritikunj.org"
+    BREVO_SENDER_NAME: str = "Smriti Kunj"
 
     # Pillar 3 thresholds
     ALERT_ACCURACY_DROP_THRESHOLD: float = 0.25
