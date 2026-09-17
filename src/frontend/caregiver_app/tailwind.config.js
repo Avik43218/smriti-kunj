@@ -16,13 +16,29 @@ module.exports = {
         border: '#E4D9C4',
         'status-urgent': '#8C2C24',
         'status-info': '#2C4A6E',
-        // Functional exception: 5-step monochromatic terracotta progression for password meter (not part of core brand tokens)
+        // Functional password meter tokens: progressive palette across Terracotta, Gold, and Sage
         passwordStrength: {
-          1: '#E2A48E', // Level 1 (Very Weak): Muted pale terracotta
+          1: '#B5562F', // Level 1 (Very Weak): Terracotta
           2: '#D47D5C', // Level 2 (Weak): Soft warm terracotta
-          3: '#C55F35', // Level 3 (Fair): Vibrant mid-tone terracotta
-          4: '#A8441F', // Level 4 (Strong): Rich deep terracotta
-          5: '#7E2D11', // Level 5 (Very Strong): Intense roasted terracotta
+          3: '#C9962C', // Level 3 (Fair): Brand Gold
+          4: '#6E8C6A', // Level 4 (Strong): Brand Sage
+          5: '#4E7A4A', // Level 5 (Very Strong): Deep Sage
+          // High-contrast text tokens calibrated for light (#FFFDF8) and dark (#2E2A24) modes
+          '1-text': '#A8441F',
+          '1-text-dark': '#EAA68F',
+          '2-text': '#B5562F',
+          '2-text-dark': '#E8A07A',
+          '3-text': '#986E12',
+          '3-text-dark': '#E8BA55',
+          '4-text': '#486944',
+          '4-text-dark': '#A2C99D',
+          '5-text': '#32592D',
+          '5-text-dark': '#A6E09F',
+        },
+        imageOverlay: {
+          dark: 'rgba(46,42,36,0.55)',
+          warm: 'rgba(181,86,47,0.18)',
+          scrim: 'rgba(46,42,36,0.72)',
         },
       },
       fontFamily: {
