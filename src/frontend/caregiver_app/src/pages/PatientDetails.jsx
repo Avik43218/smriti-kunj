@@ -287,22 +287,108 @@ export const PatientDetails = () => {
     }
   };
 
+  // Helper to process and prioritize reminders list
+  const processRemindersList = (rawReminders, effectiveCareStatus) => {
+    const processedReminders = [];
+    const hasMissedStatus = effectiveCareStatus === 'reminder_missed';
+
+    if (rawReminders) {
+      if (Array.isArray(rawReminders.medication)) {
+        rawReminders.medication.forEach((item, idx) => {
+          processedReminders.push({
+            id: item.id || `med_${idx}`,
+            label: item.label || 'Medication Dose',
+            time: item.time || 'Scheduled',
+            category: 'Medication',
+            isMissed: hasMissedStatus && idx === 0,
+            icon: Pill,
+          });
+        });
+      }
+
+      if (rawReminders.hydration && rawReminders.hydration.label) {
+        processedReminders.push({
+          id: rawReminders.hydration.id || 'hyd_1',
+          label: rawReminders.hydration.label,
+          time: rawReminders.hydration.schedule || '8 AM – 8 PM',
+          category: 'Hydration',
+          isMissed: false,
+          icon: Droplets,
+        });
+      }
+
+      if (Array.isArray(rawReminders.meals)) {
+        rawReminders.meals.forEach((item, idx) => {
+          processedReminders.push({
+            id: item.id || `meal_${idx}`,
+            label: item.label || 'Meal',
+            time: item.time || 'Scheduled',
+            category: 'Meals',
+            isMissed: false,
+            icon: Utensils,
+          });
+        });
+      }
+
+      if (Array.isArray(rawReminders.custom)) {
+        rawReminders.custom.forEach((item, idx) => {
+          processedReminders.push({
+            id: item.id || `cust_${idx}`,
+            label: item.label || 'Routine Task',
+            time: item.time || item.frequency || 'Scheduled',
+            category: 'Custom Routine',
+            isMissed: false,
+            icon: Clock,
+          });
+        });
+      }
+    }
+
+    return [
+      ...processedReminders.filter((r) => r.isMissed),
+      ...processedReminders.filter((r) => !r.isMissed),
+    ].slice(0, 3);
+  };
+
   useEffect(() => {
     let isMounted = true;
 
     const fetchDetail = async () => {
       try {
-        setLoading(true);
         setError(null);
 
         const [patientData, sessionsData, rawReminders] = await Promise.all([
-          getPatientById(id),
-          getGameSessions(id).catch(() => []),
-          fetchReminders(id).catch(() => null),
+          getPatientById(id, {
+            onUpdate: (freshPatient) => {
+              if (isMounted && freshPatient) {
+                setPatient({
+                  ...freshPatient,
+                  careStatus: freshPatient.careStatus || 'normal',
+                });
+                setLoading(false);
+              }
+            },
+          }),
+          getGameSessions(id, {
+            onUpdate: (freshSessions) => {
+              if (isMounted && Array.isArray(freshSessions)) {
+                const sorted = [...freshSessions].sort(
+                  (a, b) => new Date(b.session_date).getTime() - new Date(a.session_date).getTime()
+                );
+                setRecentSessions(sorted.slice(0, 3));
+              }
+            },
+          }).catch(() => []),
+          fetchReminders(id, {
+            onUpdate: (freshReminders) => {
+              if (isMounted && freshReminders) {
+                setRemindersList((prev) => processRemindersList(freshReminders, patient?.careStatus || 'normal'));
+              }
+            },
+          }).catch(() => null),
         ]);
 
         if (isMounted) {
-          // Patient care status is determined dynamically by backend algorithms and analysis
           const effectiveCareStatus = patientData?.careStatus || 'normal';
 
           const resolvedPatient = {
@@ -312,79 +398,16 @@ export const PatientDetails = () => {
 
           setPatient(resolvedPatient);
 
-          // Take the 3 most recent sessions (sorted descending by date)
           const sortedSessions = [...(sessionsData || [])].sort(
             (a, b) => new Date(b.session_date).getTime() - new Date(a.session_date).getTime()
           );
           setRecentSessions(sortedSessions.slice(0, 3));
+          setRemindersList(processRemindersList(rawReminders, effectiveCareStatus));
 
-          // Flatten and prioritize reminders (missed first, then upcoming up to 3 total)
-          const processedReminders = [];
-          const hasMissedStatus = effectiveCareStatus === 'reminder_missed';
-
-          if (rawReminders) {
-            // 1. Medication
-            if (Array.isArray(rawReminders.medication)) {
-              rawReminders.medication.forEach((item, idx) => {
-                processedReminders.push({
-                  id: item.id || `med_${idx}`,
-                  label: item.label || 'Medication Dose',
-                  time: item.time || 'Scheduled',
-                  category: 'Medication',
-                  isMissed: hasMissedStatus && idx === 0, // Flag first as missed if patient careStatus is reminder_missed
-                  icon: Pill,
-                });
-              });
-            }
-
-            // 2. Hydration
-            if (rawReminders.hydration && rawReminders.hydration.label) {
-              processedReminders.push({
-                id: rawReminders.hydration.id || 'hyd_1',
-                label: rawReminders.hydration.label,
-                time: rawReminders.hydration.schedule || '8 AM – 8 PM',
-                category: 'Hydration',
-                isMissed: false,
-                icon: Droplets,
-              });
-            }
-
-            // 3. Meals
-            if (Array.isArray(rawReminders.meals)) {
-              rawReminders.meals.forEach((item, idx) => {
-                processedReminders.push({
-                  id: item.id || `meal_${idx}`,
-                  label: item.label || 'Meal',
-                  time: item.time || 'Scheduled',
-                  category: 'Meals',
-                  isMissed: false,
-                  icon: Utensils,
-                });
-              });
-            }
-
-            // 4. Custom
-            if (Array.isArray(rawReminders.custom)) {
-              rawReminders.custom.forEach((item, idx) => {
-                processedReminders.push({
-                  id: item.id || `cust_${idx}`,
-                  label: item.label || 'Routine Task',
-                  time: item.time || item.frequency || 'Scheduled',
-                  category: 'Custom Routine',
-                  isMissed: false,
-                  icon: Clock,
-                });
-              });
-            }
+          // If cached data is available, clear loading spinner immediately
+          if (patientData && patientData.id) {
+            setLoading(false);
           }
-
-          // Prioritize missed items first, then upcoming routines
-          const prioritized = [
-            ...processedReminders.filter((r) => r.isMissed),
-            ...processedReminders.filter((r) => !r.isMissed),
-          ].slice(0, 3);
-
-          setRemindersList(prioritized);
         }
       } catch (err) {
         if (isMounted) {

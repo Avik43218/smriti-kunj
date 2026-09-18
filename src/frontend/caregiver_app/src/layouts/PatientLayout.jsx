@@ -5,10 +5,12 @@ import { Navbar } from '../components/Navbar';
 import { TopControls } from '../components/TopControls';
 import { Footer } from '../components/Footer';
 import { MotifBackground } from '../components/MotifBackground';
+import { PullToRefresh } from '../components/PullToRefresh';
 
 export const PatientLayout = () => {
   return (
-    <div className="min-h-screen bg-cream dark:bg-ink text-ink dark:text-cream font-sans transition-colors duration-200 flex flex-col relative">
+    /* Fixed viewport container — PullToRefresh becomes the scroll root */
+    <div className="h-screen bg-cream dark:bg-ink text-ink dark:text-cream font-sans transition-colors duration-200 relative overflow-hidden">
       {/* Ambient Cultural Motif Background Pattern */}
       <MotifBackground />
 
@@ -28,13 +30,19 @@ export const PatientLayout = () => {
       {/* Persistent Top-Right Controls: Theme Toggle + Settings */}
       <TopControls showSettings={true} />
 
-      {/* Main Content Area: Responsive spacing clearing top controls on mobile, top dock on desktop, and bottom dock on mobile */}
-      <main className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 pt-14 sm:pt-20 pb-16 sm:pb-20 relative z-10">
-        <Outlet />
-      </main>
+      {/* Pull-to-Refresh scroll container (mobile handhelds) */}
+      <PullToRefresh>
+        {/* Inner flex column mirrors the original min-h-screen layout */}
+        <div className="flex flex-col min-h-screen">
+          {/* Main Content Area: Responsive spacing clearing top controls on mobile, top dock on desktop, and bottom dock on mobile */}
+          <main className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 pt-14 sm:pt-20 pb-16 sm:pb-20 relative z-10">
+            <Outlet />
+          </main>
 
-      {/* Site Identity Line Design Footer */}
-      <Footer className="pb-24 sm:pb-5" />
+          {/* Site Identity Line Design Footer */}
+          <Footer className="pb-24 sm:pb-5" />
+        </div>
+      </PullToRefresh>
     </div>
   );
 };
