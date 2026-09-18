@@ -24,7 +24,6 @@ import {
   Upload,
 } from 'lucide-react';
 import { registerPatient } from '../services/patientService';
-import { addFamilyMember } from '../services/carePlanService';
 import { StyledSelect } from '../components/StyledSelect';
 
 const DIAGNOSIS_OPTIONS = [
@@ -350,17 +349,7 @@ export const RegisterPatient = () => {
       console.warn('Could not register patient to service:', err);
     }
 
-    // Seed initial family memory card for the new patient's Care Plan
-    try {
-      await addFamilyMember({
-        patientId: newPatientId,
-        name: effectiveEmergencyName,
-        relation: effectiveEmergencyRel,
-        photoUrl: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300" viewBox="0 0 400 300"><rect width="400" height="300" fill="%23FBF5EA"/><circle cx="200" cy="120" r="55" fill="%23B5562F"/><path d="M100 250 C100 185, 300 185, 300 250 Z" fill="%23B5562F"/><text x="200" y="280" font-family="sans-serif" font-size="18" font-weight="bold" fill="%232E2A24" text-anchor="middle">Family</text></svg>',
-      });
-    } catch (err) {
-      console.warn('Could not seed initial memory card:', err);
-    }
+    // Patient registered successfully - no dummy memory card seeded
 
     setIsSubmitting(false);
     setRegisteredPatient(newPatientRecord);

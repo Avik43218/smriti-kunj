@@ -28,65 +28,7 @@ class MemoryItem {
 class MemoryGalleryScreen extends StatelessWidget {
   const MemoryGalleryScreen({super.key});
 
-  static const List<MemoryItem> _mockMemories = [
-    MemoryItem(
-      id: 'mem_1',
-      title: 'Zara Begum',
-      subtitle: 'Birthday celebration with family',
-      relationship: 'Granddaughter',
-      type: MemoryType.photo,
-      placeholderIcon: Icons.celebration_rounded,
-      accentColor: AppColors.terracotta,
-    ),
-    MemoryItem(
-      id: 'mem_2',
-      title: 'Voice from Priya',
-      subtitle: '"Good morning Baba, take your medicines!"',
-      relationship: 'Daughter',
-      type: MemoryType.audio,
-      audioDuration: '0:45 min',
-      placeholderIcon: Icons.mic_rounded,
-      accentColor: AppColors.mugaGold,
-    ),
-    MemoryItem(
-      id: 'mem_3',
-      title: 'Family at Shillong',
-      subtitle: 'Spring holiday in the gardens',
-      relationship: 'Family Vacation',
-      type: MemoryType.photo,
-      placeholderIcon: Icons.nature_people_rounded,
-      accentColor: AppColors.sageGreen,
-    ),
-    MemoryItem(
-      id: 'mem_4',
-      title: 'Voice from Rohit',
-      subtitle: '"Have a peaceful walk in the garden"',
-      relationship: 'Son',
-      type: MemoryType.audio,
-      audioDuration: '1:10 min',
-      placeholderIcon: Icons.record_voice_over_rounded,
-      accentColor: AppColors.mugaGold,
-    ),
-    MemoryItem(
-      id: 'mem_5',
-      title: 'Meera & Aarav',
-      subtitle: 'Golden jubilee portrait',
-      relationship: 'Anniversary Memory',
-      type: MemoryType.photo,
-      placeholderIcon: Icons.favorite_rounded,
-      accentColor: AppColors.terracotta,
-    ),
-    MemoryItem(
-      id: 'mem_6',
-      title: 'Children Laughing',
-      subtitle: 'Zara & Kabir singing songs together',
-      relationship: 'Grandchildren',
-      type: MemoryType.audio,
-      audioDuration: '0:30 min',
-      placeholderIcon: Icons.music_note_rounded,
-      accentColor: AppColors.sageGreen,
-    ),
-  ];
+  static const List<MemoryItem> _mockMemories = [];
 
   @override
   Widget build(BuildContext context) {
@@ -112,32 +54,74 @@ class MemoryGalleryScreen extends StatelessWidget {
         ),
       ),
       body: SafeArea(
-        child: GridView.builder(
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 2,
-            crossAxisSpacing: 16,
-            mainAxisSpacing: 16,
-            childAspectRatio: 0.78,
-          ),
-          itemCount: _mockMemories.length,
-          itemBuilder: (context, index) {
-            final item = _mockMemories[index];
-            return _MemoryThumbnailCard(
-              item: item,
-              onTap: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => MemoryDetailScreen(
-                      memories: _mockMemories,
-                      initialIndex: index,
-                    ),
+        child: _mockMemories.isEmpty
+            ? Center(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 32.0),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Container(
+                        width: 84,
+                        height: 84,
+                        decoration: BoxDecoration(
+                          color: AppColors.terracotta.withValues(alpha: 0.1),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.photo_library_outlined,
+                          size: 42,
+                          color: AppColors.terracotta,
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      Text(
+                        'No memories added yet',
+                        textAlign: TextAlign.center,
+                        style: textTheme.headlineSmall?.copyWith(
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.ink,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Text(
+                        'Your caregiver can add family photos and familiar voices from their dashboard.',
+                        textAlign: TextAlign.center,
+                        style: textTheme.bodyLarge?.copyWith(
+                          color: AppColors.inkSoft,
+                          height: 1.4,
+                        ),
+                      ),
+                    ],
                   ),
-                );
-              },
-            );
-          },
-        ),
+                ),
+              )
+            : GridView.builder(
+                padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  crossAxisSpacing: 16,
+                  mainAxisSpacing: 16,
+                  childAspectRatio: 0.78,
+                ),
+                itemCount: _mockMemories.length,
+                itemBuilder: (context, index) {
+                  final item = _mockMemories[index];
+                  return _MemoryThumbnailCard(
+                    item: item,
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => MemoryDetailScreen(
+                            memories: _mockMemories,
+                            initialIndex: index,
+                          ),
+                        ),
+                      );
+                    },
+                  );
+                },
+              ),
       ),
     );
   }

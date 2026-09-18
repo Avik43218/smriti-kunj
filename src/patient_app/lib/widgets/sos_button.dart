@@ -8,13 +8,22 @@ import '../theme/theme.dart';
 Future<bool> launchGuardianDialer({String? phoneNumber}) async {
   final rawPhone = phoneNumber ??
       SessionService.instance.guardianPhone ??
-      SessionService.instance.emergencyContact?['phone']?.toString() ??
-      '+91 98765 43210';
+      SessionService.instance.emergencyContact?['phone']?.toString();
+
+  if (rawPhone == null || rawPhone.trim().isEmpty) {
+    debugPrint('[SOS] No guardian phone number configured.');
+    return false;
+  }
 
   // Keep leading '+' and all digits, stripping whitespace, hyphens, and parenthesis
   final cleanDigits = rawPhone.replaceAll(RegExp(r'[^\d]'), '');
   final hasPlus = rawPhone.trim().startsWith('+');
   final cleanPhone = hasPlus ? '+$cleanDigits' : cleanDigits;
+
+  if (cleanPhone.isEmpty) {
+    debugPrint('[SOS] Guardian phone number is invalid.');
+    return false;
+  }
 
   final telUri = Uri(scheme: 'tel', path: cleanPhone);
   debugPrint('[SOS] Launching device dialer with guardian phone: $cleanPhone');
@@ -141,8 +150,9 @@ class _SosConfirmationScreenState extends State<SosConfirmationScreen> {
         session.emergencyContact?['relationship']?.toString() ??
         'Emergency Contact';
     final guardianPhone = session.guardianPhone ??
-        session.emergencyContact?['phone']?.toString() ??
-        '+91 98765 43210';
+        session.emergencyContact?['phone']?.toString();
+    final hasPhone = guardianPhone != null && guardianPhone.trim().isNotEmpty;
+    final displayPhone = hasPhone ? guardianPhone : 'Not configured';
 
     return Scaffold(
       backgroundColor: AppColors.cream,
@@ -259,11 +269,11 @@ class _SosConfirmationScreenState extends State<SosConfirmationScreen> {
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            guardianPhone,
-                            style: const TextStyle(
+                            displayPhone,
+                            style: TextStyle(
                               fontSize: 15,
                               fontWeight: FontWeight.w700,
-                              color: AppColors.terracotta,
+                              color: hasPhone ? AppColors.terracotta : AppColors.inkSoft,
                               letterSpacing: 0.4,
                             ),
                           ),
@@ -290,7 +300,7 @@ class _SosConfirmationScreenState extends State<SosConfirmationScreen> {
 
               // Primary Action: Open Phone Dialer Again
               ElevatedButton.icon(
-                onPressed: () => launchGuardianDialer(phoneNumber: guardianPhone),
+                onPressed: hasPhone ? () => launchGuardianDialer(phoneNumber: guardianPhone) : null,
                 icon: const Icon(
                   Icons.phone_forwarded_rounded,
                   size: 26,
@@ -307,6 +317,8 @@ class _SosConfirmationScreenState extends State<SosConfirmationScreen> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.alertRed,
                   foregroundColor: Colors.white,
+                  disabledBackgroundColor: AppColors.ink.withValues(alpha: 0.3),
+                  disabledForegroundColor: Colors.white70,
                   minimumSize: const Size(double.infinity, 72),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(20),
