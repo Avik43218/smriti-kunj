@@ -213,22 +213,52 @@ export const CarePlan = () => {
 
       // Fetch real patient name
       try {
-        const p = await getPatientById(targetId);
+        const p = await getPatientById(targetId, {
+          onUpdate: (freshP) => {
+            if (isMounted && freshP && freshP.name) {
+              setPatientName(freshP.name);
+            }
+          },
+        });
         if (isMounted && p && p.name) {
           setPatientName(p.name);
         }
       } catch (_) {}
 
-      setIsLoadingMemories(true);
-      setIsLoadingReminders(true);
       setMemoryError('');
       setReminderError('');
-      setIsLoadingCompliance(true);
 
       try {
         const [membersData, remindersData, complianceData] = await Promise.all([
-          fetchFamilyMembers(targetId),
-          fetchReminders(targetId),
+          fetchFamilyMembers(targetId, {
+            onUpdate: (freshMembers) => {
+              if (isMounted && freshMembers) {
+                setFamilyMembers(freshMembers || []);
+                setIsLoadingMemories(false);
+              }
+            },
+          }),
+          fetchReminders(targetId, {
+            onUpdate: (freshReminders) => {
+              if (isMounted && freshReminders) {
+                setReminders({
+                  medication: [],
+                  meals: [],
+                  custom: [],
+                  ...(freshReminders || {}),
+                  hydration: {
+                    label: '',
+                    schedule: '',
+                    status: '',
+                    active: false,
+                    frequency: '',
+                    ...(freshReminders?.hydration || {}),
+                  },
+                });
+                setIsLoadingReminders(false);
+              }
+            },
+          }),
           getPatientComplianceDetails(targetId),
         ]);
 
@@ -249,6 +279,14 @@ export const CarePlan = () => {
             },
           });
           setCompliance(complianceData);
+
+          if (membersData !== undefined) {
+            setIsLoadingMemories(false);
+          }
+          if (remindersData !== undefined) {
+            setIsLoadingReminders(false);
+          }
+          setIsLoadingCompliance(false);
         }
       } catch (err) {
         if (isMounted) {

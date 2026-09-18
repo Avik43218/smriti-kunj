@@ -1,4 +1,5 @@
 import apiClient from './apiClient';
+import { swrFetch, invalidateCache } from './cacheService';
 
 /**
  * Reminder & Compliance Service
@@ -50,29 +51,44 @@ const getPatientComplianceRaw = (patientId) => {
 
 /**
  * Fetches all Health & Wellness reminders for a specific patient.
+ * Backed by lightweight SWR cache: checks localStorage, renders cached value
+ * immediately, and fetches fresh reminders in the background.
  * 
  * Uses GET /api/patients/:patientId/reminders with local fallback.
  * 
  * @param {string} patientId 
+ * @param {Object|Function} [options] - Options or onUpdate callback
+ * @param {Function} [options.onUpdate] - Callback when fresh data arrives
+ * @param {boolean} [options.forceRefresh] - Force network fetch
  * @returns {Promise<{ medication: Array, hydration: Object, meals: Array, custom: Array }>}
  */
-export const fetchReminders = async (patientId) => {
-  try {
-    const data = await apiClient(`/api/patients/${patientId}/reminders`);
-    if (data && (data.medication || data.hydration || data.meals || data.custom)) {
-      const normId = normalizePatientId(patientId);
-      remindersStore[normId] = data;
-      return JSON.parse(JSON.stringify(data));
-    }
-  } catch (err) {
-    console.warn(`apiClient /api/patients/${patientId}/reminders notice, using local cache:`, err.message);
-  }
+export const fetchReminders = async (patientId, options = {}) => {
+  if (!patientId) return { medication: [], hydration: {}, meals: [], custom: [] };
+  const onUpdate = typeof options === 'function' ? options : options?.onUpdate;
+  const forceRefresh = Boolean(options?.forceRefresh);
 
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      const data = getPatientRemindersRaw(patientId);
-      resolve(JSON.parse(JSON.stringify(data)));
-    }, 250);
+  const fetcher = async () => {
+    try {
+      const data = await apiClient(`/api/patients/${patientId}/reminders`);
+      if (data && (data.medication || data.hydration || data.meals || data.custom)) {
+        const normId = normalizePatientId(patientId);
+        remindersStore[normId] = data;
+        return JSON.parse(JSON.stringify(data));
+      }
+    } catch (err) {
+      console.warn(`apiClient /api/patients/${patientId}/reminders notice, using local cache:`, err.message);
+    }
+
+    const normId = normalizePatientId(patientId);
+    return JSON.parse(JSON.stringify(getPatientRemindersRaw(normId)));
+  };
+
+  return await swrFetch({
+    endpoint: `/api/patients/${patientId}/reminders`,
+    patientId,
+    fetcher,
+    onUpdate,
+    forceRefresh,
   });
 };
 
@@ -96,6 +112,7 @@ export const updateCategoryReminders = async (patientId, category, updatedData) 
       const normId = normalizePatientId(patientId);
       const patientReminders = getPatientRemindersRaw(normId);
       patientReminders[category] = data;
+      invalidateCache(`/api/patients/${patientId}/reminders`, patientId);
       return { success: true, data };
     }
   } catch (err) {
@@ -143,6 +160,7 @@ export const addCustomReminder = async ({ patientId, label, time, frequency = 'D
         patientReminders.custom = [];
       }
       patientReminders.custom.push(data);
+      invalidateCache(`/api/patients/${patientId}/reminders`, patientId);
       return data;
     }
   } catch (err) {
@@ -175,6 +193,7 @@ export const addCustomReminder = async ({ patientId, label, time, frequency = 'D
         patientReminders.custom = [];
       }
       patientReminders.custom.push(newCustomItem);
+      invalidateCache(`/api/patients/${patientId}/reminders`, patientId);
       resolve(newCustomItem);
     }, 350);
   });
