@@ -22,9 +22,27 @@ import {
   Utensils,
   Camera,
   Upload,
+  ChevronDown,
 } from 'lucide-react';
 import { registerPatient } from '../services/patientService';
 import { StyledSelect } from '../components/StyledSelect';
+
+const COUNTRY_CODES = [
+  { code: '+91', country: 'India', flag: '🇮🇳' },
+  { code: '+880', country: 'Bangladesh', flag: '🇧🇩' },
+  { code: '+977', country: 'Nepal', flag: '🇳🇵' },
+  { code: '+975', country: 'Bhutan', flag: '🇧🇹' },
+  { code: '+95', country: 'Myanmar', flag: '🇲🇲' },
+  { code: '+1', country: 'USA / Canada', flag: '🇺🇸' },
+  { code: '+44', country: 'UK', flag: '🇬🇧' },
+  { code: '+971', country: 'UAE', flag: '🇦🇪' },
+  { code: '+65', country: 'Singapore', flag: '🇸🇬' },
+  { code: '+61', country: 'Australia', flag: '🇦🇺' },
+  { code: '+966', country: 'Saudi Arabia', flag: '🇸🇦' },
+  { code: '+49', country: 'Germany', flag: '🇩🇪' },
+  { code: '+33', country: 'France', flag: '🇫🇷' },
+  { code: '+81', country: 'Japan', flag: '🇯🇵' },
+];
 
 const DIAGNOSIS_OPTIONS = [
   'Mild Cognitive Impairment (MCI)',
@@ -100,6 +118,7 @@ export const RegisterPatient = () => {
     emergencyContact: {
       name: '',
       relationship: '',
+      countryCode: '+91',
       phone: '',
     },
   });
@@ -240,8 +259,11 @@ export const RegisterPatient = () => {
       newErrors.dateOfBirth = 'Date of birth is required';
     }
 
-    if (formData.emergencyContact.phone.trim() && !/^[+0-9\s-]{7,16}$/.test(formData.emergencyContact.phone.trim())) {
-      newErrors.emergency_phone = 'Please enter a valid phone number (e.g. +91 98765 43210)';
+    const rawEmergencyDigits = (formData.emergencyContact.phone || '').trim().replace(/\D/g, '');
+    if (!rawEmergencyDigits) {
+      newErrors.emergency_phone = 'Phone number is required';
+    } else if (rawEmergencyDigits.length !== 10) {
+      newErrors.emergency_phone = 'Please enter a valid 10-digit mobile number';
     }
 
     setErrors(newErrors);
@@ -303,7 +325,11 @@ export const RegisterPatient = () => {
 
     const effectiveEmergencyName = formData.emergencyContact.name.trim() || 'Family Guardian';
     const effectiveEmergencyRel = formData.emergencyContact.relationship.trim() || 'Primary Guardian';
-    const effectiveEmergencyPhone = formData.emergencyContact.phone.trim() || '+91 98765 43210';
+    const emergencyCountryCode = formData.emergencyContact.countryCode || '+91';
+    const cleanEmergencyPhone = (formData.emergencyContact.phone || '').trim().replace(/\D/g, '');
+    const effectiveEmergencyPhone = cleanEmergencyPhone
+      ? `${emergencyCountryCode} ${cleanEmergencyPhone}`
+      : '+91 98765 43210';
 
     const effectiveWeight = formData.weight.trim()
       ? formData.weight.trim().toLowerCase().endsWith('kg')
@@ -478,6 +504,7 @@ export const RegisterPatient = () => {
                   emergencyContact: {
                     name: '',
                     relationship: '',
+                    countryCode: '+91',
                     phone: '',
                   },
                 });
@@ -948,27 +975,78 @@ export const RegisterPatient = () => {
                 )}
               </div>
 
-              {/* Phone Number */}
+              {/* Phone Number with Country Code Dropdown */}
               <div>
                 <label htmlFor="emergency-phone" className="block text-xs font-semibold text-ink-soft dark:text-cream/80 mb-1.5">
                   Phone Number <span className="text-terracotta">*</span>
                 </label>
-                <input
-                  id="emergency-phone"
-                  type="tel"
-                  value={formData.emergencyContact.phone}
-                  onChange={(e) => handleEmergencyChange('phone', e.target.value)}
-                  placeholder="+91 98765 43210"
-                  className={`w-full px-3.5 py-2.5 bg-cream/40 dark:bg-ink-soft/20 border rounded-xl text-sm text-ink dark:text-cream placeholder:text-ink-soft/50 dark:placeholder:text-cream/30 focus:outline-none focus:ring-2 focus:ring-terracotta/40 transition-colors shadow-xs ${
-                    errors.emergency_phone ? 'border-alert dark:border-gold/70 focus:border-alert' : 'border-border/80 dark:border-ink-soft/40 focus:border-terracotta'
-                  }`}
-                  aria-invalid={Boolean(errors.emergency_phone)}
-                />
-                {errors.emergency_phone && (
-                  <p className="text-xs text-alert dark:text-gold flex items-center gap-1 mt-1 font-medium">
-                    <AlertCircle className="w-3.5 h-3.5 text-alert dark:text-gold" />
+                <div className="flex items-center gap-2">
+                  {/* Country Code Dropdown (Shows ONLY selected dial code e.g. +91) */}
+                  <div className="relative shrink-0 w-[78px] rounded-xl focus-within:ring-2 focus-within:ring-terracotta/40 focus-within:border-terracotta transition-all">
+                    <div className="w-full px-2.5 py-2.5 bg-cream/40 dark:bg-ink-soft/20 border border-border/80 dark:border-ink-soft/40 rounded-xl text-xs sm:text-sm text-ink dark:text-cream font-medium shadow-xs flex items-center justify-between pointer-events-none">
+                      <span>{formData.emergencyContact.countryCode || '+91'}</span>
+                      <ChevronDown className="w-3.5 h-3.5 text-ink-soft dark:text-cream/60 shrink-0" />
+                    </div>
+                    <select
+                      id="emergency-country-code"
+                      value={formData.emergencyContact.countryCode || '+91'}
+                      onChange={(e) => handleEmergencyChange('countryCode', e.target.value)}
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer text-sm"
+                      aria-label="Country Code"
+                    >
+                      {COUNTRY_CODES.map((c) => (
+                        <option
+                          key={`${c.code}-${c.country}`}
+                          value={c.code}
+                          className="text-ink dark:text-cream bg-surface dark:bg-ink py-1"
+                        >
+                          {c.flag} {c.country} ({c.code})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* 10-Digit Mobile Input */}
+                  <div className="flex-1 relative">
+                    <input
+                      id="emergency-phone"
+                      type="tel"
+                      inputMode="numeric"
+                      maxLength={10}
+                      value={formData.emergencyContact.phone}
+                      onChange={(e) => {
+                        let val = e.target.value.replace(/\D/g, '');
+                        // If pasted with leading 91 or 0
+                        if (val.startsWith('91') && val.length === 12) {
+                          val = val.slice(2);
+                        } else if (val.startsWith('0') && val.length === 11) {
+                          val = val.slice(1);
+                        }
+                        val = val.slice(0, 10);
+                        handleEmergencyChange('phone', val);
+                      }}
+                      placeholder="9876543210"
+                      className={`w-full px-3.5 py-2.5 bg-cream/40 dark:bg-ink-soft/20 border rounded-xl text-sm text-ink dark:text-cream placeholder:text-ink-soft/50 dark:placeholder:text-cream/30 focus:outline-none focus:ring-2 focus:ring-terracotta/40 transition-colors shadow-xs tracking-wider font-mono ${
+                        errors.emergency_phone ? 'border-alert dark:border-gold/70 focus:border-alert' : 'border-border/80 dark:border-ink-soft/40 focus:border-terracotta'
+                      }`}
+                      aria-invalid={Boolean(errors.emergency_phone)}
+                    />
+                    {formData.emergencyContact.phone && (
+                      <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] text-ink-soft/60 dark:text-cream/40 font-mono pointer-events-none">
+                        {formData.emergencyContact.phone.length}/10
+                      </span>
+                    )}
+                  </div>
+                </div>
+                {errors.emergency_phone ? (
+                  <p className="text-xs text-alert dark:text-gold flex items-center gap-1 mt-1.5 font-medium">
+                    <AlertCircle className="w-3.5 h-3.5 text-alert dark:text-gold shrink-0" />
                     <span>{errors.emergency_phone}</span>
                   </p>
+                ) : (
+                  <span className="text-[11px] text-ink-soft/70 dark:text-cream/50 block mt-1">
+                    Enter 10-digit mobile number without leading 0 or country code.
+                  </span>
                 )}
               </div>
             </div>
