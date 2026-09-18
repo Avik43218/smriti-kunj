@@ -35,7 +35,7 @@ class ReminderDatabaseService {
 
     _db = await openDatabase(
       fullPath,
-      version: 6,
+      version: 7,
       onCreate: (db, version) async {
         await createTableIfNotExists(db);
       },

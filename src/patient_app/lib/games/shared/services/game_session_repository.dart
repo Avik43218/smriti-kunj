@@ -131,7 +131,7 @@ class GameSessionRepository {
   static final GameSessionRepository instance = GameSessionRepository._();
 
   static const _dbName = 'smriti_kunj_sessions.db';
-  static const _dbVersion = 4;
+  static const _dbVersion = 7;
   static const _table = 'game_sessions';
 
   Database? _db;

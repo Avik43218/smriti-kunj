@@ -163,6 +163,7 @@ void main() {
 
       // Verify local SQLite database is completely empty
       expect(await activityDb.getUnsyncedCount(), 0);
+      expect(activityDb.cachedUnsyncedCount, 0);
       final remaining = await activityDb.getUnsyncedActivities();
       expect(remaining.isEmpty, isTrue);
     });

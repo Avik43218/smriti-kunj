@@ -525,6 +525,7 @@ class _NavBarSyncButtonState extends State<_NavBarSyncButton>
     with SingleTickerProviderStateMixin {
   bool _isSyncing = false;
   late AnimationController _animController;
+  int _count = 0;
 
   @override
   void initState() {
@@ -533,12 +534,34 @@ class _NavBarSyncButtonState extends State<_NavBarSyncButton>
       vsync: this,
       duration: const Duration(milliseconds: 1000),
     );
+    _count = ActivityDatabaseService.instance.cachedUnsyncedCount;
+    ActivityDatabaseService.instance.addListener(_onDatabaseChanged);
+    _refreshCount();
   }
 
   @override
   void dispose() {
+    ActivityDatabaseService.instance.removeListener(_onDatabaseChanged);
     _animController.dispose();
     super.dispose();
+  }
+
+  void _onDatabaseChanged() {
+    if (mounted) {
+      setState(() {
+        _count = ActivityDatabaseService.instance.cachedUnsyncedCount;
+      });
+      _refreshCount();
+    }
+  }
+
+  Future<void> _refreshCount() async {
+    final count = await ActivityDatabaseService.instance.getUnsyncedCount();
+    if (mounted && _count != count) {
+      setState(() {
+        _count = count;
+      });
+    }
   }
 
   Future<void> _performSync() async {
@@ -642,6 +665,12 @@ class _NavBarSyncButtonState extends State<_NavBarSyncButton>
       await activityService.wipeCleanAllActivities();
       await GameSessionRepository.instance.clearAllSessions();
 
+      if (mounted) {
+        setState(() {
+          _count = 0;
+        });
+      }
+
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -691,108 +720,98 @@ class _NavBarSyncButtonState extends State<_NavBarSyncButton>
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: ActivityDatabaseService.instance,
-      builder: (context, _) {
-        return FutureBuilder<int>(
-          future: ActivityDatabaseService.instance.getUnsyncedCount(),
-          builder: (context, snapshot) {
-            final count = snapshot.data ?? 0;
-            final buttonColor = count > 0 ? AppColors.terracotta : AppColors.sageGreen;
-            final buttonSize = widget.size;
+    final count = _count;
+    final buttonColor = count > 0 ? AppColors.terracotta : AppColors.sageGreen;
+    final buttonSize = widget.size;
 
-            return Semantics(
-              button: true,
-              label: '${widget.strings.syncButton}. ${count > 0 ? "$count games ready to sync." : "All synced."}',
-              child: SizedBox(
-                width: buttonSize,
-                height: buttonSize,
-                child: Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    Container(
-                      width: buttonSize,
-                      height: buttonSize,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: buttonColor.withValues(alpha: 0.35),
-                            blurRadius: 14,
-                            spreadRadius: 1,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      child: Material(
-                        color: buttonColor,
-                        shape: const CircleBorder(),
-                        clipBehavior: Clip.antiAlias,
-                        child: InkWell(
-                          customBorder: const CircleBorder(),
-                          onTap: _isSyncing ? null : _performSync,
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              RotationTransition(
-                                turns: _animController,
-                                child: Icon(
-                                  Icons.sync_rounded,
-                                  size: buttonSize * 0.38,
-                                  color: Colors.white,
-                                ),
-                              ),
-                              const SizedBox(height: 2),
-                              FittedBox(
-                                fit: BoxFit.scaleDown,
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(horizontal: 4.0),
-                                  child: Text(
-                                    widget.strings.syncButton,
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: buttonSize * 0.16,
-                                      fontWeight: FontWeight.w700,
-                                      letterSpacing: 0.2,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
+    return Semantics(
+      button: true,
+      label: '${widget.strings.syncButton}. ${count > 0 ? "$count games ready to sync." : "All synced."}',
+      child: SizedBox(
+        width: buttonSize,
+        height: buttonSize,
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Container(
+              width: buttonSize,
+              height: buttonSize,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: buttonColor.withValues(alpha: 0.35),
+                    blurRadius: 14,
+                    spreadRadius: 1,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Material(
+                color: buttonColor,
+                shape: const CircleBorder(),
+                clipBehavior: Clip.antiAlias,
+                child: InkWell(
+                  customBorder: const CircleBorder(),
+                  onTap: _isSyncing ? null : _performSync,
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      RotationTransition(
+                        turns: _animController,
+                        child: Icon(
+                          Icons.sync_rounded,
+                          size: buttonSize * 0.38,
+                          color: Colors.white,
                         ),
                       ),
-                    ),
-                    if (count > 0)
-                      Positioned(
-                        right: 0,
-                        top: 0,
-                        child: Container(
-                          padding: const EdgeInsets.all(6),
-                          decoration: const BoxDecoration(
-                            color: AppColors.ink,
-                            shape: BoxShape.circle,
-                          ),
-                          constraints: const BoxConstraints(minWidth: 26, minHeight: 26),
-                          child: Center(
-                            child: Text(
-                              '$count',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                              ),
+                      const SizedBox(height: 2),
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                          child: Text(
+                            widget.strings.syncButton,
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: buttonSize * 0.16,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 0.2,
                             ),
                           ),
                         ),
                       ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
-            );
-          },
-        );
-      },
+            ),
+            if (count > 0)
+              Positioned(
+                right: 0,
+                top: 0,
+                child: Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: const BoxDecoration(
+                    color: AppColors.ink,
+                    shape: BoxShape.circle,
+                  ),
+                  constraints: const BoxConstraints(minWidth: 26, minHeight: 26),
+                  child: Center(
+                    child: Text(
+                      '$count',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
     );
   }
 }

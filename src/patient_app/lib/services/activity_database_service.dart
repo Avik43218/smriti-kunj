@@ -23,6 +23,11 @@ class ActivityDatabaseService extends ChangeNotifier {
   static const _pairingTable = 'app_pairing_code';
   static const _diagnosisTable = 'patient_diagnosis';
 
+  int _cachedUnsyncedCount = 0;
+
+  /// Instant synchronous access to the last known unsynced activity count.
+  int get cachedUnsyncedCount => _cachedUnsyncedCount;
+
   Database? _db;
 
   @visibleForTesting
@@ -127,6 +132,19 @@ class ActivityDatabaseService extends ChangeNotifier {
         diagnosis    TEXT    NOT NULL,
         priority     INTEGER NOT NULL,
         fetched_at   TEXT    NOT NULL
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS game_sessions (
+        id           INTEGER PRIMARY KEY AUTOINCREMENT,
+        session_id   TEXT    NOT NULL UNIQUE,
+        patient_id   TEXT    NOT NULL,
+        game_type    TEXT    NOT NULL,
+        session_date TEXT    NOT NULL,
+        synced       INTEGER NOT NULL DEFAULT 0,
+        created_at   TEXT    NOT NULL,
+        payload      TEXT    NOT NULL
       )
     ''');
   }
@@ -483,6 +501,7 @@ class ActivityDatabaseService extends ChangeNotifier {
       );
       debugPrint('[ActivityDatabaseService] Recorded game ${toSave.gameName} '
           '(ID: $id, session: ${toSave.clientSessionId}, pairingCode: ${toSave.pairingCode})');
+      _cachedUnsyncedCount++;
       notifyListeners();
       return id;
     } catch (e) {
@@ -530,10 +549,11 @@ class ActivityDatabaseService extends ChangeNotifier {
       final count = Sqflite.firstIntValue(
         await db.rawQuery('SELECT COUNT(*) FROM $_table WHERE is_synced = 0'),
       );
-      return count ?? 0;
+      _cachedUnsyncedCount = count ?? 0;
+      return _cachedUnsyncedCount;
     } catch (e) {
       debugPrint('[ActivityDatabaseService] Error getting unsynced count: $e');
-      return 0;
+      return _cachedUnsyncedCount;
     }
   }
 
@@ -548,6 +568,14 @@ class ActivityDatabaseService extends ChangeNotifier {
         where: 'client_session_id IN ($placeholders)',
         whereArgs: clientSessionIds,
       );
+      try {
+        await db.delete(
+          'game_sessions',
+          where: 'session_id IN ($placeholders)',
+          whereArgs: clientSessionIds,
+        );
+      } catch (_) {}
+      await getUnsyncedCount();
       debugPrint('[ActivityDatabaseService] Wiped clean $deleted transferred activities from SQLite.');
       notifyListeners();
       return deleted;
@@ -567,6 +595,10 @@ class ActivityDatabaseService extends ChangeNotifier {
     try {
       final db = await database;
       final deleted = await db.delete(_table);
+      try {
+        await db.delete('game_sessions');
+      } catch (_) {}
+      _cachedUnsyncedCount = 0;
       debugPrint('[ActivityDatabaseService] Wiped clean all ($deleted) activities from SQLite.');
       notifyListeners();
       return deleted;
