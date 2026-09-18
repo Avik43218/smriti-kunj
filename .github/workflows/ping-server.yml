@@ -1,0 +1,14 @@
+name: Ping Backend Server
+
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Render Backend
+        run: |
+          curl -f -s -o /dev/null -w "Status: %{http_code}\n" https://smriti-kunj.onrender.com/ping || echo "Backend waking up..."
