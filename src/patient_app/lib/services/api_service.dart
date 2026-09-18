@@ -59,6 +59,49 @@ class ApiService {
     _customBaseUrl = url.trim().replaceAll(RegExp(r'/+$'), '');
   }
 
+  /// Checks whether the FastAPI backend is reachable and healthy.
+  /// Probes candidateBaseUrls via GET /health (which verifies FastAPI + MongoDB)
+  /// and falls back to GET /ping.
+  /// If responsive (HTTP 200), locks in _customBaseUrl and returns true.
+  /// If all candidates fail or timeout, returns false.
+  Future<bool> isBackendReachable({Duration timeout = const Duration(seconds: 3)}) async {
+    final urls = candidateBaseUrls;
+    for (final base in urls) {
+      // 1. Try GET /health (verifies FastAPI and MongoDB connectivity)
+      try {
+        final healthUri = Uri.parse('$base/health');
+        final response = await http
+            .get(healthUri, headers: {'Accept': 'application/json'})
+            .timeout(timeout);
+
+        if (response.statusCode == 200) {
+          _customBaseUrl = base;
+          debugPrint('[ApiService] Backend is reachable at: $base (via /health)');
+          return true;
+        }
+      } catch (e) {
+        debugPrint('[ApiService] Reachability check (/health) failed for $base: $e');
+      }
+
+      // 2. Fallback: try GET /ping
+      try {
+        final pingUri = Uri.parse('$base/ping');
+        final response = await http.get(pingUri).timeout(timeout);
+
+        if (response.statusCode == 200) {
+          _customBaseUrl = base;
+          debugPrint('[ApiService] Backend is reachable at: $base (via /ping)');
+          return true;
+        }
+      } catch (e) {
+        debugPrint('[ApiService] Reachability check (/ping) failed for $base: $e');
+      }
+    }
+
+    debugPrint('[ApiService] Backend is NOT reachable on any candidate URL.');
+    return false;
+  }
+
   // BACKEND-TODO: see ../../docs/API_ENDPOINTS_NEEDED.md §1 Patient Device Pairing
   /// Authenticate and register the patient tablet using the pair code generated during registration.
   /// Calls POST /api/auth/patient/pair across candidate base URLs.

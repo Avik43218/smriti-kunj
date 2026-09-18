@@ -557,6 +557,11 @@ class ActivityDatabaseService extends ChangeNotifier {
     }
   }
 
+  /// Flushes all game session activities from the local SQLite database.
+  Future<int> flushGameSessions() async {
+    return await wipeCleanAllActivities();
+  }
+
   /// Wipes clean all activities from SQLite database.
   Future<int> wipeCleanAllActivities() async {
     try {

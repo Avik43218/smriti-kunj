@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
+import '../games/shared/services/game_session_repository.dart';
 import '../models/patient_activity.dart';
 import '../services/activity_database_service.dart';
 import '../services/api_service.dart';
@@ -547,7 +548,31 @@ class _NavBarSyncButtonState extends State<_NavBarSyncButton>
 
     final activityService = ActivityDatabaseService.instance;
     try {
-      // 1. Verify pairing code exists in local SQLite database
+      // 1. First check whether the backend is reachable or not
+      final isAvailable = await ApiService.instance.isBackendReachable();
+      if (!isAvailable) {
+        debugPrint('[HomeScreen] Backend unreachable. Sync aborted, local data preserved.');
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Row(
+              children: [
+                Icon(Icons.cloud_off_rounded, color: Colors.white, size: 20),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Text('Saved locally on device. Will sync once backend is reachable.'),
+                ),
+              ],
+            ),
+            backgroundColor: AppColors.terracotta,
+            behavior: SnackBarBehavior.floating,
+            duration: Duration(seconds: 3),
+          ),
+        );
+        return;
+      }
+
+      // 2. Verify pairing code exists in local SQLite database
       final activeCode = await activityService.getActivePairingCode();
       if (activeCode == null || activeCode.isEmpty) {
         if (!mounted) return;
@@ -561,16 +586,8 @@ class _NavBarSyncButtonState extends State<_NavBarSyncButton>
         return;
       }
 
-      var pending = await activityService.getUnsyncedActivities();
-
-      // If nothing pending, seed a starter activity so user/evaluator can test right away
-      if (pending.isEmpty) {
-        await activityService.seedSampleActivityIfEmpty(
-          widget.session.patientId,
-          pairingCode: widget.session.pairingCode ?? activeCode,
-        );
-        pending = await activityService.getUnsyncedActivities();
-      }
+      // 3. Query pending activities waiting for sync (without auto-seeding dummy data)
+      final pending = await activityService.getUnsyncedActivities();
 
       if (pending.isEmpty) {
         if (!mounted) return;
@@ -584,11 +601,15 @@ class _NavBarSyncButtonState extends State<_NavBarSyncButton>
         return;
       }
 
-      // 2. The sync system only works if the pairing code associated with the stored game activities exists in the database
+      // 4. Validate activities matching local pairing code
       final validToSync = <PatientActivityRecord>[];
       for (final act in pending) {
         final code = act.pairingCode;
         if (code != null && code.isNotEmpty && await activityService.hasPairingCode(code)) {
+          validToSync.add(act);
+        } else if (code == null || code.isEmpty) {
+          validToSync.add(act.copyWith(pairingCode: activeCode));
+        } else if (code.toUpperCase() == activeCode.toUpperCase()) {
           validToSync.add(act);
         } else {
           debugPrint(
@@ -609,7 +630,7 @@ class _NavBarSyncButtonState extends State<_NavBarSyncButton>
         return;
       }
 
-      // 3. Send only game activities over to MongoDB for the patient matching the local pairing code
+      // 5. Send only game activities over to MongoDB for the patient matching the local pairing code
       final accepted = await ApiService.instance.syncBatchActivities(
         activities: validToSync,
         token: widget.session.authToken,
@@ -617,9 +638,9 @@ class _NavBarSyncButtonState extends State<_NavBarSyncButton>
         pairingCode: activeCode,
       );
 
-      // CRITICAL REQUIREMENT: Wipe clean transferred activities from SQLite once transferred to MongoDB
-      final sessionIds = validToSync.map((a) => a.clientSessionId).toList();
-      await activityService.deleteActivities(sessionIds);
+      // 6. Flush the local SQLite database now that backend received data
+      await activityService.wipeCleanAllActivities();
+      await GameSessionRepository.instance.clearAllSessions();
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

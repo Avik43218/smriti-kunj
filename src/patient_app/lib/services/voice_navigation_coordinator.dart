@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/patient_activity.dart';
+import '../games/shared/services/game_session_repository.dart';
 import '../services/activity_database_service.dart';
 import '../services/difficulty_database_service.dart';
 import '../services/locale_service.dart';
@@ -352,6 +353,31 @@ class VoiceNavigationCoordinator {
     final strings = AppStrings(locale.lang);
 
     try {
+      // 1. First check whether the backend is reachable or not
+      final isAvailable = await ApiService.instance.isBackendReachable();
+      if (!isAvailable) {
+        debugPrint('[VoiceNavigationCoordinator] Backend unreachable. Sync aborted, local data preserved.');
+        if (!context.mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Row(
+              children: [
+                Icon(Icons.cloud_off_rounded, color: Colors.white, size: 20),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Text('Saved locally on device. Will sync once backend is reachable.'),
+                ),
+              ],
+            ),
+            backgroundColor: AppColors.terracotta,
+            behavior: SnackBarBehavior.floating,
+            duration: Duration(seconds: 3),
+          ),
+        );
+        return;
+      }
+
+      // 2. Verify pairing code exists in local SQLite database
       final activeCode = await activityService.getActivePairingCode();
       if (activeCode == null || activeCode.isEmpty) {
         if (!context.mounted) return;
@@ -365,14 +391,8 @@ class VoiceNavigationCoordinator {
         return;
       }
 
-      var pending = await activityService.getUnsyncedActivities();
-      if (pending.isEmpty) {
-        await activityService.seedSampleActivityIfEmpty(
-          session.patientId,
-          pairingCode: session.pairingCode ?? activeCode,
-        );
-        pending = await activityService.getUnsyncedActivities();
-      }
+      // 3. Query pending activities waiting for sync (without auto-seeding dummy data)
+      final pending = await activityService.getUnsyncedActivities();
 
       if (pending.isEmpty) {
         if (!context.mounted) return;
@@ -386,10 +406,15 @@ class VoiceNavigationCoordinator {
         return;
       }
 
+      // 4. Validate activities matching local pairing code
       final validToSync = <PatientActivityRecord>[];
       for (final act in pending) {
         final code = act.pairingCode;
         if (code != null && code.isNotEmpty && await activityService.hasPairingCode(code)) {
+          validToSync.add(act);
+        } else if (code == null || code.isEmpty) {
+          validToSync.add(act.copyWith(pairingCode: activeCode));
+        } else if (code.toUpperCase() == activeCode.toUpperCase()) {
           validToSync.add(act);
         }
       }
@@ -406,6 +431,7 @@ class VoiceNavigationCoordinator {
         return;
       }
 
+      // 5. Send only game activities over to MongoDB for the patient matching the local pairing code
       final accepted = await ApiService.instance.syncBatchActivities(
         activities: validToSync,
         token: session.authToken,
@@ -413,8 +439,9 @@ class VoiceNavigationCoordinator {
         pairingCode: activeCode,
       );
 
-      final sessionIds = validToSync.map((a) => a.clientSessionId).toList();
-      await activityService.deleteActivities(sessionIds);
+      // 6. Flush the local SQLite database now that backend received data
+      await activityService.wipeCleanAllActivities();
+      await GameSessionRepository.instance.clearAllSessions();
 
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

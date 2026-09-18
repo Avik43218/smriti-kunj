@@ -307,4 +307,17 @@ class GameSessionRepository {
       return 0;
     }
   }
+
+  /// Flushes all game sessions from the local SQLite table.
+  Future<int> clearAllSessions() async {
+    try {
+      final db = await _getDb();
+      final deleted = await db.delete(_table);
+      debugPrint('[GameSessionRepository] Cleared all ($deleted) sessions from SQLite.');
+      return deleted;
+    } catch (e) {
+      debugPrint('[GameSessionRepository] clearAllSessions error: $e');
+      return 0;
+    }
+  }
 }
