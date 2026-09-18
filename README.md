@@ -296,4 +296,4 @@ python risk_batch_inference.py --demo
 
 ## 📄 License & Attribution
 
-This project is licensed under the terms of the Apache License 2.0. See [LICENSE](./LICENSE) for details. Built with care for elderly cognitive independence and caregiver peace of mind.
+This project is licensed under the terms of the Apache License. See [LICENSE](./LICENSE) for details. Built with care for elderly cognitive independence and caregiver peace of mind.
