@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { DOMAINS, formatDuration } from '../services/gameSessionService';
+import { downloadPatientStatsCsv } from '../services/csvExportService';
 
 export const PatientReportCardModal = ({
   isOpen,
@@ -114,6 +115,17 @@ export const PatientReportCardModal = ({
   // Trigger browser print
   const handlePrint = () => {
     window.print();
+  };
+
+  // Trigger Standalone CSV Stats Download
+  const handleDownloadCsv = () => {
+    downloadPatientStatsCsv({
+      patient,
+      sessions,
+      stats,
+      riskData: riskOverview,
+      domainData,
+    });
   };
 
   // Trigger Standalone HTML Download
@@ -504,6 +516,16 @@ export const PatientReportCardModal = ({
             >
               <Download className="w-3.5 h-3.5" />
               <span>Download (.html)</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleDownloadCsv}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-terracotta hover:bg-terracotta-dark text-cream text-xs font-semibold rounded-lg transition-all shadow-2xs cursor-pointer active:scale-95"
+              title="Download full numerical statistics as a CSV file"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span>Download Stats</span>
             </button>
 
             <button

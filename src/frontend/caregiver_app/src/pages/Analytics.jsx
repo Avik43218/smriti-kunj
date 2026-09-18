@@ -23,12 +23,13 @@ import {
   HelpCircle,
   RefreshCw,
   Award,
-  FileText,
+  Download,
 } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 import { fetchPatients, getPatientById } from '../services/patientService';
 import { fetchPatientRiskOverview } from '../services/riskService';
 import { PatientReportCardModal } from '../components/PatientReportCardModal';
+import { downloadPatientStatsCsv } from '../services/csvExportService';
 import {
   getGameSessions,
   DOMAINS,
@@ -167,6 +168,17 @@ export const Analytics = () => {
   useEffect(() => {
     loadData();
   }, [id]);
+
+  const handleDownloadCsv = () => {
+    if (!patient) return;
+    downloadPatientStatsCsv({
+      patient,
+      sessions,
+      stats,
+      riskData,
+      domainData,
+    });
+  };
 
   // Scroll to session history table when hash is #session-history
   useEffect(() => {
@@ -474,11 +486,13 @@ export const Analytics = () => {
 
             <button
               type="button"
-              onClick={() => setShowReportModal(true)}
-              className="inline-flex items-center justify-center gap-2 px-4 py-3 bg-terracotta hover:bg-terracotta/90 text-cream text-xs sm:text-sm font-bold rounded-card shadow-sm hover:shadow transition-all cursor-pointer h-full self-stretch min-h-[58px]"
+              onClick={handleDownloadCsv}
+              disabled={!patient}
+              className="inline-flex items-center justify-center gap-2 px-5 py-3 bg-terracotta hover:bg-terracotta-dark text-cream text-xs sm:text-sm font-bold rounded-card shadow-sm hover:shadow active:scale-95 transition-all cursor-pointer h-full self-stretch min-h-[58px] focus:outline-none focus:ring-2 focus:ring-terracotta/40"
+              title="Download all numerical stats and session logs in CSV format"
             >
-              <FileText className="w-4 h-4" />
-              <span>Download Report Card</span>
+              <Download className="w-4 h-4 text-cream" />
+              <span>Download Stats</span>
             </button>
           </div>
         </div>
