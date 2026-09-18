@@ -124,10 +124,10 @@ async def predict_patients_risk(payload: BatchRiskPredictionRequest):
     return result
 
 
-@router.get("/demo-patients", response_model=BatchRiskPredictionResponse)
-async def get_demo_risk_overview():
-    """Returns evaluated risk grades for realistic benchmark patients."""
-    return evaluate_patients_risk(DEMO_PATIENTS)
+# @router.get("/demo-patients", response_model=BatchRiskPredictionResponse)
+# async def get_demo_risk_overview():
+#     """Returns evaluated risk grades for realistic benchmark patients."""
+#     return evaluate_patients_risk(DEMO_PATIENTS)
 
 
 @router.get("/patient-overview", response_model=BatchRiskPredictionResponse)
@@ -146,7 +146,7 @@ async def get_caregiver_patient_risk_overview(caregiver: User = Depends(require_
         patients = []
 
     if not patients:
-        return evaluate_patients_risk(DEMO_PATIENTS)
+        return evaluate_patients_risk([])
 
     aggregated_patients: List[Dict[str, Any]] = []
 

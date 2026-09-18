@@ -4,11 +4,11 @@ import React from 'react';
  * PasswordStrengthIndicator Component
  * 
  * Evaluates password strength. Displays a 5-segment visual meter and text label:
- * 1. Very Weak (passwordStrength.1: #E2A48E)
- * 2. Weak (passwordStrength.2: #D47D5C)
- * 3. Fair (passwordStrength.3: #C55F35)
- * 4. Strong (passwordStrength.4: #A8441F)
- * 5. Very Strong (passwordStrength.5: #7E2D11)
+ * 1. Very Weak (Terracotta: #B5562F)
+ * 2. Weak (Soft Warm Terracotta: #D47D5C)
+ * 3. Fair (Brand Gold: #C9962C)
+ * 4. Strong (Brand Sage: #6E8C6A)
+ * 5. Very Strong (Deep Sage: #4E7A4A)
  * 
  * Criteria:
  * - Length: 8+ chars (base requirement for Fair+), 12+ chars bonus, 16+ chars bonus
@@ -64,37 +64,37 @@ export const PasswordStrengthIndicator = ({ password = '' }) => {
   }
 
   // Tier configuration based on score (1 to 5)
-  // Uses dedicated passwordStrength terracotta monochromatic gradient tokens from tailwind.config.js
+  // Progressive palette: Terracotta (1 & 2) -> Gold (3) -> Sage (4 & 5)
   const TIERS = {
     1: {
       label: 'Very Weak',
       barCount: 1,
       color: 'bg-passwordStrength-1',
-      textColor: 'text-passwordStrength-2 dark:text-passwordStrength-1',
+      textColor: 'text-passwordStrength-1-text dark:text-passwordStrength-1-text-dark',
     },
     2: {
       label: 'Weak',
       barCount: 2,
       color: 'bg-passwordStrength-2',
-      textColor: 'text-passwordStrength-3 dark:text-passwordStrength-2',
+      textColor: 'text-passwordStrength-2-text dark:text-passwordStrength-2-text-dark',
     },
     3: {
       label: 'Fair',
       barCount: 3,
       color: 'bg-passwordStrength-3',
-      textColor: 'text-passwordStrength-3 dark:text-passwordStrength-2',
+      textColor: 'text-passwordStrength-3-text dark:text-passwordStrength-3-text-dark',
     },
     4: {
       label: 'Strong',
       barCount: 4,
       color: 'bg-passwordStrength-4',
-      textColor: 'text-passwordStrength-4 dark:text-passwordStrength-2',
+      textColor: 'text-passwordStrength-4-text dark:text-passwordStrength-4-text-dark',
     },
     5: {
       label: 'Very Strong',
       barCount: 5,
       color: 'bg-passwordStrength-5',
-      textColor: 'text-passwordStrength-5 dark:text-passwordStrength-1',
+      textColor: 'text-passwordStrength-5-text dark:text-passwordStrength-5-text-dark',
     },
   };
 

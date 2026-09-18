@@ -131,7 +131,7 @@ class GameSessionRepository {
   static final GameSessionRepository instance = GameSessionRepository._();
 
   static const _dbName = 'smriti_kunj_sessions.db';
-  static const _dbVersion = 4;
+  static const _dbVersion = 7;
   static const _table = 'game_sessions';
 
   Database? _db;
@@ -304,6 +304,19 @@ class GameSessionRepository {
           'SELECT COUNT(*) as c FROM $_table WHERE synced = 0');
       return (result.first['c'] as int?) ?? 0;
     } catch (_) {
+      return 0;
+    }
+  }
+
+  /// Flushes all game sessions from the local SQLite table.
+  Future<int> clearAllSessions() async {
+    try {
+      final db = await _getDb();
+      final deleted = await db.delete(_table);
+      debugPrint('[GameSessionRepository] Cleared all ($deleted) sessions from SQLite.');
+      return deleted;
+    } catch (e) {
+      debugPrint('[GameSessionRepository] clearAllSessions error: $e');
       return 0;
     }
   }

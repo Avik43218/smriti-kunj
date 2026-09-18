@@ -410,7 +410,25 @@ class TestCaregiverAndPatientEndpoints(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(res.guardian_phone, "+91 98765 43210")
         self.assertEqual(res.guardian_name, "Priya Sharma")
 
+    async def test_health_success(self):
+        from app.main import health
+        with patch("app.main.db.command", new_callable=AsyncMock) as mock_ping:
+            mock_ping.return_value = {"ok": 1.0}
+            res = await health()
+            self.assertEqual(res, {"status": "healthy", "database": "connected"})
+
+    async def test_health_db_failure(self):
+        from app.main import health
+        with patch("app.main.db.command", new_callable=AsyncMock) as mock_ping:
+            mock_ping.side_effect = Exception("connection failure")
+            res = await health()
+            self.assertEqual(res.status_code, 503)
+            import json
+            body = json.loads(res.body.decode())
+            self.assertEqual(body["status"], "unhealthy")
+            self.assertIn("connection failure", body["database"])
 
 
 if __name__ == "__main__":
     unittest.main()
+

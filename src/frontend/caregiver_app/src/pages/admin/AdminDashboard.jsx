@@ -107,7 +107,7 @@ export const AdminDashboard = () => {
           <div>
             <p className="text-xs sm:text-sm font-medium text-ink-soft dark:text-cream/70">Total Caregivers</p>
             <p className="text-2xl sm:text-3xl font-bold tracking-tight text-ink dark:text-cream mt-1">{totalCaregivers}</p>
-            <p className="text-xs text-sage font-medium mt-0.5">{activeCaregivers} active on roster</p>
+            <p className="text-xs text-sage font-medium mt-0.5">{activeCaregivers} active on portal</p>
           </div>
           <div className="w-10 h-10 rounded-full bg-cream dark:bg-ink-soft/30 border border-border/80 dark:border-ink-soft/40 flex items-center justify-center text-ink-soft dark:text-cream/70 shadow-xs">
             <Users className="w-5 h-5 text-terracotta" />
@@ -151,7 +151,7 @@ export const AdminDashboard = () => {
                 <UserCheck className="w-4 h-4" />
               </div>
               <h2 className="text-base sm:text-lg font-bold text-ink dark:text-cream group-hover:text-terracotta transition-colors">
-                Manage Caregiver Roster
+                Manage Caregiver Portal
               </h2>
             </div>
             <p className="text-xs sm:text-sm text-ink-soft dark:text-cream/70 leading-relaxed">
@@ -194,7 +194,7 @@ export const AdminDashboard = () => {
               <Users className="w-4 h-4" />
             </div>
             <h2 className="text-lg sm:text-xl font-bold text-ink dark:text-cream">
-              Caregiver Roster Snapshot
+              Caregiver Portal Snapshot
             </h2>
           </div>
           <Link

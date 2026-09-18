@@ -1,8 +1,9 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Response, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from app.api.routes import admin, analytics, auth, caregiver, difficulty, patients, risk, sync, voice
-from app.database import init_db
+from app.database import db, init_db
 
 app = FastAPI(title="Cognitive Assist API")
 
@@ -31,6 +32,30 @@ async def on_startup():
     await init_db()
 
 
-@app.get("/health")
-def health():
-    return {"status": "ok"}
+@app.get("/health", status_code=status.HTTP_200_OK)
+async def health():
+    health_status = {
+        "status": "healthy",
+        "database": "connected",
+    }
+
+    try:
+        # Run a minimal, lightweight ping against MongoDB
+        # Using a low timeout ensures the health check fails fast rather than hanging
+        await db.command("ping")
+    except Exception as e:
+        health_status["status"] = "unhealthy"
+        health_status["database"] = f"disconnected: {str(e)}"
+
+        # Return 503 so Render natively marks the instance as failing
+        return JSONResponse(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            content=health_status,
+        )
+
+    return health_status
+
+
+@app.get("/ping", status_code=status.HTTP_200_OK)
+async def ping():
+    return Response(content="pong", media_type="text/plain")

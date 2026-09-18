@@ -23,11 +23,12 @@ class ApiService {
   List<String> get candidateBaseUrls {
     final defaultUrls = <String>[];
     if (kIsWeb) {
-      defaultUrls.addAll(['http://localhost:8000', 'http://127.0.0.1:8000']);
+      defaultUrls.addAll(['http://fedora:8000', 'http://localhost:8000', 'http://127.0.0.1:8000']);
     } else {
       try {
         if (Platform.isAndroid) {
           defaultUrls.addAll([
+            'http://fedora:8000',
             'http://10.0.2.2:8000',
             'http://127.0.0.1:8000',
             'http://localhost:8000',
@@ -36,6 +37,7 @@ class ApiService {
       } catch (_) {}
       if (defaultUrls.isEmpty) {
         defaultUrls.addAll([
+          'http://fedora:8000',
           'http://127.0.0.1:8000',
           'http://localhost:8000',
           'http://10.0.2.2:8000',
@@ -55,6 +57,49 @@ class ApiService {
 
   set baseUrl(String url) {
     _customBaseUrl = url.trim().replaceAll(RegExp(r'/+$'), '');
+  }
+
+  /// Checks whether the FastAPI backend is reachable and healthy.
+  /// Probes candidateBaseUrls via GET /health (which verifies FastAPI + MongoDB)
+  /// and falls back to GET /ping.
+  /// If responsive (HTTP 200), locks in _customBaseUrl and returns true.
+  /// If all candidates fail or timeout, returns false.
+  Future<bool> isBackendReachable({Duration timeout = const Duration(seconds: 3)}) async {
+    final urls = candidateBaseUrls;
+    for (final base in urls) {
+      // 1. Try GET /health (verifies FastAPI and MongoDB connectivity)
+      try {
+        final healthUri = Uri.parse('$base/health');
+        final response = await http
+            .get(healthUri, headers: {'Accept': 'application/json'})
+            .timeout(timeout);
+
+        if (response.statusCode == 200) {
+          _customBaseUrl = base;
+          debugPrint('[ApiService] Backend is reachable at: $base (via /health)');
+          return true;
+        }
+      } catch (e) {
+        debugPrint('[ApiService] Reachability check (/health) failed for $base: $e');
+      }
+
+      // 2. Fallback: try GET /ping
+      try {
+        final pingUri = Uri.parse('$base/ping');
+        final response = await http.get(pingUri).timeout(timeout);
+
+        if (response.statusCode == 200) {
+          _customBaseUrl = base;
+          debugPrint('[ApiService] Backend is reachable at: $base (via /ping)');
+          return true;
+        }
+      } catch (e) {
+        debugPrint('[ApiService] Reachability check (/ping) failed for $base: $e');
+      }
+    }
+
+    debugPrint('[ApiService] Backend is NOT reachable on any candidate URL.');
+    return false;
   }
 
   // BACKEND-TODO: see ../../docs/API_ENDPOINTS_NEEDED.md §1 Patient Device Pairing
@@ -85,7 +130,7 @@ class ApiService {
               body: jsonEncode({
                 'pairing_code': cleanCode,
                 'device_id': deviceId ?? 'DEV-${DateTime.now().millisecondsSinceEpoch}',
-                'device_name': deviceName ?? 'Smriti Kunj Patient Tablet',
+                'device_name': deviceName ?? 'Smriti Kunj Patient Device',
               }),
             )
             .timeout(const Duration(seconds: 4));

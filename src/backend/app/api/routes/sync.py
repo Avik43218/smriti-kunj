@@ -129,7 +129,7 @@ async def resolve_sync_patient(
             patient_code="p101",
             region_language="bn",
             status="stable",
-            status_label="Active • Tablet synced",
+            status_label="Active • Device synced",
         )
         await user.insert()
 
@@ -238,13 +238,13 @@ async def sync_batch(
 
     # Update patient's MongoDB record with permanent sync status
     patient.last_check_in = "Just now"
-    patient.status_label = "Active • Tablet synced"
+    patient.status_label = "Active • Device synced"
     if not patient.device_status:
         patient.device_status = {}
     patient.device_status["lastSynced"] = now_utc.isoformat()
     patient.device_status["linked"] = True
     patient.device_status["deviceName"] = (
-        patient.device_status.get("deviceName") or "Smriti Kunj Patient Tablet"
+        patient.device_status.get("deviceName") or "Smriti Kunj Patient Device"
     )
     await patient.save()
 

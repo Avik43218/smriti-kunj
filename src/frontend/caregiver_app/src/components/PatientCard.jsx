@@ -6,7 +6,7 @@ import { getCareStatusConfig } from '../services/patientService';
 /**
  * PatientCard Component
  * 
- * Renders a patient summary card for the caregiver dashboard roster.
+ * Renders a patient summary card for the caregiver dashboard portal.
  * Navigates directly to /patients/:id/details.
  * 
  * Features:

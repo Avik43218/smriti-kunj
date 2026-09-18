@@ -47,7 +47,7 @@ class DifficultyDatabaseService {
 
     _db = await openDatabase(
       fullPath,
-      version: 4,
+      version: 7,
       onCreate: (db, version) async {
         await _createTables(db);
       },

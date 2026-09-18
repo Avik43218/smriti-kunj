@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
+import '../games/shared/services/game_session_repository.dart';
 import '../models/patient_activity.dart';
 import '../services/activity_database_service.dart';
 import '../services/api_service.dart';
@@ -305,8 +306,8 @@ class _HeaderMenuDropdown extends StatelessWidget {
                       color: AppColors.terracottaDark,
                       size: 24,
                     ),
-                    const SizedBox(width: 12),
-                    const Expanded(
+                    SizedBox(width: 12),
+                    Expanded(
                       child: Text(
                         'Log Out',
                         style: TextStyle(
@@ -481,7 +482,11 @@ class _PatientBottomNavBar extends StatelessWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
-            _NavBarSyncButton(session: session, strings: strings),
+            _NavBarSyncButton(
+              session: session,
+              strings: strings,
+              size: 80.0,
+            ),
             VoiceNavButton(
               size: 80.0,
               inactiveLabel: strings.voiceButton,
@@ -520,6 +525,7 @@ class _NavBarSyncButtonState extends State<_NavBarSyncButton>
     with SingleTickerProviderStateMixin {
   bool _isSyncing = false;
   late AnimationController _animController;
+  int _count = 0;
 
   @override
   void initState() {
@@ -528,12 +534,34 @@ class _NavBarSyncButtonState extends State<_NavBarSyncButton>
       vsync: this,
       duration: const Duration(milliseconds: 1000),
     );
+    _count = ActivityDatabaseService.instance.cachedUnsyncedCount;
+    ActivityDatabaseService.instance.addListener(_onDatabaseChanged);
+    _refreshCount();
   }
 
   @override
   void dispose() {
+    ActivityDatabaseService.instance.removeListener(_onDatabaseChanged);
     _animController.dispose();
     super.dispose();
+  }
+
+  void _onDatabaseChanged() {
+    if (mounted) {
+      setState(() {
+        _count = ActivityDatabaseService.instance.cachedUnsyncedCount;
+      });
+      _refreshCount();
+    }
+  }
+
+  Future<void> _refreshCount() async {
+    final count = await ActivityDatabaseService.instance.getUnsyncedCount();
+    if (mounted && _count != count) {
+      setState(() {
+        _count = count;
+      });
+    }
   }
 
   Future<void> _performSync() async {
@@ -543,7 +571,31 @@ class _NavBarSyncButtonState extends State<_NavBarSyncButton>
 
     final activityService = ActivityDatabaseService.instance;
     try {
-      // 1. Verify pairing code exists in local SQLite database
+      // 1. First check whether the backend is reachable or not
+      final isAvailable = await ApiService.instance.isBackendReachable();
+      if (!isAvailable) {
+        debugPrint('[HomeScreen] Backend unreachable. Sync aborted, local data preserved.');
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Row(
+              children: [
+                Icon(Icons.cloud_off_rounded, color: Colors.white, size: 20),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Text('Saved locally on device. Will sync once backend is reachable.'),
+                ),
+              ],
+            ),
+            backgroundColor: AppColors.terracotta,
+            behavior: SnackBarBehavior.floating,
+            duration: Duration(seconds: 3),
+          ),
+        );
+        return;
+      }
+
+      // 2. Verify pairing code exists in local SQLite database
       final activeCode = await activityService.getActivePairingCode();
       if (activeCode == null || activeCode.isEmpty) {
         if (!mounted) return;
@@ -557,16 +609,8 @@ class _NavBarSyncButtonState extends State<_NavBarSyncButton>
         return;
       }
 
-      var pending = await activityService.getUnsyncedActivities();
-
-      // If nothing pending, seed a starter activity so user/evaluator can test right away
-      if (pending.isEmpty) {
-        await activityService.seedSampleActivityIfEmpty(
-          widget.session.patientId,
-          pairingCode: widget.session.pairingCode ?? activeCode,
-        );
-        pending = await activityService.getUnsyncedActivities();
-      }
+      // 3. Query pending activities waiting for sync (without auto-seeding dummy data)
+      final pending = await activityService.getUnsyncedActivities();
 
       if (pending.isEmpty) {
         if (!mounted) return;
@@ -580,11 +624,15 @@ class _NavBarSyncButtonState extends State<_NavBarSyncButton>
         return;
       }
 
-      // 2. The sync system only works if the pairing code associated with the stored game activities exists in the database
+      // 4. Validate activities matching local pairing code
       final validToSync = <PatientActivityRecord>[];
       for (final act in pending) {
         final code = act.pairingCode;
         if (code != null && code.isNotEmpty && await activityService.hasPairingCode(code)) {
+          validToSync.add(act);
+        } else if (code == null || code.isEmpty) {
+          validToSync.add(act.copyWith(pairingCode: activeCode));
+        } else if (code.toUpperCase() == activeCode.toUpperCase()) {
           validToSync.add(act);
         } else {
           debugPrint(
@@ -605,7 +653,7 @@ class _NavBarSyncButtonState extends State<_NavBarSyncButton>
         return;
       }
 
-      // 3. Send only game activities over to MongoDB for the patient matching the local pairing code
+      // 5. Send only game activities over to MongoDB for the patient matching the local pairing code
       final accepted = await ApiService.instance.syncBatchActivities(
         activities: validToSync,
         token: widget.session.authToken,
@@ -613,9 +661,15 @@ class _NavBarSyncButtonState extends State<_NavBarSyncButton>
         pairingCode: activeCode,
       );
 
-      // CRITICAL REQUIREMENT: Wipe clean transferred activities from SQLite once transferred to MongoDB
-      final sessionIds = validToSync.map((a) => a.clientSessionId).toList();
-      await activityService.deleteActivities(sessionIds);
+      // 6. Flush the local SQLite database now that backend received data
+      await activityService.wipeCleanAllActivities();
+      await GameSessionRepository.instance.clearAllSessions();
+
+      if (mounted) {
+        setState(() {
+          _count = 0;
+        });
+      }
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -647,7 +701,7 @@ class _NavBarSyncButtonState extends State<_NavBarSyncButton>
               Icon(Icons.cloud_off_rounded, color: Colors.white, size: 20),
               SizedBox(width: 8),
               Expanded(
-                child: Text('Saved locally on tablet. Will sync once backend is reachable.'),
+                child: Text('Saved locally on device. Will sync once backend is reachable.'),
               ),
             ],
           ),
@@ -666,108 +720,98 @@ class _NavBarSyncButtonState extends State<_NavBarSyncButton>
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: ActivityDatabaseService.instance,
-      builder: (context, _) {
-        return FutureBuilder<int>(
-          future: ActivityDatabaseService.instance.getUnsyncedCount(),
-          builder: (context, snapshot) {
-            final count = snapshot.data ?? 0;
-            final buttonColor = count > 0 ? AppColors.terracotta : AppColors.sageGreen;
-            final buttonSize = widget.size;
+    final count = _count;
+    final buttonColor = count > 0 ? AppColors.terracotta : AppColors.sageGreen;
+    final buttonSize = widget.size;
 
-            return Semantics(
-              button: true,
-              label: '${widget.strings.syncButton}. ${count > 0 ? "$count games ready to sync." : "All synced."}',
-              child: SizedBox(
-                width: buttonSize,
-                height: buttonSize,
-                child: Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    Container(
-                      width: buttonSize,
-                      height: buttonSize,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: buttonColor.withValues(alpha: 0.35),
-                            blurRadius: 14,
-                            spreadRadius: 1,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      child: Material(
-                        color: buttonColor,
-                        shape: const CircleBorder(),
-                        clipBehavior: Clip.antiAlias,
-                        child: InkWell(
-                          customBorder: const CircleBorder(),
-                          onTap: _isSyncing ? null : _performSync,
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              RotationTransition(
-                                turns: _animController,
-                                child: Icon(
-                                  Icons.sync_rounded,
-                                  size: buttonSize * 0.38,
-                                  color: Colors.white,
-                                ),
-                              ),
-                              const SizedBox(height: 2),
-                              FittedBox(
-                                fit: BoxFit.scaleDown,
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(horizontal: 4.0),
-                                  child: Text(
-                                    widget.strings.syncButton,
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: buttonSize * 0.16,
-                                      fontWeight: FontWeight.w700,
-                                      letterSpacing: 0.2,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
+    return Semantics(
+      button: true,
+      label: '${widget.strings.syncButton}. ${count > 0 ? "$count games ready to sync." : "All synced."}',
+      child: SizedBox(
+        width: buttonSize,
+        height: buttonSize,
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Container(
+              width: buttonSize,
+              height: buttonSize,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: buttonColor.withValues(alpha: 0.35),
+                    blurRadius: 14,
+                    spreadRadius: 1,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Material(
+                color: buttonColor,
+                shape: const CircleBorder(),
+                clipBehavior: Clip.antiAlias,
+                child: InkWell(
+                  customBorder: const CircleBorder(),
+                  onTap: _isSyncing ? null : _performSync,
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      RotationTransition(
+                        turns: _animController,
+                        child: Icon(
+                          Icons.sync_rounded,
+                          size: buttonSize * 0.38,
+                          color: Colors.white,
                         ),
                       ),
-                    ),
-                    if (count > 0)
-                      Positioned(
-                        right: 0,
-                        top: 0,
-                        child: Container(
-                          padding: const EdgeInsets.all(6),
-                          decoration: const BoxDecoration(
-                            color: AppColors.ink,
-                            shape: BoxShape.circle,
-                          ),
-                          constraints: const BoxConstraints(minWidth: 26, minHeight: 26),
-                          child: Center(
-                            child: Text(
-                              '$count',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                              ),
+                      const SizedBox(height: 2),
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                          child: Text(
+                            widget.strings.syncButton,
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: buttonSize * 0.16,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 0.2,
                             ),
                           ),
                         ),
                       ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
-            );
-          },
-        );
-      },
+            ),
+            if (count > 0)
+              Positioned(
+                right: 0,
+                top: 0,
+                child: Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: const BoxDecoration(
+                    color: AppColors.ink,
+                    shape: BoxShape.circle,
+                  ),
+                  constraints: const BoxConstraints(minWidth: 26, minHeight: 26),
+                  child: Center(
+                    child: Text(
+                      '$count',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
     );
   }
 }

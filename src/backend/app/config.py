@@ -1,12 +1,41 @@
+from typing import Optional
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+    model_config = SettingsConfigDict(
+        env_file=(
+            ".env",
+            "atlas-credentials.env",
+            "../../atlas-credentials.env",
+            "brevo-credentials.env",
+            "../../brevo-credentials.env",
+        ),
+        extra="ignore",
+    )
 
     APP_NAME: str = "Cognitive Assist API"
     MONGODB_URL: str = "mongodb://localhost:27017"
     MONGODB_DB_NAME: str = "cognitive_assist"
+
+    # Atlas credentials support (loaded from atlas-credentials.env or environment)
+    ATLAS_USERNAME: Optional[str] = None
+    ATLAS_PASSWORD: Optional[str] = None
+    ATLAS_CLUSTER: Optional[str] = None
+
+    @model_validator(mode="after")
+    def assemble_atlas_url(self) -> "Settings":
+        if (
+            (self.MONGODB_URL == "mongodb://localhost:27017" or not self.MONGODB_URL)
+            and self.ATLAS_USERNAME
+            and self.ATLAS_PASSWORD
+            and self.ATLAS_CLUSTER
+        ):
+            self.MONGODB_URL = (
+                f"mongodb+srv://{self.ATLAS_USERNAME}:{self.ATLAS_PASSWORD}@{self.ATLAS_CLUSTER}/?retryWrites=true&w=majority"
+            )
+        return self
 
     # Self-hosted auth — credentials live in MongoDB, sessions are JWTs
     # signed with this secret. Override via env in any real deployment.
@@ -19,6 +48,11 @@ class Settings(BaseSettings):
     OTP_LENGTH: int = 6
     OTP_EXPIRE_MINUTES: int = 10
     OTP_MAX_ATTEMPTS: int = 5
+
+    # Brevo Transactional Email Service
+    BREVO_API_KEY: Optional[str] = None
+    BREVO_SENDER_EMAIL: str = "noreply@smritikunj.org"
+    BREVO_SENDER_NAME: str = "Smriti Kunj"
 
     # Pillar 3 thresholds
     ALERT_ACCURACY_DROP_THRESHOLD: float = 0.25

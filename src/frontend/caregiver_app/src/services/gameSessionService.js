@@ -6,6 +6,7 @@
  */
 
 import apiClient from './apiClient';
+import { swrFetch } from './cacheService';
 
 /**
  * Domain & Game Type Metadata definitions
@@ -78,24 +79,41 @@ export const DOMAIN_CONFIG = {
 
 /**
  * Fetches all game sessions for a given patient from the backend.
+ * Backed by lightweight SWR cache: checks localStorage, renders cached value
+ * immediately, and fetches fresh sessions in the background.
  *
  * Uses GET /api/patients/:patientId/game-sessions.
  *
  * @param {string} patientId
+ * @param {Object|Function} [options] - Options or onUpdate callback
+ * @param {Function} [options.onUpdate] - Callback when fresh data arrives
+ * @param {boolean} [options.forceRefresh] - Force network fetch
  * @returns {Promise<Array>}
  */
-export const getGameSessions = async (patientId) => {
+export const getGameSessions = async (patientId, options = {}) => {
   if (!patientId) return [];
-  try {
-    const data = await apiClient(`/api/patients/${patientId}/game-sessions`);
-    if (Array.isArray(data)) {
-      return data;
-    }
-  } catch (err) {
-    console.warn(`apiClient /api/patients/${patientId}/game-sessions notice:`, err.message);
-  }
+  const onUpdate = typeof options === 'function' ? options : options?.onUpdate;
+  const forceRefresh = Boolean(options?.forceRefresh);
 
-  return [];
+  const fetcher = async () => {
+    try {
+      const data = await apiClient(`/api/patients/${patientId}/game-sessions`);
+      if (Array.isArray(data)) {
+        return data;
+      }
+    } catch (err) {
+      console.warn(`apiClient /api/patients/${patientId}/game-sessions notice:`, err.message);
+    }
+    return [];
+  };
+
+  return await swrFetch({
+    endpoint: `/api/patients/${patientId}/game-sessions`,
+    patientId,
+    fetcher,
+    onUpdate,
+    forceRefresh,
+  });
 };
 
 /**

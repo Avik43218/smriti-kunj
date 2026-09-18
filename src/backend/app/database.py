@@ -13,6 +13,40 @@ from app.models.user import DevicePairingToken, RoleEnum, User
 _client: AsyncIOMotorClient | None = None
 
 
+class DatabaseProxy:
+    """Proxy object providing access to the active database instance."""
+
+    def _get_target(self):
+        global _client
+        if _client is not None:
+            return _client[settings.MONGODB_DB_NAME]
+        try:
+            from app.models.user import User
+
+            settings_obj = User.get_settings()
+            if settings_obj and settings_obj.motor_db is not None:
+                return settings_obj.motor_db
+        except Exception:
+            pass
+        raise RuntimeError("Database client is not initialized")
+
+    def __getattr__(self, name):
+        return getattr(self._get_target(), name)
+
+    def __getitem__(self, name):
+        return self._get_target()[name]
+
+
+db = DatabaseProxy()
+
+
+def get_db():
+    try:
+        return db._get_target()
+    except RuntimeError:
+        return None
+
+
 async def seed_initial_admin() -> None:
     """Ensure at least one admin account exists on startup.
     Creates default admin: admin@smritikunj.org / admin123 if not present."""

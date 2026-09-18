@@ -96,13 +96,7 @@ export const CarePlan = () => {
   const [isSubmittingCustom, setIsSubmittingCustom] = useState(false);
 
   // Modal 4: Add Familiar Sound
-  const [familiarSounds, setFamiliarSounds] = useState([
-    {
-      id: 'sound_demo_1',
-      caption: "Sarah's Morning Greeting",
-      audioUrl: 'https://actions.google.com/sounds/v1/ambiences/morning_birds.ogg',
-    },
-  ]);
+  const [familiarSounds, setFamiliarSounds] = useState([]);
   const [isSoundModalOpen, setIsSoundModalOpen] = useState(false);
   const [soundCaption, setSoundCaption] = useState('');
   const [soundAudioUrl, setSoundAudioUrl] = useState('');

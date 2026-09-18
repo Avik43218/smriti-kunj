@@ -209,8 +209,8 @@ export const PatientReportCardModal = ({
       display: flex;
       justify-content: space-between;
       align-items: center;
-      background: ${riskGrade === 2 ? '#FDEDED' : riskGrade === 1 ? '#FEF8EC' : '#EDF8F1'};
-      border: 1px solid ${riskGrade === 2 ? '#F5C6CB' : riskGrade === 1 ? '#FBE0B5' : '#C3E6CB'};
+      background: ${riskGrade === 2 ? '#FBF1EE' : riskGrade === 1 ? '#FBF7EE' : '#F1F6F1'};
+      border: 1px solid ${riskGrade === 2 ? '#EACDC7' : riskGrade === 1 ? '#EFE4CD' : '#D2E3D0'};
       border-radius: 8px;
       padding: 16px 20px;
       margin-bottom: 24px;
@@ -218,7 +218,7 @@ export const PatientReportCardModal = ({
     .risk-tag {
       font-weight: 800;
       font-size: 15px;
-      color: ${riskGrade === 2 ? '#C85A32' : riskGrade === 1 ? '#D97706' : '#2D8A4E'};
+      color: ${riskGrade === 2 ? '#8C2C24' : riskGrade === 1 ? '#C9962C' : '#6E8C6A'};
     }
     .curve-grid {
       display: grid;
@@ -232,8 +232,8 @@ export const PatientReportCardModal = ({
       padding: 16px;
       background: #FFFFFF;
     }
-    .curve-card.memory { border-top: 4px solid #C85A32; }
-    .curve-card.attention { border-top: 4px solid #D97706; }
+    .curve-card.memory { border-top: 4px solid #B5562F; }
+    .curve-card.attention { border-top: 4px solid #C9962C; }
     .table {
       width: 100%;
       border-collapse: collapse;
@@ -321,7 +321,7 @@ export const PatientReportCardModal = ({
         </div>
       </div>
       <div style="text-align: right; font-size: 11px; font-weight: 700; color: #7A7265;">
-        XGBoost Model Verified
+        Risk Model Verified
       </div>
     </div>
 
@@ -330,7 +330,7 @@ export const PatientReportCardModal = ({
     <div class="curve-grid">
       <!-- Curve 1: Memory -->
       <div class="curve-card memory">
-        <div style="font-size: 13px; font-weight: 700; color: #C85A32;">Curve 1: Working & Episodic Memory Recall</div>
+        <div style="font-size: 13px; font-weight: 700; color: #B5562F;">Curve 1: Working & Episodic Memory Recall</div>
         <div style="font-size: 11px; color: #7A7265; margin-bottom: 12px;">Pair Matching & Market Trip Trials</div>
         
         <table style="width: 100%; font-size: 11px; line-height: 1.8;">
@@ -344,7 +344,7 @@ export const PatientReportCardModal = ({
 
       <!-- Curve 2: Attention -->
       <div class="curve-card attention">
-        <div style="font-size: 13px; font-weight: 700; color: #D97706;">Curve 2: Attention & Processing Speed</div>
+        <div style="font-size: 13px; font-weight: 700; color: #C9962C;">Curve 2: Attention & Processing Speed</div>
         <div style="font-size: 11px; color: #7A7265; margin-bottom: 12px;">Tap the Target Reaction Latency</div>
         
         <table style="width: 100%; font-size: 11px; line-height: 1.8;">
@@ -411,7 +411,7 @@ export const PatientReportCardModal = ({
             <td>Lvl ${s.difficulty_level || 1}</td>
             <td>${formatDuration(s.session_duration)}</td>
             <td><strong>${Math.round((s.score_normalized || 0) * 100)}%</strong></td>
-            <td><span style="color: ${s.status === 'completed' ? '#2D8A4E' : '#C85A32'}; font-weight: 600; text-transform: uppercase; font-size: 10px;">${s.status}</span></td>
+            <td><span style="color: ${s.status === 'completed' ? '#6E8C6A' : '#8C2C24'}; font-weight: 600; text-transform: uppercase; font-size: 10px;">${s.status}</span></td>
           </tr>`
           )
           .join('')}

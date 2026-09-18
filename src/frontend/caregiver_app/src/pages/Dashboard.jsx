@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { fetchPatients } from '../services/patientService';
+import emptyStateBg from '../assets/regional/image4.avif';
 import { getGameSessions, DOMAINS } from '../services/gameSessionService';
 import { PatientCard } from '../components/PatientCard';
 import { PatientRiskOverviewTable } from '../components/PatientRiskOverviewTable';
@@ -71,10 +72,17 @@ export const Dashboard = () => {
 
   const loadPatients = async () => {
     try {
-      setLoading(true);
       setError(null);
-      const data = await fetchPatients();
+      const data = await fetchPatients({
+        onUpdate: (freshData) => {
+          setPatients(freshData || []);
+          setLoading(false);
+        },
+      });
       setPatients(data || []);
+      if (data && data.length > 0) {
+        setLoading(false);
+      }
     } catch (err) {
       setError(err?.message || 'Unable to load patient records. Please try again.');
     } finally {
@@ -91,6 +99,37 @@ export const Dashboard = () => {
     if (!patients || patients.length === 0) return;
 
     let isMounted = true;
+    const computePatientScore = (sessions) => {
+      if (!Array.isArray(sessions) || sessions.length === 0) {
+        return { memory: null, attention: null, totalSessions: 0 };
+      }
+      const memorySessions = sessions.filter(
+        (s) =>
+          s.domain === 'memory' ||
+          s.game_type === 'pair_matching' ||
+          s.game_type === 'market_trip'
+      );
+      const attentionSessions = sessions.filter(
+        (s) =>
+          s.domain === 'attention' ||
+          s.game_type === 'tap_target' ||
+          s.game_type === 'visual_search'
+      );
+      const calcAvg = (sessionList) => {
+        if (!sessionList.length) return null;
+        const total = sessionList.reduce((sum, s) => {
+          const score = s.score_normalized ?? s.performance_score ?? 0;
+          return sum + score;
+        }, 0);
+        return Math.round((total / sessionList.length) * 100);
+      };
+      return {
+        memory: calcAvg(memorySessions),
+        attention: calcAvg(attentionSessions),
+        totalSessions: sessions.length,
+      };
+    };
+
     const fetchAllScores = async () => {
       setLoadingScores(true);
       const scoresMap = {};
@@ -98,46 +137,17 @@ export const Dashboard = () => {
       await Promise.all(
         patients.map(async (patient) => {
           try {
-            const sessions = await getGameSessions(patient.id);
-            if (!Array.isArray(sessions) || sessions.length === 0) {
-              scoresMap[patient.id] = {
-                memory: null,
-                attention: null,
-                totalSessions: 0,
-              };
-              return;
-            }
-
-            // Filter for Working & Episodic Memory (Market Trip + Pair Matching)
-            const memorySessions = sessions.filter(
-              (s) =>
-                s.domain === 'memory' ||
-                s.game_type === 'pair_matching' ||
-                s.game_type === 'market_trip'
-            );
-
-            // Filter for Attention & Processing Speed (Tap the Target + Visual Search)
-            const attentionSessions = sessions.filter(
-              (s) =>
-                s.domain === 'attention' ||
-                s.game_type === 'tap_target' ||
-                s.game_type === 'visual_search'
-            );
-
-            const calcAvg = (sessionList) => {
-              if (!sessionList.length) return null;
-              const total = sessionList.reduce((sum, s) => {
-                const score = s.score_normalized ?? s.performance_score ?? 0;
-                return sum + score;
-              }, 0);
-              return Math.round((total / sessionList.length) * 100);
-            };
-
-            scoresMap[patient.id] = {
-              memory: calcAvg(memorySessions),
-              attention: calcAvg(attentionSessions),
-              totalSessions: sessions.length,
-            };
+            const sessions = await getGameSessions(patient.id, {
+              onUpdate: (freshSessions) => {
+                if (isMounted) {
+                  setPatientScores((prev) => ({
+                    ...prev,
+                    [patient.id]: computePatientScore(freshSessions),
+                  }));
+                }
+              },
+            });
+            scoresMap[patient.id] = computePatientScore(sessions);
           } catch (err) {
             console.error(`Failed to fetch sessions for patient ${patient.id}:`, err);
             scoresMap[patient.id] = {
@@ -255,6 +265,9 @@ export const Dashboard = () => {
               <span className="text-sm font-medium text-ink-soft dark:text-cream/60">
                 স্মৃতি কুঞ্জ
               </span>
+              <span className="text-xs font-medium text-ink-soft/70 dark:text-cream/40 hidden md:inline">
+                स्मृति कुञ्ज
+              </span>
             </div>
             <p className="text-xs text-ink-soft dark:text-cream/60">
               Cognitive Assistive Care Portal
@@ -277,13 +290,13 @@ export const Dashboard = () => {
           <div>
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-cream dark:bg-ink-soft/40 text-terracotta text-xs font-semibold uppercase tracking-wider mb-3">
               <Sparkles className="w-3.5 h-3.5" />
-              <span>Caregiver Roster</span>
+              <span>Caregiver Portal</span>
             </div>
             <h2 className="text-xl sm:text-2xl font-bold text-ink dark:text-cream tracking-tight">
               Welcome, {caregiver?.name || 'Caregiver'}
             </h2>
             <p className="text-xs sm:text-sm text-ink-soft dark:text-cream/70 mt-1.5 max-w-2xl leading-relaxed">
-              Monitor active patient cognitive routines, longitudinal trends, and tablet synchronization status from your dashboard portal.
+              Monitor active patient cognitive routines, longitudinal trends, and device synchronization status from your dashboard portal.
             </p>
           </div>
 
@@ -478,7 +491,7 @@ export const Dashboard = () => {
         </div>
       </section>
 
-      {/* 4. XGBoost Real-Time Patient Risk Overview Table */}
+      {/* 4. Real-Time Patient Risk Overview Table */}
       <PatientRiskOverviewTable />
 
       {/* 5. Search + Filter Pills + Register New Patient Bar */}
@@ -554,8 +567,8 @@ export const Dashboard = () => {
         </Link>
       </div>
 
-      {/* 4. Patient Roster Section */}
-      <section aria-label="Assigned Patients Roster" className="space-y-4">
+      {/* 4. Patient Portal Section */}
+      <section aria-label="Assigned Patients Portal" className="space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <div className="w-7 h-7 rounded-full bg-cream dark:bg-ink-soft/30 flex items-center justify-center text-terracotta">
@@ -578,7 +591,7 @@ export const Dashboard = () => {
             type="button"
             onClick={loadPatients}
             disabled={loading}
-            aria-label="Refresh patient roster"
+            aria-label="Refresh patient portal"
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-ink-soft dark:text-cream/80 hover:text-ink dark:hover:text-cream bg-surface dark:bg-ink-soft/20 border border-border/80 dark:border-ink-soft/40 hover:bg-cream dark:hover:bg-ink-soft/35 active:scale-95 transition-all outline-none focus-visible:ring-1 focus-visible:ring-terracotta"
           >
             <RefreshCw className={`w-3.5 h-3.5 text-terracotta ${loading ? 'animate-spin' : ''}`} />
@@ -630,18 +643,24 @@ export const Dashboard = () => {
           </div>
         )}
 
-        {/* STATE 3: Empty State (No Patients in System) */}
+        {/* STATE 3: Empty State (No Patients in System) — regional image4 */}
         {!loading && !error && patients.length === 0 && (
-          <div className="bg-surface dark:bg-ink-soft/20 border border-border/80 dark:border-ink-soft/40 rounded-card p-8 sm:p-12 text-center space-y-3">
-            <div className="w-12 h-12 rounded-full bg-cream dark:bg-ink-soft/30 flex items-center justify-center text-ink-soft dark:text-cream/60 mx-auto">
-              <UserPlus className="w-6 h-6" />
+          <div
+            className="relative overflow-hidden border border-border/80 dark:border-ink-soft/40 rounded-card p-8 sm:p-12 text-center space-y-3"
+            style={{ backgroundImage: `url(${emptyStateBg})`, backgroundSize: 'cover', backgroundPosition: 'center' }}
+          >
+            <div className="absolute inset-0 bg-ink/60" />
+            <div className="relative z-10 flex flex-col items-center space-y-3">
+              <div className="w-12 h-12 rounded-full bg-ink/40 border border-ink-soft/30 flex items-center justify-center text-cream/80 mx-auto">
+                <UserPlus className="w-6 h-6" />
+              </div>
+              <h3 className="text-base font-bold text-cream">
+                No Patients Assigned
+              </h3>
+              <p className="text-xs sm:text-sm text-cream/70 max-w-sm mx-auto leading-relaxed">
+                Pair a patient device via device pairing to begin monitoring care metrics and cognitive routines.
+              </p>
             </div>
-            <h3 className="text-base font-bold text-ink dark:text-cream">
-              No Patients Assigned
-            </h3>
-            <p className="text-xs sm:text-sm text-ink-soft dark:text-cream/70 max-w-sm mx-auto leading-relaxed">
-              Pair a patient tablet via device pairing to begin monitoring care metrics and cognitive routines.
-            </p>
           </div>
         )}
 
