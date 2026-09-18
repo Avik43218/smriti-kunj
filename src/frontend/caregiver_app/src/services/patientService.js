@@ -1,5 +1,6 @@
 import { getTodayComplianceSummary } from './reminderService';
 import apiClient from './apiClient';
+import { swrFetch, invalidateCache } from './cacheService';
 
 /**
  * Patient Service
@@ -76,36 +77,53 @@ const getStoredPatients = () => {
 
 /**
  * Fetches all patients assigned to the active caregiver with derived live careStatus.
+ * Backed by lightweight SWR cache: checks localStorage, renders cached immediately,
+ * and fetches fresh in the background.
  * 
  * Uses GET /api/caregiver/patients.
  * 
+ * @param {Object|Function} [options] - Options or onUpdate callback
+ * @param {Function} [options.onUpdate] - Callback when fresh data arrives
+ * @param {boolean} [options.forceRefresh] - Force network fetch
  * @returns {Promise<Array>}
  */
-export const fetchPatients = async () => {
-  try {
-    const data = await apiClient('/api/caregiver/patients');
-    if (Array.isArray(data)) {
-      return data.map((patient) => {
-        const compliance = getTodayComplianceSummary(patient.id);
-        return {
-          ...patient,
-          careStatus: patient.status || patient.careStatus || compliance.careStatus,
-          complianceSummary: compliance,
-        };
-      });
-    }
-  } catch (err) {
-    console.warn('apiClient /api/caregiver/patients notice, checking stored:', err.message);
-  }
+export const fetchPatients = async (options = {}) => {
+  const onUpdate = typeof options === 'function' ? options : options?.onUpdate;
+  const forceRefresh = Boolean(options?.forceRefresh);
 
-  const stored = getStoredPatients();
-  return stored.map((patient) => {
-    const compliance = getTodayComplianceSummary(patient.id);
-    return {
-      ...patient,
-      careStatus: patient.careStatus || compliance.careStatus,
-      complianceSummary: compliance,
-    };
+  const fetcher = async () => {
+    try {
+      const data = await apiClient('/api/caregiver/patients');
+      if (Array.isArray(data)) {
+        return data.map((patient) => {
+          const compliance = getTodayComplianceSummary(patient.id);
+          return {
+            ...patient,
+            careStatus: patient.status || patient.careStatus || compliance.careStatus,
+            complianceSummary: compliance,
+          };
+        });
+      }
+    } catch (err) {
+      console.warn('apiClient /api/caregiver/patients notice, checking stored:', err.message);
+    }
+
+    const stored = getStoredPatients();
+    return stored.map((patient) => {
+      const compliance = getTodayComplianceSummary(patient.id);
+      return {
+        ...patient,
+        careStatus: patient.careStatus || compliance.careStatus,
+        complianceSummary: compliance,
+      };
+    });
+  };
+
+  return await swrFetch({
+    endpoint: '/api/caregiver/patients',
+    fetcher,
+    onUpdate,
+    forceRefresh,
   });
 };
 
@@ -136,51 +154,73 @@ export const registerPatient = async (newPatient) => {
   } catch (err) {
     console.warn('Could not save patient to localStorage:', err);
   }
+
+  // Invalidate cached patient list
+  invalidateCache('/api/caregiver/patients');
+
   return newPatient;
 };
 
 /**
  * Fetches details for a single patient by ID with derived live careStatus.
+ * Backed by lightweight SWR cache: renders cached value immediately,
+ * and fetches fresh in the background.
  * 
  * Uses GET /api/caregiver/patients/:id with local cache fallback.
  * 
  * @param {string} id
+ * @param {Object|Function} [options] - Options or onUpdate callback
+ * @param {Function} [options.onUpdate] - Callback when fresh data arrives
+ * @param {boolean} [options.forceRefresh] - Force network fetch
  * @returns {Promise<Object|null>}
  */
-export const getPatientById = async (id) => {
-  const stored = getStoredPatients();
-  const cachedPatient = stored.find((p) => p.id === id);
+export const getPatientById = async (id, options = {}) => {
+  const onUpdate = typeof options === 'function' ? options : options?.onUpdate;
+  const forceRefresh = Boolean(options?.forceRefresh);
 
-  try {
-    const data = await apiClient(`/api/caregiver/patients/${id}`);
-    if (data && data.id) {
+  const fetcher = async () => {
+    const stored = getStoredPatients();
+    const cachedPatient = stored.find((p) => p.id === id);
+
+    try {
+      const data = await apiClient(`/api/caregiver/patients/${id}`);
+      if (data && data.id) {
+        const compliance = getTodayComplianceSummary(id);
+        return {
+          ...cachedPatient,
+          ...data,
+          weight: data.weight || cachedPatient?.weight,
+          diabetic: data.diabetic || cachedPatient?.diabetic,
+          nutritionDiet: data.nutritionDiet || cachedPatient?.nutritionDiet,
+          alcoholLevel: data.alcoholLevel || cachedPatient?.alcoholLevel,
+          smokingStatus: data.smokingStatus || cachedPatient?.smokingStatus,
+          careStatus: data.status || compliance.careStatus,
+          complianceSummary: compliance,
+        };
+      }
+    } catch (err) {
+      console.warn(`apiClient /api/caregiver/patients/${id} notice, checking stored:`, err.message);
+    }
+
+    if (cachedPatient) {
       const compliance = getTodayComplianceSummary(id);
       return {
         ...cachedPatient,
-        ...data,
-        weight: data.weight || cachedPatient?.weight,
-        diabetic: data.diabetic || cachedPatient?.diabetic,
-        nutritionDiet: data.nutritionDiet || cachedPatient?.nutritionDiet,
-        alcoholLevel: data.alcoholLevel || cachedPatient?.alcoholLevel,
-        smokingStatus: data.smokingStatus || cachedPatient?.smokingStatus,
-        careStatus: data.status || compliance.careStatus,
+        careStatus: cachedPatient.careStatus || compliance.careStatus,
         complianceSummary: compliance,
       };
     }
-  } catch (err) {
-    console.warn(`apiClient /api/caregiver/patients/${id} notice, checking stored:`, err.message);
-  }
 
-  if (cachedPatient) {
-    const compliance = getTodayComplianceSummary(id);
-    return {
-      ...cachedPatient,
-      careStatus: cachedPatient.careStatus || compliance.careStatus,
-      complianceSummary: compliance,
-    };
-  }
+    return null;
+  };
 
-  return null;
+  return await swrFetch({
+    endpoint: `/api/caregiver/patients/${id}`,
+    patientId: id,
+    fetcher,
+    onUpdate,
+    forceRefresh,
+  });
 };
 
 /**
@@ -206,6 +246,11 @@ export const deletePatient = async (id) => {
   } catch (err) {
     console.warn('Could not update localStorage after patient deletion:', err);
   }
+
+  // Invalidate cached lists & patient record
+  invalidateCache('/api/caregiver/patients');
+  invalidateCache(`/api/caregiver/patients/${id}`, id);
+
   return true;
 };
 
@@ -247,6 +292,10 @@ export const updatePatient = async (id, updatedFields) => {
   } catch (err) {
     console.warn('apiClient update notice:', err.message);
   }
+
+  // Invalidate cache
+  invalidateCache('/api/caregiver/patients');
+  invalidateCache(`/api/caregiver/patients/${id}`, id);
 
   return updatedPatient;
 };

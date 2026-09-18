@@ -127,13 +127,24 @@ export const Analytics = () => {
     }
 
     try {
-      setLoading(true);
       setError(null);
 
       const [patientData, sessionsData, riskOverviewData] = await Promise.all([
-        getPatientById(targetId),
-        getGameSessions(targetId),
-        fetchPatientRiskOverview().catch((err) => {
+        getPatientById(targetId, {
+          onUpdate: (fresh) => {
+            if (fresh) setPatient(fresh);
+          },
+        }),
+        getGameSessions(targetId, {
+          onUpdate: (fresh) => {
+            if (fresh) setSessions(fresh || []);
+          },
+        }),
+        fetchPatientRiskOverview({
+          onUpdate: (fresh) => {
+            if (fresh) setRiskData(fresh);
+          },
+        }).catch((err) => {
           console.warn('Could not fetch risk overview:', err);
           return null;
         }),
@@ -142,6 +153,9 @@ export const Analytics = () => {
       setPatient(patientData);
       setSessions(sessionsData || []);
       setRiskData(riskOverviewData);
+      if (patientData || (sessionsData && sessionsData.length > 0)) {
+        setLoading(false);
+      }
     } catch (err) {
       console.error('Analytics load error:', err);
       setError(err?.message || 'Failed to load cognitive analytics data.');

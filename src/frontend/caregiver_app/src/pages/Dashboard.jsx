@@ -72,10 +72,17 @@ export const Dashboard = () => {
 
   const loadPatients = async () => {
     try {
-      setLoading(true);
       setError(null);
-      const data = await fetchPatients();
+      const data = await fetchPatients({
+        onUpdate: (freshData) => {
+          setPatients(freshData || []);
+          setLoading(false);
+        },
+      });
       setPatients(data || []);
+      if (data && data.length > 0) {
+        setLoading(false);
+      }
     } catch (err) {
       setError(err?.message || 'Unable to load patient records. Please try again.');
     } finally {
@@ -92,6 +99,37 @@ export const Dashboard = () => {
     if (!patients || patients.length === 0) return;
 
     let isMounted = true;
+    const computePatientScore = (sessions) => {
+      if (!Array.isArray(sessions) || sessions.length === 0) {
+        return { memory: null, attention: null, totalSessions: 0 };
+      }
+      const memorySessions = sessions.filter(
+        (s) =>
+          s.domain === 'memory' ||
+          s.game_type === 'pair_matching' ||
+          s.game_type === 'market_trip'
+      );
+      const attentionSessions = sessions.filter(
+        (s) =>
+          s.domain === 'attention' ||
+          s.game_type === 'tap_target' ||
+          s.game_type === 'visual_search'
+      );
+      const calcAvg = (sessionList) => {
+        if (!sessionList.length) return null;
+        const total = sessionList.reduce((sum, s) => {
+          const score = s.score_normalized ?? s.performance_score ?? 0;
+          return sum + score;
+        }, 0);
+        return Math.round((total / sessionList.length) * 100);
+      };
+      return {
+        memory: calcAvg(memorySessions),
+        attention: calcAvg(attentionSessions),
+        totalSessions: sessions.length,
+      };
+    };
+
     const fetchAllScores = async () => {
       setLoadingScores(true);
       const scoresMap = {};
@@ -99,46 +137,17 @@ export const Dashboard = () => {
       await Promise.all(
         patients.map(async (patient) => {
           try {
-            const sessions = await getGameSessions(patient.id);
-            if (!Array.isArray(sessions) || sessions.length === 0) {
-              scoresMap[patient.id] = {
-                memory: null,
-                attention: null,
-                totalSessions: 0,
-              };
-              return;
-            }
-
-            // Filter for Working & Episodic Memory (Market Trip + Pair Matching)
-            const memorySessions = sessions.filter(
-              (s) =>
-                s.domain === 'memory' ||
-                s.game_type === 'pair_matching' ||
-                s.game_type === 'market_trip'
-            );
-
-            // Filter for Attention & Processing Speed (Tap the Target + Visual Search)
-            const attentionSessions = sessions.filter(
-              (s) =>
-                s.domain === 'attention' ||
-                s.game_type === 'tap_target' ||
-                s.game_type === 'visual_search'
-            );
-
-            const calcAvg = (sessionList) => {
-              if (!sessionList.length) return null;
-              const total = sessionList.reduce((sum, s) => {
-                const score = s.score_normalized ?? s.performance_score ?? 0;
-                return sum + score;
-              }, 0);
-              return Math.round((total / sessionList.length) * 100);
-            };
-
-            scoresMap[patient.id] = {
-              memory: calcAvg(memorySessions),
-              attention: calcAvg(attentionSessions),
-              totalSessions: sessions.length,
-            };
+            const sessions = await getGameSessions(patient.id, {
+              onUpdate: (freshSessions) => {
+                if (isMounted) {
+                  setPatientScores((prev) => ({
+                    ...prev,
+                    [patient.id]: computePatientScore(freshSessions),
+                  }));
+                }
+              },
+            });
+            scoresMap[patient.id] = computePatientScore(sessions);
           } catch (err) {
             console.error(`Failed to fetch sessions for patient ${patient.id}:`, err);
             scoresMap[patient.id] = {

@@ -2,14 +2,14 @@
 
 ## 1. Project Overview
 
-Smriti Kunj (Caregiver Portal) and Smriti Kunj (Patient Tablet App) comprise an integrated cognitive assistive care ecosystem designed for individuals living with Mild Cognitive Impairment (MCI) and early-stage dementia. The platform provides culturally contextualized cognitive exercises, routine adherence tracking, emergency SOS, and reminiscence tools for elderly patients, coupled with a web-based clinical dashboard enabling caregivers to monitor cognitive stability, manage multi-patient care plans, and track multi-domain longitudinal performance without clinical intrusion.
+Smriti Kunj (Caregiver Portal) and Smriti Kunj (Patient Device App) comprise an integrated cognitive assistive care ecosystem designed for individuals living with Mild Cognitive Impairment (MCI) and early-stage dementia. The platform provides culturally contextualized cognitive exercises, routine adherence tracking, emergency SOS, and reminiscence tools for elderly patients, coupled with a web-based clinical dashboard enabling caregivers to monitor cognitive stability, manage multi-patient care plans, and track multi-domain longitudinal performance without clinical intrusion.
 
 ---
 
 ## 2. Architecture Summary
 
 - **Caregiver Web Application (`src/frontend/caregiver_app`):** Built with React 18, Vite, Tailwind CSS, Lucide icons, and Recharts for responsive time-series visualization. Uses React Router DOM for routing, context-based state management (`AuthContext`, `ThemeContext`), and an asynchronous API client with local storage caching for zero-downtime offline previews.
-- **Patient Tablet Application (`src/patient_app`):** Built with Flutter (Dart), utilizing Provider for state management and SQLite (`sqflite`) for offline-first local persistence. Adheres to strict dementia accessibility constraints (88dp minimum touch targets, 18px text floor, no dark mode) specified in `src/docs/BRAND_GUIDELINES.md`. Features on-device TFLite dynamic difficulty initialization, offline telemetry queuing, and multi-lingual voice navigation.
+- **Patient Device Application (`src/patient_app`):** Built with Flutter (Dart), utilizing Provider for state management and SQLite (`sqflite`) for offline-first local persistence. Adheres to strict dementia accessibility constraints (88dp minimum touch targets, 18px text floor, no dark mode) specified in `src/docs/BRAND_GUIDELINES.md`. Features on-device TFLite dynamic difficulty initialization, offline telemetry queuing, and multi-lingual voice navigation.
 - **Backend Service (`src/backend`):** Built with Python FastAPI and Beanie ODM over MongoDB. Implements modular routers for role-based authentication (caregiver password/OTP + patient device pairing tokens), caregiver multi-patient management, care plan customization, batch telemetry synchronization, cognitive drift analytics, multi-armed bandit difficulty progression, and voice intent classification.
 - **Shared Session Schema:** Canonical cognitive session envelope (`session_id`, `patient_profile_id`, `game_type`, `domain`, `session_date`, `session_duration`, `status`, `difficulty_level`, `score_normalized`, `game_data`, `raw_trials`) standardized across edge SQLite repositories, API sync payloads, and MongoDB analytics collections.
 
@@ -52,7 +52,7 @@ Smriti Kunj (Caregiver Portal) and Smriti Kunj (Patient Tablet App) comprise an 
 
 ### Implemented Screens (`src/patient_app/lib/screens/`)
 - `home_screen.dart`: Primary calm landing interface presenting large high-contrast navigation tiles for Brain Games, Today's Reminders, Memories & Family Gallery, and an emergency Call for Help (SOS) tile. Includes live date/time display and voice command triggering.
-- `pairing_screen.dart`: Tablet setup screen for linking the physical device to a caregiver patient profile using a 6-character code (`PAIR-XXXXXX`). Supports offline demo fallback when network is unavailable.
+- `pairing_screen.dart`: Tablet setup screen for linking the physical device to a caregiver patient profile using a 6-character code (`XXXXXX`). Supports offline demo fallback when network is unavailable.
 - `games_screen.dart`: Catalog of available cognitive exercises with dynamic difficulty level resolution, localized title/subtitle strings, and launch handlers.
 - `reminders_screen.dart`: Daily schedule display grouped into Morning, Afternoon, Evening, and Night, supporting single-tap task completion and synchronization with SQLite.
 - `memory_gallery_screen.dart`: Visual and auditory reminiscence gallery with photo expansion and audio clip playback controls.
