@@ -48,10 +48,21 @@ export const PatientRiskOverviewTable = () => {
 
   const loadRiskEvaluations = async () => {
     try {
-      setLoading(true);
       setError(null);
-      const res = await fetchPatientRiskOverview();
-      setData(res);
+      const res = await fetchPatientRiskOverview({
+        onUpdate: (freshData) => {
+          if (freshData) {
+            setData(freshData);
+            setLoading(false);
+          }
+        },
+      });
+      if (res) {
+        setData(res);
+        if (res.patients && res.patients.length > 0) {
+          setLoading(false);
+        }
+      }
     } catch (err) {
       setError(err?.message || 'Failed to load risk evaluations.');
     } finally {

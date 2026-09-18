@@ -1,4 +1,5 @@
 import apiClient from './apiClient';
+import { swrFetch } from './cacheService';
 
 /**
  * Risk Assessment & ML Inference Service
@@ -54,44 +55,61 @@ export const RISK_LEVEL_CONFIG = {
 
 /**
  * Fetches real-time patient risk evaluations from the backend.
+ * Backed by lightweight SWR cache: checks localStorage, renders cached value
+ * immediately, and fetches fresh risk scores in the background.
  *
  * Flow:
  *   1. GET /api/risk/patient-overview  (authenticated; DB aggregation + XGBoost inference)
  *   2. GET /api/risk/demo-patients     (unauthenticated; fallback if server up but no patients)
  *
+ * @param {Object|Function} [options] - Options or onUpdate callback
+ * @param {Function} [options.onUpdate] - Callback when fresh data arrives
+ * @param {boolean} [options.forceRefresh] - Force network fetch
  * @returns {Promise<{ summary: Object, patients: Array }>}
  */
-export async function fetchPatientRiskOverview() {
-  // Primary: real data path — backend aggregates DB telemetry & runs the model
-  try {
-    const data = await apiClient('/api/risk/patient-overview');
-    if (data && data.summary && Array.isArray(data.patients)) {
-      return data;
-    }
-  } catch (err) {
-    console.warn('[riskService] /api/risk/patient-overview unavailable:', err.message);
-  }
+export async function fetchPatientRiskOverview(options = {}) {
+  const onUpdate = typeof options === 'function' ? options : options?.onUpdate;
+  const forceRefresh = Boolean(options?.forceRefresh);
 
-  // Secondary: server-provided demo records (backend is up but no real patients yet)
-  try {
-    const demoData = await apiClient('/api/risk/demo-patients');
-    if (demoData && demoData.summary && Array.isArray(demoData.patients)) {
-      return demoData;
+  const fetcher = async () => {
+    // Primary: real data path — backend aggregates DB telemetry & runs the model
+    try {
+      const data = await apiClient('/api/risk/patient-overview');
+      if (data && data.summary && Array.isArray(data.patients)) {
+        return data;
+      }
+    } catch (err) {
+      console.warn('[riskService] /api/risk/patient-overview unavailable:', err.message);
     }
-  } catch (err) {
-    console.warn('[riskService] /api/risk/demo-patients unavailable:', err.message);
-  }
 
-  // Last resort: empty response so UI shows empty state
-  return {
-    summary: {
-      total_patients: 0,
-      high_risk_count: 0,
-      moderate_risk_count: 0,
-      low_risk_count: 0,
-    },
-    patients: [],
+    // Secondary: server-provided demo records (backend is up but no real patients yet)
+    try {
+      const demoData = await apiClient('/api/risk/demo-patients');
+      if (demoData && demoData.summary && Array.isArray(demoData.patients)) {
+        return demoData;
+      }
+    } catch (err) {
+      console.warn('[riskService] /api/risk/demo-patients unavailable:', err.message);
+    }
+
+    // Last resort: empty response so UI shows empty state
+    return {
+      summary: {
+        total_patients: 0,
+        high_risk_count: 0,
+        moderate_risk_count: 0,
+        low_risk_count: 0,
+      },
+      patients: [],
+    };
   };
+
+  return await swrFetch({
+    endpoint: '/api/risk/patient-overview',
+    fetcher,
+    onUpdate,
+    forceRefresh,
+  });
 }
 
 export default {
