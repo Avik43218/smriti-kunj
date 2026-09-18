@@ -1,0 +1,10 @@
+# Example release signing configuration.
+# To sign with a production upload keystore, create 'key.properties' in this directory:
+#
+# storePassword=your_keystore_password
+# keyPassword=your_key_password
+# keyAlias=upload
+# storeFile=../upload-keystore.jks
+#
+# If key.properties is not present, the build automatically falls back to the debug keystore,
+# allowing seamless release APK builds out-of-the-box.
