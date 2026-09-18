@@ -10,7 +10,7 @@ rules specific to this app's structure and pages.
 - Never use arbitrary values (`bg-[#123456]`) or inline `style={{ color: ... }}` for brand colors/typography
 - `alert` (`#C1272D`) is reserved for the patient app's SOS state — do not reuse it for
   destructive/delete actions here; use a distinct red variant for those or a plain
-  neutral + icon instead
+  neutral + icon insteadGraphs + history for the selected patient
 - This app is NOT under the patient app's dementia-accessibility constraints (no 18px
   floor, no 88dp touch targets required) — use standard modern dashboard density and
   the normal Tailwind type scale
@@ -22,8 +22,8 @@ rules specific to this app's structure and pages.
 - No real backend exists yet. Every new backend interaction:
   1. Gets a named stub function in `api.js` (e.g. `fetchPatientSummary()`, `saveReminder()`)
      returning realistic mock data
-  2. Gets logged in `docs/API_ENDPOINTS_NEEDED.md` (method, calling page, purpose, request/response shape)
-  3. Gets a `// BACKEND-TODO: see docs/API_ENDPOINTS_NEEDED.md` comment at the stub
+  2. Gets logged in `../../docs/API_ENDPOINTS_NEEDED.md` (method, calling page, purpose, request/response shape)
+  3. Gets a `// BACKEND-TODO: see ../../docs/API_ENDPOINTS_NEEDED.md` comment at the stub
 - Never invent a "final" contract — these are proposals, not commitments, until the backend team reviews them
 
 ## 3. App structure — three pages
@@ -85,4 +85,14 @@ so nothing gets hardcoded to "the one patient."
 - [ ] Tested with an empty state (new caregiver, no data yet)
 - [ ] Charts responsive — checked at mobile width
 - [ ] All new backend calls routed through `src/services/api.js` and logged in
-      `docs/API_ENDPOINTS_NEEDED.md`
+      `../../docs/API_ENDPOINTS_NEEDED.md`
+
+## Scope Discipline
+- Only create or modify files explicitly listed in the current task/prompt.
+- Never refactor, restyle, or "improve" existing files that weren't part of the stated task, even if you notice something that could be better — flag it as a suggestion instead.
+- If a task seems to require touching a file outside the stated scope, STOP and ask before proceeding.
+
+## Standing Assumptions (don't restate these per-task)
+- Always verify light/dark mode correctness — no need to ask for this per prompt.
+- Always use existing design tokens/patterns — already covered above.
+- Only touch files relevant to the current task.

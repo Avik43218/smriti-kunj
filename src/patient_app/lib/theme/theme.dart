@@ -46,7 +46,7 @@ final ThemeData patientTheme = ThemeData(
   cardTheme: CardThemeData(
     color: AppColors.surface,
     elevation: 3,
-    shadowColor: AppColors.ink.withOpacity(0.08),
+    shadowColor: AppColors.ink.withValues(alpha: 0.08),
     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
     margin: const EdgeInsets.all(12),
   ),

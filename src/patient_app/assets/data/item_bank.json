@@ -1,0 +1,291 @@
+{
+  "_translation_notes": {
+    "bn_bengali": "Standard Bengali (Bangla). Both 'bn' and 'bengali' keys are identical — 'bengali' key used by app locale service, 'bn' is the ISO code alias kept for forward compatibility.",
+    "brx_bodo": "Bodo language in Devanagari script. Both 'brx' and 'bodo' keys are identical. Bodo is low-resource; items marked with _NOTE_brx should be verified by a native Bodo speaker before shipping.",
+    "review_required": ["bamboo_hat_japi", "lemon", "betel_nut", "brass_jug_lota", "silk_shawl"]
+  },
+  "items": [
+    {
+      "id": "bamboo_shoot",
+      "category": "vegetables",
+      "visual_group": "green_stem",
+      "translations": {
+        "en": "Bamboo Shoots",
+        "as": "বাঁহৰ গাজ",
+        "bn": "বাঁশের কোড়ল",
+        "brx": "बाँसो गाज",
+        "bengali": "বাঁশের কোড়ল",
+        "bodo": "बाँसो गाज",
+        "miz": "",
+        "kha": "",
+        "gar": ""
+      },
+      "icon_name": "eco"
+    },
+    {
+      "id": "mustard_oil",
+      "category": "household",
+      "visual_group": "liquid_bottle",
+      "translations": {
+        "en": "Mustard Oil",
+        "as": "সৰিয়হৰ তেল",
+        "bn": "সরিষার তেল",
+        "brx": "सोरिसाव तेल",
+        "bengali": "সরিষার তেল",
+        "bodo": "सोरिसाव तेल",
+        "miz": "",
+        "kha": "",
+        "gar": ""
+      },
+      "icon_name": "opacity"
+    },
+    {
+      "id": "ginger",
+      "category": "spices",
+      "visual_group": "root_bulb",
+      "translations": {
+        "en": "Fresh Ginger",
+        "as": "আদা",
+        "bn": "আদা",
+        "brx": "आदा",
+        "bengali": "আদা",
+        "bodo": "आदा",
+        "miz": "",
+        "kha": "",
+        "gar": ""
+      },
+      "icon_name": "spa"
+    },
+    {
+      "id": "tea_leaves",
+      "category": "household",
+      "visual_group": "green_stem",
+      "translations": {
+        "en": "Assam Tea Leaves",
+        "as": "চাহ পাত",
+        "bn": "চা পাতা",
+        "brx": "चाह पात",
+        "bengali": "চা পাতা",
+        "bodo": "चाह पात",
+        "miz": "",
+        "kha": "",
+        "gar": ""
+      },
+      "icon_name": "emoji_food_beverage"
+    },
+    {
+      "id": "turmeric",
+      "category": "spices",
+      "visual_group": "yellow_round",
+      "translations": {
+        "en": "Turmeric Root",
+        "as": "হালধি",
+        "bn": "হলুদ",
+        "brx": "हलदी",
+        "bengali": "হলুদ",
+        "bodo": "हलदी",
+        "miz": "",
+        "kha": "",
+        "gar": ""
+      },
+      "icon_name": "grain"
+    },
+    {
+      "id": "bamboo_hat_japi",
+      "category": "household",
+      "visual_group": "woven_craft",
+      "_NOTE_bn": "REVIEW NEEDED: 'জাপি' is an Assamese cultural item; Bengali uses the same loanword 'জাপি' but it may be unfamiliar to non-Assamese Bengali speakers. Consider displaying as 'ঐতিহ্যবাহী জাপি টুপি' for clarity.",
+      "_NOTE_brx": "REVIEW NEEDED: Japi is a culturally Assamese item. Bodo communities know it but may use a different local term. 'जापि' is a phonetic borrowing — verify with a native Bodo speaker.",
+      "translations": {
+        "en": "Traditional Japi",
+        "as": "জাপি",
+        "bn": "জাপি",
+        "brx": "जापि",
+        "bengali": "জাপি",
+        "bodo": "जापि",
+        "miz": "",
+        "kha": "",
+        "gar": ""
+      },
+      "icon_name": "style"
+    },
+    {
+      "id": "lemon",
+      "category": "fruits",
+      "visual_group": "yellow_round",
+      "_NOTE_bn": "REVIEW NEEDED: 'Kazi Nemu' is an Assam-specific variety. Standard Bengali uses 'লেবু' (lebu) generically. Kept as 'কাজি নেবু' (phonetic borrowing) to preserve the varietal specificity — verify if patients will recognise this.",
+      "_NOTE_brx": "REVIEW NEEDED: Bodo term 'नेबु' is borrowed from Bengali/Assamese. Verify if there is a distinct Bodo word for lemon.",
+      "translations": {
+        "en": "Assam Kazi Nemu Lemon",
+        "as": "কাজী টেঙা",
+        "bn": "কাজি নেবু",
+        "brx": "नेबु",
+        "bengali": "কাজি নেবু",
+        "bodo": "नेबु",
+        "miz": "",
+        "kha": "",
+        "gar": ""
+      },
+      "icon_name": "nature"
+    },
+    {
+      "id": "green_chili",
+      "category": "vegetables",
+      "visual_group": "green_stem",
+      "translations": {
+        "en": "Green Chili",
+        "as": "কেঁচা লঙ্কা",
+        "bn": "কাঁচা মরিচ",
+        "brx": "काँचा मरिच",
+        "bengali": "কাঁচা মরিচ",
+        "bodo": "काँचा मरिच",
+        "miz": "",
+        "kha": "",
+        "gar": ""
+      },
+      "icon_name": "local_fire_department"
+    },
+    {
+      "id": "garlic",
+      "category": "spices",
+      "visual_group": "root_bulb",
+      "translations": {
+        "en": "Garlic Cloves",
+        "as": "নহৰু",
+        "bn": "রসুন",
+        "brx": "रसुन",
+        "bengali": "রসুন",
+        "bodo": "रसुन",
+        "miz": "",
+        "kha": "",
+        "gar": ""
+      },
+      "icon_name": "brightness_low"
+    },
+    {
+      "id": "jackfruit",
+      "category": "fruits",
+      "visual_group": "green_stem",
+      "translations": {
+        "en": "Ripe Jackfruit",
+        "as": "কঠাল",
+        "bn": "কাঁঠাল",
+        "brx": "काँठाल",
+        "bengali": "কাঁঠাল",
+        "bodo": "काँठाल",
+        "miz": "",
+        "kha": "",
+        "gar": ""
+      },
+      "icon_name": "park"
+    },
+    {
+      "id": "papaya",
+      "category": "fruits",
+      "visual_group": "yellow_round",
+      "translations": {
+        "en": "Sweet Papaya",
+        "as": "অমিতা",
+        "bn": "পেঁপে",
+        "brx": "पेँपे",
+        "bengali": "পেঁপে",
+        "bodo": "पेँपे",
+        "miz": "",
+        "kha": "",
+        "gar": ""
+      },
+      "icon_name": "local_florist"
+    },
+    {
+      "id": "betel_nut",
+      "category": "household",
+      "visual_group": "root_bulb",
+      "_NOTE_bn": "REVIEW NEEDED: 'সুপারি' (supari) is standard Bengali. The Assamese word 'তামোল' (tamul) specifically refers to the betel nut as part of the tamul-paan ritual — the cultural context may differ for Bengali patients. Using 'সুপারি' as the neutral Bengali term.",
+      "_NOTE_brx": "REVIEW NEEDED: Bodo term 'थांबुल' (thambul) refers to betel nut in the ritual context similar to Assamese 'tamul'. Verify spelling and usage with a native Bodo speaker.",
+      "translations": {
+        "en": "Betel Nut (Tamul)",
+        "as": "তামোল",
+        "bn": "সুপারি",
+        "brx": "थांबुल",
+        "bengali": "সুপারি",
+        "bodo": "थांबुल",
+        "miz": "",
+        "kha": "",
+        "gar": ""
+      },
+      "icon_name": "circle"
+    },
+    {
+      "id": "brass_jug_lota",
+      "category": "household",
+      "visual_group": "liquid_bottle",
+      "_NOTE_bn": "REVIEW NEEDED: 'লোটা' (lota) is used across Bengali-speaking regions and is likely familiar. 'পিতলের লোটা' is the natural Bengali phrasing. Confidence: high.",
+      "_NOTE_brx": "REVIEW NEEDED: 'पितलो लोटा' is a literal Bodo rendering using the borrowed noun. Verify if a native Bodo word exists for this vessel.",
+      "translations": {
+        "en": "Brass Water Lota",
+        "as": "পিতলৰ লোটা",
+        "bn": "পিতলের লোটা",
+        "brx": "पितलो लोटा",
+        "bengali": "পিতলের লোটা",
+        "bodo": "पितलो लोटा",
+        "miz": "",
+        "kha": "",
+        "gar": ""
+      },
+      "icon_name": "water_drop"
+    },
+    {
+      "id": "bamboo_basket",
+      "category": "household",
+      "visual_group": "woven_craft",
+      "translations": {
+        "en": "Bamboo Basket",
+        "as": "বাঁহৰ পাচি",
+        "bn": "বাঁশের ঝুড়ি",
+        "brx": "बाँसो डालि",
+        "bengali": "বাঁশের ঝুড়ি",
+        "bodo": "बाँसो डालि",
+        "miz": "",
+        "kha": "",
+        "gar": ""
+      },
+      "icon_name": "shopping_basket"
+    },
+    {
+      "id": "earthen_lamp",
+      "category": "household",
+      "visual_group": "woven_craft",
+      "translations": {
+        "en": "Earthen Clay Lamp",
+        "as": "মাটিৰ চাকি",
+        "bn": "মাটির প্রদীপ",
+        "brx": "माटियाव दीया",
+        "bengali": "মাটির প্রদীপ",
+        "bodo": "माटियाव दीया",
+        "miz": "",
+        "kha": "",
+        "gar": ""
+      },
+      "icon_name": "lightbulb"
+    },
+    {
+      "id": "silk_shawl",
+      "category": "household",
+      "visual_group": "cloth",
+      "_NOTE_bn": "REVIEW NEEDED: 'মুগা' (Muga) silk is specific to Assam. Standard Bengali uses 'মুগা রেশমের চাদর' or simply 'রেশমের চাদর'. Bengali patients may not recognize 'মুগা' by name — consider whether the Assam-specific label is important for the game context.",
+      "_NOTE_brx": "REVIEW NEEDED: 'दोखोना' (dokhona) is a Bodo traditional cloth, not a Muga shawl. Using 'मुगा सेरेम चादर' as a descriptive Bodo rendering. However, the cultural mapping is imperfect — a Bodo speaker may associate 'shawl' more with dokhona. Verify.",
+      "translations": {
+        "en": "Muga Silk Shawl",
+        "as": "মুগা চাদৰ",
+        "bn": "মুগা রেশমের চাদর",
+        "brx": "मुगा सेरेम चादर",
+        "bengali": "মুগা রেশমের চাদর",
+        "bodo": "मुगा सेरेम चादर",
+        "miz": "",
+        "kha": "",
+        "gar": ""
+      },
+      "icon_name": "checkroom"
+    }
+  ]
+}

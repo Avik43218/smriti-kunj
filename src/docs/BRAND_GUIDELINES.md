@@ -33,6 +33,12 @@ Any token change happens **in these two files first**, then gets reflected in th
 | `sage` | `#6E8C6A` | "Calm / done / safe" states only | Buttons, warnings |
 | `alert-red` | `#C1272D` | **SOS/emergency control only** | Anything else, ever |
 | `border` | `#E4D9C4` | Dividers, outlines | Text, icons |
+| `status-good` | `sage` (existing) | Stable / on-track patient status | New hex — reuse existing token |
+| `status-attention` | `gold` (existing) | Needs-review status, upcoming tasks | New hex — reuse existing token |
+| `status-urgent` | `#8C2C24` | Missed dose, urgent flag — caregiver dashboard ONLY | SOS control (that stays `alert-red`) |
+| `status-info` | `#2C4A6E` | Neutral data highlights, chart lines, links, secondary badges | Primary buttons (stays `terracotta`) |
+
+Rationale: `status-good`/`status-attention` reuse existing tokens rather than adding new ones — sage and gold already carry these meanings per Section 1. `status-info` is new: a deep blue pulled from the Meitei mayek naibi color set (Higok), where each color in that system denoted a specific clan meaning, not decoration — same principle applied here to give the dashboard a real semantic color instead of default Tailwind blue.
 
 **Rule:** `alert-red` is reserved. If it starts showing up on a "delete" button or a form-validation error, that's a bug in the implementation, not a design choice — flag it.
 
@@ -109,6 +115,11 @@ Reference set: **Gamosa** (Assam, everyday/hospitality symbol), **Meitei geometr
 - Tawlhlohpuan, Saihlo, or Thangchhuah (Mizo, warrior/hero-restricted), Manipuri temple textiles, or full Risa pattern reproduction — status/ceremony-restricted, not for casual reuse
 - Any new motif added without a quick check against this section first
 
+**Newly allowed (caregiver app only):**
+- Risa-inspired stripe: a 3px top border on patient cards, alternating `status-info` / `status-attention` / `status-urgent` depending on state — structural indicator, not a fill or background pattern
+- Meitei double-line border (2px + 2px, 2px gap) for focus/selected states, replacing default box-shadow focus ring
+
+Still governed by existing rules: no motif inside buttons, none behind body text, no dense weave reproduction.
 ---
 
 ## 6. Two apps, one brand
@@ -171,3 +182,4 @@ Token or rule changes are made **here first**, in the same PR as the correspondi
 ## Changelog
 
 - **v0.1 — Aug 27, 2026:** Initial design system — colors, type, spacing, components, cultural motif governance, AI agent rules.
+- **v0.2 — Sep 3, 2026:** Added caregiver-only status tokens (status-urgent, status-info) and Risa/Meitei structural treatments for cards and focus states.
