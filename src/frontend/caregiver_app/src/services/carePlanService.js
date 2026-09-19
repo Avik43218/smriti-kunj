@@ -1,4 +1,5 @@
 import apiClient from './apiClient';
+import { swrFetch, invalidateCache } from './cacheService';
 
 /**
  * Care Plan Service
@@ -6,17 +7,30 @@ import apiClient from './apiClient';
  * Provides memory gallery family member operations and care plan customization.
  */
 
-export const fetchFamilyMembers = async (patientId) => {
-  try {
-    const data = await apiClient(`/api/patients/${patientId}/family-members`);
-    if (Array.isArray(data)) {
-      return data;
-    }
-  } catch (err) {
-    console.warn(`apiClient /api/patients/${patientId}/family-members notice:`, err.message);
-  }
+export const fetchFamilyMembers = async (patientId, options = {}) => {
+  if (!patientId) return [];
+  const onUpdate = typeof options === 'function' ? options : options?.onUpdate;
+  const forceRefresh = Boolean(options?.forceRefresh);
 
-  return [];
+  const fetcher = async () => {
+    try {
+      const data = await apiClient(`/api/patients/${patientId}/family-members`);
+      if (Array.isArray(data)) {
+        return data;
+      }
+    } catch (err) {
+      console.warn(`apiClient /api/patients/${patientId}/family-members notice:`, err.message);
+    }
+    return [];
+  };
+
+  return await swrFetch({
+    endpoint: `/api/patients/${patientId}/family-members`,
+    patientId,
+    fetcher,
+    onUpdate,
+    forceRefresh,
+  });
 };
 
 /**
@@ -50,6 +64,7 @@ export const addFamilyMember = async ({ patientId, name, relation, photoUrl }) =
     method: 'POST',
     body: JSON.stringify({ name, relation, photoUrl }),
   });
+  invalidateCache(`/api/patients/${patientId}/family-members`, patientId);
   return data;
 };
 
