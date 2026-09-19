@@ -38,6 +38,8 @@ from app.models.user import DevicePairingToken, RoleEnum, User
 from app.schemas.auth import (
     CaregiverOut,
     CaregiverRegisterRequest,
+    ChangePasswordRequest,
+    ChangePasswordResponse,
     LoginRequest,
     LogoutResponse,
     OtpRequestRequest,
@@ -54,7 +56,7 @@ from app.schemas.auth import (
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 
-async def _issue_otp(email: str) -> None:
+async def _issue_otp(email: str) -> str:
     """Invalidate any outstanding code for this email, store a fresh one,
     and dispatch an email via Brevo while logging to terminal as fallback."""
     await OtpCode.find(OtpCode.email == email).delete()
@@ -75,23 +77,15 @@ async def _issue_otp(email: str) -> None:
 
     # Asynchronously dispatch transactional email via Brevo
     await send_otp_email(email=email, otp=code, expire_minutes=settings.OTP_EXPIRE_MINUTES)
+    return code
 
 
 @router.post("/register", response_model=CaregiverOut, status_code=201)
 async def register(payload: CaregiverRegisterRequest):
-    if await User.find_one(User.email == payload.email):
-        raise HTTPException(status_code=409, detail="An account with that email already exists")
-
-    user = User(
-        role=RoleEnum.caregiver,
-        name=payload.name,
-        email=payload.email,
-        hashed_password=hash_password(payload.password),
-        region_language=payload.region_language,
-        status="active",
+    raise HTTPException(
+        status_code=404,
+        detail="Public registration is disabled. Caregiver accounts must be created by an administrator.",
     )
-    await user.insert()
-    return user
 
 
 @router.post("/login", response_model=OtpRequestResponse)
@@ -104,27 +98,34 @@ async def login(payload: LoginRequest):
 
     user_role_str = user.role.value if hasattr(user.role, "value") else str(user.role)
     if payload.role and user_role_str != payload.role:
-        raise HTTPException(
-            status_code=403,
-            detail=f"This account is registered as a {user_role_str}. Please switch to the {user_role_str.capitalize()} tab to sign in.",
-        )
+        raise HTTPException(status_code=401, detail="Incorrect email or password")
 
     if getattr(user, "status", None) == "disabled":
         raise HTTPException(status_code=403, detail="Account is disabled")
 
-    await _issue_otp(user.email)
-    return OtpRequestResponse(message="A one-time code has been sent to your email.", email=user.email)
+    code = await _issue_otp(user.email)
+    debug_otp = code if not (settings.BREVO_API_KEY and settings.BREVO_API_KEY.strip()) else None
+    return OtpRequestResponse(
+        message="A one-time code has been sent to your email.",
+        email=user.email,
+        debug_otp=debug_otp,
+    )
 
 
 @router.post("/request-otp", response_model=OtpRequestResponse)
 async def request_otp(payload: OtpRequestRequest):
-    """Resend path ('Didn't get a code?'). Always returns the same generic
-    message whether or not the email has an account, to avoid leaking
-    which emails are registered."""
+    """Re-issue an OTP without re-submitting the password."""
     user = await User.find_one(User.email == payload.email)
+    debug_otp = None
     if user and user.role != RoleEnum.patient and getattr(user, "status", None) != "disabled":
-        await _issue_otp(user.email)
-    return OtpRequestResponse(message="If that email has an account, a code has been sent.", email=payload.email)
+        code = await _issue_otp(user.email)
+        if not (settings.BREVO_API_KEY and settings.BREVO_API_KEY.strip()):
+            debug_otp = code
+    return OtpRequestResponse(
+        message="If that email has an account, a code has been sent.",
+        email=payload.email,
+        debug_otp=debug_otp,
+    )
 
 
 @router.post("/verify-otp", response_model=OtpVerifyResponse)
@@ -154,19 +155,23 @@ async def verify_otp(payload: OtpVerifyRequest):
     await otp_record.delete()
 
     user_role_str = user.role.value if hasattr(user.role, "value") else str(user.role)
+    must_change = bool(getattr(user, "must_change_password", False))
     token = _create_token(
         user.id,
         user.role,
         timedelta(minutes=settings.CAREGIVER_TOKEN_EXPIRE_MINUTES),
+        must_change_password=must_change,
     )
 
     caregiver_out = CaregiverOut(
         id=user.id,
         name=user.name,
         email=user.email,
+        phone=getattr(user, "phone", None),
         region_language=user.region_language or "bn",
         role=user_role_str,
         status=getattr(user, "status", "active") or "active",
+        must_change_password=must_change,
     )
     user_out = UserOut(
         id=user.id,
@@ -179,13 +184,30 @@ async def verify_otp(payload: OtpVerifyRequest):
         pairing_token=user.pairing_token,
         emergency_contact=user.emergency_contact,
         device_id=user.device_id,
+        must_change_password=must_change,
     )
 
     return OtpVerifyResponse(
         token=token,
         caregiver=caregiver_out,
         user=user_out,
+        must_change_password=must_change,
     )
+
+
+@router.post("/change-password", response_model=ChangePasswordResponse)
+async def change_password(
+    payload: ChangePasswordRequest,
+    user: User = Depends(get_current_user),
+):
+    if not user.hashed_password or not verify_password(payload.current_password, user.hashed_password):
+        raise HTTPException(status_code=400, detail="Current password is incorrect")
+
+    user.hashed_password = hash_password(payload.new_password)
+    user.must_change_password = False
+    await user.save()
+
+    return ChangePasswordResponse(message="Password changed successfully", must_change_password=False)
 
 
 @router.post("/logout", response_model=LogoutResponse)

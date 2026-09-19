@@ -38,9 +38,10 @@ def _normalize_patient_id(patient_id: str) -> str:
 async def _verify_patient_access(patient_id: str, caregiver: User) -> str:
     """Verify caregiver has access to this patient and return normalized patient ID."""
     norm_id = _normalize_patient_id(patient_id)
-    patient = await find_patient_for_caregiver(norm_id, caregiver.id)
+    is_admin = caregiver.role == RoleEnum.admin
+    patient = await find_patient_for_caregiver(norm_id, caregiver.id, is_admin=is_admin)
     if not patient:
-        patient = await find_patient_for_caregiver(patient_id, caregiver.id)
+        patient = await find_patient_for_caregiver(patient_id, caregiver.id, is_admin=is_admin)
     if not patient:
         raise HTTPException(status_code=404, detail="Patient record not found")
     return patient.patient_code or str(patient.id)
@@ -518,13 +519,21 @@ async def add_custom_reminder(
 
 # ---- 3. Cognitive Game Sessions & Analytics ------------------------------
 
+def _format_utc_iso(dt: Optional[datetime]) -> str:
+    if not dt:
+        dt = datetime.utcnow()
+    iso = dt.isoformat()
+    return iso if iso.endswith("Z") else f"{iso}Z"
+
+
 def _session_to_out(s: GameSession, profile_id: str) -> GameSessionOut:
     return GameSessionOut(
         session_id=s.client_session_id or str(s.id),
         patient_profile_id=s.patient_profile_id or profile_id,
         game_type=s.game_type,
         domain=s.domain or "memory",
-        session_date=s.client_timestamp.isoformat() if s.client_timestamp else datetime.utcnow().isoformat(),
+        session_date=_format_utc_iso(s.client_timestamp),
+        synced_at=_format_utc_iso(s.synced_at or s.client_timestamp),
         session_duration=s.session_duration or round(s.avg_latency_ms / 1000) if s.avg_latency_ms else 120,
         status=s.status or "completed",
         difficulty_level=s.difficulty_level,

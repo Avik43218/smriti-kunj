@@ -9,10 +9,14 @@ class CaregiverAdminOut(BaseModel):
     id: uuid.UUID
     name: str
     email: Optional[EmailStr] = None
+    phone: Optional[str] = None
     region_language: str = "bn"
     role: str = "caregiver"
     status: str = "active"
+    must_change_password: Optional[bool] = False
+    temporary_password: Optional[str] = None
     patient_count: int = 0
+    assigned_patient_ids: List[str] = Field(default_factory=list)
     created_at: Optional[datetime] = None
     created_by: Optional[str] = None
 
@@ -23,16 +27,34 @@ class CaregiverAdminOut(BaseModel):
 class CaregiverCreateAdminRequest(BaseModel):
     name: str
     email: EmailStr
-    password: str = Field(min_length=8)
+    password: Optional[str] = None
+    phone: Optional[str] = None
     region_language: str = "bn"
     status: Literal["active", "disabled"] = "active"
+    assigned_patient_ids: Optional[List[uuid.UUID]] = None
 
 
 class CaregiverUpdateAdminRequest(BaseModel):
     name: Optional[str] = None
     email: Optional[EmailStr] = None
+    phone: Optional[str] = None
     region_language: Optional[str] = None
     status: Optional[Literal["active", "disabled"]] = None
+
+
+class CaregiverResetPasswordRequest(BaseModel):
+    new_password: Optional[str] = None
+
+
+class CaregiverResetPasswordResponse(BaseModel):
+    temporary_password: str
+    message: str = "Password reset successfully. Please share this temporary password with the caregiver."
+
+
+class CaregiverAssignedSummary(BaseModel):
+    id: uuid.UUID
+    name: str
+    email: Optional[str] = None
 
 
 class PatientAdminOut(BaseModel):
@@ -48,6 +70,8 @@ class PatientAdminOut(BaseModel):
     caregiver_id: Optional[uuid.UUID] = None
     caregiver_name: Optional[str] = None
     caregiver_email: Optional[str] = None
+    assigned_caregiver_ids: List[uuid.UUID] = Field(default_factory=list)
+    assigned_caregivers: List[CaregiverAssignedSummary] = Field(default_factory=list)
     device_id: Optional[str] = None
     pairing_token: Optional[str] = None
     created_at: Optional[datetime] = None
@@ -58,3 +82,23 @@ class PatientAdminOut(BaseModel):
 
 class PatientReassignRequest(BaseModel):
     new_caregiver_id: uuid.UUID
+
+
+class PatientAssignCaregiversRequest(BaseModel):
+    caregiver_ids: List[uuid.UUID]
+
+
+class AdminAuditLogOut(BaseModel):
+    id: str
+    actor_id: Optional[uuid.UUID] = None
+    actor_name: Optional[str] = None
+    actor_email: Optional[str] = None
+    action: str
+    target_type: Optional[str] = None
+    target_id: Optional[str] = None
+    target_name: Optional[str] = None
+    details: Optional[Dict[str, Any]] = None
+    timestamp: datetime
+
+    class Config:
+        from_attributes = True

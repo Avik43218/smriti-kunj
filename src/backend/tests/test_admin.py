@@ -11,6 +11,7 @@ from fastapi import HTTPException
 
 from app.api.routes import admin, caregiver, patients
 from app.core.security import require_admin, require_caregiver
+from app.models.audit import AdminAuditLog
 from app.models.care_plan import FamilyMember
 from app.models.reminder import PatientReminder
 from app.models.session import GameSession
@@ -34,11 +35,12 @@ class TestAdminRoleAndEndpoints(unittest.IsolatedAsyncioTestCase):
         mock_coll.create_index = AsyncMock()
         mock_coll.create_indexes = AsyncMock()
         mock_coll.index_information = AsyncMock(return_value={})
+        mock_coll.insert_one = AsyncMock(side_effect=lambda doc, session=None: MagicMock(inserted_id=uuid.uuid4()))
         mock_coll.name = "mock"
         db.__getitem__.return_value = mock_coll
         await init_beanie(
             database=db,
-            document_models=[User, FamilyMember, PatientReminder, GameSession, DevicePairingToken],
+            document_models=[User, FamilyMember, PatientReminder, GameSession, DevicePairingToken, AdminAuditLog],
         )
 
         # 1. Admin user
@@ -120,10 +122,10 @@ class TestAdminRoleAndEndpoints(unittest.IsolatedAsyncioTestCase):
             mock_cg_query = MagicMock()
             mock_cg_query.to_list = AsyncMock(return_value=[self.caregiver_a, self.caregiver_b])
 
-            mock_count_query = MagicMock()
-            mock_count_query.count = AsyncMock(return_value=2)
+            mock_patients_query = MagicMock()
+            mock_patients_query.to_list = AsyncMock(return_value=[self.patient, self.patient])
 
-            mock_find.side_effect = [mock_cg_query, mock_count_query, mock_count_query]
+            mock_find.side_effect = [mock_cg_query, mock_patients_query]
 
             results = await admin.list_caregivers(self.admin_user)
             self.assertEqual(len(results), 2)
@@ -173,21 +175,25 @@ class TestAdminRoleAndEndpoints(unittest.IsolatedAsyncioTestCase):
         with patch("app.api.routes.admin._find_patient_by_identifier", AsyncMock(return_value=self.patient)):
             with patch.object(User, "find_one", AsyncMock(return_value=self.caregiver_b)):
                 with patch.object(User, "save", new_callable=AsyncMock):
-                    with patch.object(DevicePairingToken, "find") as mock_tok_find:
-                        mock_tok_query = MagicMock()
-                        mock_tok_query.to_list = AsyncMock(return_value=[])
-                        mock_tok_find.return_value = mock_tok_query
+                    with patch.object(User, "find") as mock_user_find:
+                        mock_cg_query = MagicMock()
+                        mock_cg_query.to_list = AsyncMock(return_value=[self.caregiver_b])
+                        mock_user_find.return_value = mock_cg_query
+                        with patch.object(DevicePairingToken, "find") as mock_tok_find:
+                            mock_tok_query = MagicMock()
+                            mock_tok_query.to_list = AsyncMock(return_value=[])
+                            mock_tok_find.return_value = mock_tok_query
 
-                        updated = await admin.reassign_patient("p101", reassign_payload, self.admin_user)
-                        self.assertEqual(updated.caregiver_id, self.caregiver_b_id)
-                        self.assertEqual(updated.caregiver_name, "Nurse Ananya Roy")
+                            updated = await admin.reassign_patient("p101", reassign_payload, self.admin_user)
+                            self.assertEqual(updated.caregiver_id, self.caregiver_b_id)
+                            self.assertEqual(updated.caregiver_name, "Nurse Ananya Roy")
 
     async def test_admin_delete_caregiver_blocked_with_patients(self):
         """Deleting a caregiver who has assigned patients is blocked with 400 Bad Request."""
         with patch.object(User, "find_one", AsyncMock(return_value=self.caregiver_a)):
             with patch.object(User, "find") as mock_find:
                 mock_query = MagicMock()
-                mock_query.count = AsyncMock(return_value=2)  # Has 2 assigned patients
+                mock_query.to_list = AsyncMock(return_value=[self.patient, self.patient])  # Has 2 assigned patients
                 mock_find.return_value = mock_query
 
                 with self.assertRaises(HTTPException) as ctx:
@@ -200,7 +206,7 @@ class TestAdminRoleAndEndpoints(unittest.IsolatedAsyncioTestCase):
         with patch.object(User, "find_one", AsyncMock(return_value=self.caregiver_b)):
             with patch.object(User, "find") as mock_find:
                 mock_query = MagicMock()
-                mock_query.count = AsyncMock(return_value=0)  # 0 patients
+                mock_query.to_list = AsyncMock(return_value=[])  # 0 patients
                 mock_find.return_value = mock_query
                 with patch.object(User, "delete", new_callable=AsyncMock) as mock_del:
                     res = await admin.delete_caregiver(self.caregiver_b_id, self.admin_user)
@@ -224,6 +230,82 @@ class TestAdminRoleAndEndpoints(unittest.IsolatedAsyncioTestCase):
             # Verify the call passed arguments filtering by caregiver_a.id
             call_args = mock_find.call_args[0]
             self.assertTrue(len(call_args) >= 1)
+
+    # ---- Additional Admin Feature Tests -------------------------------------
+
+    async def test_public_registration_disabled(self):
+        """Public caregiver registration is disabled and returns 404."""
+        from app.api.routes import auth
+        from app.schemas.auth import CaregiverRegisterRequest
+
+        req = CaregiverRegisterRequest(
+            name="New CG",
+            email="newcg@example.com",
+            password="Password123!",
+            region_language="bn",
+        )
+        with self.assertRaises(HTTPException) as ctx:
+            await auth.register(req)
+        self.assertEqual(ctx.exception.status_code, 404)
+        self.assertIn("Public registration is disabled", ctx.exception.detail)
+
+    async def test_admin_reset_password(self):
+        """Admin resetting password sets must_change_password=True and returns temp password."""
+        with patch.object(User, "find_one", AsyncMock(return_value=self.caregiver_a)):
+            with patch.object(User, "save", new_callable=AsyncMock) as mock_save:
+                res = await admin.reset_caregiver_password(self.caregiver_a_id, None, self.admin_user)
+                self.assertTrue(self.caregiver_a.must_change_password)
+                self.assertTrue(len(res.temporary_password) >= 8)
+                mock_save.assert_called_once()
+
+    async def test_admin_assign_multiple_caregivers(self):
+        """Admin assigns multiple caregivers to a patient."""
+        from app.schemas.admin import PatientAssignCaregiversRequest
+        req = PatientAssignCaregiversRequest(caregiver_ids=[self.caregiver_a_id, self.caregiver_b_id])
+
+        with patch("app.api.routes.admin._find_patient_by_identifier", AsyncMock(return_value=self.patient)):
+            with patch.object(User, "find") as mock_find:
+                mock_cg_query = MagicMock()
+                mock_cg_query.to_list = AsyncMock(return_value=[self.caregiver_a, self.caregiver_b])
+                mock_find.return_value = mock_cg_query
+                with patch.object(User, "save", new_callable=AsyncMock) as mock_save:
+                    with patch.object(DevicePairingToken, "find") as mock_tok_find:
+                        mock_tok_query = MagicMock()
+                        mock_tok_query.to_list = AsyncMock(return_value=[])
+                        mock_tok_find.return_value = mock_tok_query
+                        res = await admin.assign_patient_caregivers("p101", req, self.admin_user)
+                        self.assertIn(self.caregiver_a_id, res.assigned_caregiver_ids)
+                        self.assertIn(self.caregiver_b_id, res.assigned_caregiver_ids)
+                        self.assertEqual(len(res.assigned_caregivers), 2)
+                        mock_save.assert_called_once()
+
+    async def test_admin_get_audit_logs(self):
+        """Admin can retrieve audit log entries."""
+        with patch.object(AdminAuditLog, "find") as mock_find:
+            mock_query = MagicMock()
+            mock_sort = MagicMock()
+            mock_limit = MagicMock()
+            mock_limit.to_list = AsyncMock(return_value=[
+                AdminAuditLog(
+                    id=uuid.uuid4(),
+                    actor_id=self.admin_id,
+                    actor_name="System Admin",
+                    actor_email="admin@smritikunj.org",
+                    action="create_caregiver",
+                    target_type="caregiver",
+                    target_id=str(self.caregiver_a_id),
+                    target_name="Dr. Sarah Jenkins",
+                    details={"email": "sarah@example.com"},
+                    timestamp=datetime.utcnow(),
+                )
+            ])
+            mock_sort.limit.return_value = mock_limit
+            mock_query.sort.return_value = mock_sort
+            mock_find.return_value = mock_query
+
+            logs = await admin.get_admin_audit_logs(limit=50, _=self.admin_user)
+            self.assertEqual(len(logs), 1)
+            self.assertEqual(logs[0].action, "create_caregiver")
 
 
 if __name__ == "__main__":

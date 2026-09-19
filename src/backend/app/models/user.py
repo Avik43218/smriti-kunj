@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, Optional, Annotated, Union, Literal
+from typing import Any, Dict, Optional, Annotated, Union, Literal, List
 
 from beanie import Document, Indexed, PydanticObjectId
 from pydantic import Field
@@ -34,6 +34,9 @@ class User(Document):
     region_language: str = "bn"  # as / bn / mni ...
     caregiver_id: Optional[uuid.UUID] = None
     device_id: Optional[str] = None
+    phone: Optional[str] = None
+    must_change_password: bool = False
+    assigned_caregiver_ids: List[uuid.UUID] = Field(default_factory=list)
 
     # Patient profile attributes
     patient_code: Optional[str] = None  # e.g. "p101"
@@ -76,6 +79,7 @@ class User(Document):
                 partialFilterExpression={"pairing_token": {"$type": "string"}},
             ),
             IndexModel([("caregiver_id", ASCENDING)]),
+            IndexModel([("assigned_caregiver_ids", ASCENDING)]),
         ]
 
 

@@ -15,7 +15,7 @@ import { PatientDetails } from './pages/PatientDetails';
 import { AdminDashboard } from './pages/admin/AdminDashboard';
 import { ManageCaregivers } from './pages/admin/ManageCaregivers';
 import { AllPatients } from './pages/admin/AllPatients';
-import { RegisterAdmin } from './pages/admin/RegisterAdmin';
+import { AdminAuditLogs } from './pages/admin/AdminAuditLogs';
 
 import { useAuth } from './context/AuthContext';
 
@@ -36,11 +36,11 @@ export const App = () => {
       <AuthProvider>
         <ThemeProvider>
           <Routes>
-            {/* Public Authentication Routes */}
+            {/* Authentication Routes - Public registration disabled */}
             <Route path="/login" element={<Login />} />
-            <Route path="/register" element={<Register />} />
-            <Route path="/admin/register" element={<RegisterAdmin />} />
-            <Route path="/register/admin" element={<Navigate to="/admin/register" replace />} />
+            <Route path="/register" element={<Navigate to="/login" replace />} />
+            <Route path="/admin/register" element={<Navigate to="/login" replace />} />
+            <Route path="/register/admin" element={<Navigate to="/login" replace />} />
 
             {/* Admin Management Routes wrapped in DashboardLayout */}
             <Route
@@ -54,6 +54,7 @@ export const App = () => {
               <Route path="/admin/dashboard" element={<AdminDashboard />} />
               <Route path="/admin/caregivers" element={<ManageCaregivers />} />
               <Route path="/admin/patients" element={<AllPatients />} />
+              <Route path="/admin/audit-logs" element={<AdminAuditLogs />} />
             </Route>
 
             {/* Main Caregiver Dashboard Routes wrapped in DashboardLayout */}

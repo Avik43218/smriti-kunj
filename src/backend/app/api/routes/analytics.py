@@ -6,14 +6,26 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from app.core.security import require_caregiver
 from app.models.analytics import Alert, DriftMetric
-from app.models.user import User
+from app.models.user import RoleEnum, User
 from app.schemas.analytics import AlertOut, DriftMetricOut
 
 router = APIRouter(prefix="/analytics", tags=["analytics"])
 
 
 async def _ensure_own_patient(caregiver: User, patient_id: uuid.UUID) -> User:
-    patient = await User.find_one(User.id == patient_id, User.caregiver_id == caregiver.id)
+    if caregiver.role == RoleEnum.admin or getattr(caregiver.role, "value", None) == "admin":
+        patient = await User.find_one(User.id == patient_id, User.role == RoleEnum.patient)
+    else:
+        patient = await User.find_one(
+            {
+                "_id": patient_id,
+                "role": RoleEnum.patient,
+                "$or": [
+                    {"caregiver_id": caregiver.id},
+                    {"assigned_caregiver_ids": caregiver.id},
+                ],
+            }
+        )
     if not patient:
         raise HTTPException(status_code=404, detail="Patient not found")
     return patient

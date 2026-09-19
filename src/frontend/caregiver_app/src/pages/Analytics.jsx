@@ -23,14 +23,12 @@ import {
   HelpCircle,
   RefreshCw,
   Award,
-  Download,
   FileText,
 } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 import { fetchPatients, getPatientById } from '../services/patientService';
 import { fetchPatientRiskOverview } from '../services/riskService';
 import { PatientReportCardModal } from '../components/PatientReportCardModal';
-import { downloadPatientStatsCsv } from '../services/csvExportService';
 import {
   getGameSessions,
   DOMAINS,
@@ -170,17 +168,6 @@ export const Analytics = () => {
     loadData();
   }, [id]);
 
-  const handleDownloadCsv = () => {
-    if (!patient) return;
-    downloadPatientStatsCsv({
-      patient,
-      sessions,
-      stats,
-      riskData,
-      domainData,
-    });
-  };
-
   // Scroll to session history table when hash is #session-history
   useEffect(() => {
     if (!loading && location.hash === '#session-history') {
@@ -234,10 +221,12 @@ export const Analytics = () => {
     };
   }, [sessions]);
 
-  // All sessions sorted newest first for the history table
+  // All sessions sorted newest first for the history table (by sync time, fallback to session_date)
   const sortedSessions = useMemo(() => {
     return [...sessions].sort(
-      (a, b) => new Date(b.session_date).getTime() - new Date(a.session_date).getTime()
+      (a, b) =>
+        (parseSessionDate(b.synced_at || b.session_date)?.getTime() || 0) -
+        (parseSessionDate(a.synced_at || a.session_date)?.getTime() || 0)
     );
   }, [sessions]);
 
@@ -487,13 +476,13 @@ export const Analytics = () => {
 
             <button
               type="button"
-              onClick={handleDownloadCsv}
+              onClick={() => setShowReportModal(true)}
               disabled={!patient}
               className="inline-flex items-center justify-center gap-2 px-5 py-3 bg-terracotta hover:bg-terracotta-dark text-cream text-xs sm:text-sm font-bold rounded-card shadow-sm hover:shadow active:scale-95 transition-all cursor-pointer h-full self-stretch min-h-[58px] focus:outline-none focus:ring-2 focus:ring-terracotta/40"
-              title="Download all numerical stats and session logs in CSV format"
+              title="Download patient cognitive report card in PDF or HTML format"
             >
-              <Download className="w-4 h-4 text-cream" />
-              <span>Download Stats</span>
+              <FileText className="w-4 h-4 text-cream" />
+              <span>Download Report Card</span>
             </button>
           </div>
         </div>
@@ -556,7 +545,7 @@ export const Analytics = () => {
                       <td className="py-3 px-4 font-medium whitespace-nowrap">
                         <div className="flex items-center gap-2">
                           <Calendar className="w-3.5 h-3.5 text-ink-soft/60" />
-                          <span>{formatSessionDate(session.session_date, true)}</span>
+                          <span>{formatSessionDate(session.synced_at || session.session_date, true)}</span>
                         </div>
                       </td>
 
