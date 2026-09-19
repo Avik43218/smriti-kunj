@@ -66,6 +66,7 @@ export const App = () => {
             >
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/patients/new" element={<RegisterPatient />} />
+              <Route path="/analytics" element={<Analytics />} />
               <Route path="/care-plan" element={<CarePlan />} />
               <Route path="/customization" element={<CarePlan />} />
             </Route>

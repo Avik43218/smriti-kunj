@@ -24,6 +24,7 @@ import {
   RefreshCw,
   Award,
   Download,
+  FileText,
 } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 import { fetchPatients, getPatientById } from '../services/patientService';
