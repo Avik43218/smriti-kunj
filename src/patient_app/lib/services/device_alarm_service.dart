@@ -27,7 +27,7 @@ class AlarmTime {
   int get hashCode => hour.hashCode ^ minute.hashCode;
 }
 
-/// Service to interface with native mobile device alarm system (Android Clock / AlarmClock).
+/// Service to interface with native mobile device alarm system via AlarmManager.
 ///
 /// Converts patient daily reminders into native device alarms repeating everyday.
 class DeviceAlarmService {
@@ -38,6 +38,25 @@ class DeviceAlarmService {
 
   static const String channelName = 'com.smritikunj.patient_app/alarm';
   static const MethodChannel _channel = MethodChannel(channelName);
+
+  /// Generates a deterministic positive 31-bit integer hash code
+  /// matching Java's String.hashCode() & 0x7FFFFFFF.
+  static int computeRequestCode(String reminderId, [String? date]) {
+    final key = (date != null && date.isNotEmpty) ? '$reminderId$date' : reminderId;
+    var hash = 0;
+    for (var i = 0; i < key.length; i++) {
+      hash = (31 * hash + key.codeUnitAt(i)) & 0x7FFFFFFF;
+    }
+    return hash;
+  }
+
+  /// Formats date to 'yyyy-MM-dd' for request code hashing.
+  static String formatDateKey(dynamic date) {
+    if (date is DateTime) {
+      return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+    }
+    return date?.toString() ?? '';
+  }
 
   /// Checks if the native alarm provider is supported on the current device.
   Future<bool> isAlarmSupported() async {
@@ -50,18 +69,28 @@ class DeviceAlarmService {
     }
   }
 
-  /// Sets a single recurring everyday alarm on the mobile device.
+  /// Sets a single recurring everyday alarm on the mobile device via AlarmManager.
   Future<bool> setDeviceAlarm({
     required String label,
     required int hour,
     required int minute,
+    String? reminderId,
+    dynamic date,
+    bool isRecurring = true,
     bool skipUi = true,
   }) async {
+    final id = reminderId ?? label;
+    final dateStr = date != null ? formatDateKey(date) : null;
+    final requestCode = computeRequestCode(id, dateStr);
     try {
       final res = await _channel.invokeMethod<Map<dynamic, dynamic>>('setDeviceAlarm', {
+        'reminderId': id,
         'label': label,
         'hour': hour,
         'minute': minute,
+        'date': dateStr,
+        'requestCode': requestCode,
+        'isRecurring': isRecurring,
         'skipUi': skipUi,
       });
       final success = res?['success'] == true;
@@ -74,7 +103,7 @@ class DeviceAlarmService {
   }
 
   /// Converts and schedules a list of [ReminderItem]s as native device alarms
-  /// repeating everyday.
+  /// repeating everyday via AlarmManager.
   ///
   /// Returns the number of successfully parsed and scheduled alarms.
   Future<int> syncRemindersToDeviceAlarms(
@@ -92,10 +121,14 @@ class DeviceAlarmService {
         continue;
       }
 
+      final requestCode = computeRequestCode(reminder.id);
       alarmsList.add({
+        'id': reminder.id,
+        'reminderId': reminder.id,
         'label': reminder.title,
         'hour': parsedTime.hour,
         'minute': parsedTime.minute,
+        'requestCode': requestCode,
         'skipUi': skipUi,
       });
     }
@@ -115,6 +148,76 @@ class DeviceAlarmService {
       debugPrint('[DeviceAlarmService] setDailyAlarms failed: $e');
       // Graceful fallback for non-Android environments / tests
       return 0;
+    }
+  }
+
+  /// Cancels an alarm for a specific single date.
+  Future<bool> cancelOnce(String reminderId, dynamic date) async {
+    final dateStr = formatDateKey(date);
+    final requestCode = computeRequestCode(reminderId, dateStr);
+    try {
+      final res = await _channel.invokeMethod<Map<dynamic, dynamic>>('cancelOnce', {
+        'reminderId': reminderId,
+        'date': dateStr,
+        'requestCode': requestCode,
+      });
+      final success = res?['success'] == true;
+      debugPrint('[DeviceAlarmService] cancelOnce("$reminderId", "$dateStr") -> $success');
+      return success;
+    } catch (e) {
+      debugPrint('[DeviceAlarmService] cancelOnce failed: $e');
+      return false;
+    }
+  }
+
+  /// Cancels recurring device alarm schedule for a reminder.
+  Future<bool> cancelRecurring(String reminderId) async {
+    final requestCode = computeRequestCode(reminderId);
+    try {
+      final res = await _channel.invokeMethod<Map<dynamic, dynamic>>('cancelRecurring', {
+        'reminderId': reminderId,
+        'requestCode': requestCode,
+      });
+      final success = res?['success'] == true;
+      debugPrint('[DeviceAlarmService] cancelRecurring("$reminderId") -> $success');
+      return success;
+    } catch (e) {
+      debugPrint('[DeviceAlarmService] cancelRecurring failed: $e');
+      return false;
+    }
+  }
+
+  /// Completely removes/deletes the alarm from device scheduling.
+  Future<bool> deleteAlarm(String reminderId, {dynamic date}) async {
+    final dateStr = date != null ? formatDateKey(date) : null;
+    final requestCode = computeRequestCode(reminderId);
+    try {
+      final res = await _channel.invokeMethod<Map<dynamic, dynamic>>('deleteAlarm', {
+        'reminderId': reminderId,
+        'date': dateStr,
+        'requestCode': requestCode,
+      });
+      final success = res?['success'] == true;
+      debugPrint('[DeviceAlarmService] deleteAlarm("$reminderId") -> $success');
+      return success;
+    } catch (e) {
+      debugPrint('[DeviceAlarmService] deleteAlarm failed: $e');
+      return false;
+    }
+  }
+
+  /// Directly cancels an alarm by its numeric request code.
+  Future<bool> cancelByRequestCode(int requestCode) async {
+    try {
+      final res = await _channel.invokeMethod<Map<dynamic, dynamic>>('cancelByRequestCode', {
+        'requestCode': requestCode,
+      });
+      final success = res?['success'] == true;
+      debugPrint('[DeviceAlarmService] cancelByRequestCode($requestCode) -> $success');
+      return success;
+    } catch (e) {
+      debugPrint('[DeviceAlarmService] cancelByRequestCode failed: $e');
+      return false;
     }
   }
 

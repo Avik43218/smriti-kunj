@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 import 'package:sqflite/sqflite.dart';
 import '../models/reminder_item.dart';
+import 'device_alarm_service.dart';
 
 /// SQLite persistence service for local patient app Daily Reminders.
 ///
@@ -143,9 +144,34 @@ class ReminderDatabaseService {
   /// Flushes the local SQLite table containing those reminders.
   /// If [pairingCode] is provided, removes reminders for that pairing code;
   /// otherwise wipes the entire [patient_reminders] table.
+  /// Cancels corresponding device alarms before removing records.
   Future<int> clearReminders({String? pairingCode}) async {
     final db = await database;
     int deletedCount = 0;
+
+    // Fetch existing reminders to cancel their device alarms first
+    final List<Map<String, dynamic>> existingRows;
+    if (pairingCode != null && pairingCode.trim().isNotEmpty) {
+      final clean = pairingCode.trim().toUpperCase();
+      existingRows = await db.query(
+        table,
+        where: 'pairing_code = ? OR pairing_code IS NULL',
+        whereArgs: [clean],
+      );
+    } else {
+      existingRows = await db.query(table);
+    }
+
+    for (final row in existingRows) {
+      final id = row['id'] as String?;
+      if (id != null && id.isNotEmpty) {
+        try {
+          await DeviceAlarmService.instance.deleteAlarm(id);
+        } catch (e) {
+          debugPrint('[ReminderDatabaseService] Failed to cancel device alarm for $id: $e');
+        }
+      }
+    }
 
     if (pairingCode != null && pairingCode.trim().isNotEmpty) {
       final clean = pairingCode.trim().toUpperCase();
@@ -160,6 +186,43 @@ class ReminderDatabaseService {
 
     debugPrint('[ReminderDatabaseService] Flushed $deletedCount reminders from SQLite.');
     return deletedCount;
+  }
+
+  /// Deletes a single reminder by [id], cancelling its device alarm first.
+  Future<int> deleteReminder(String id) async {
+    final db = await database;
+    try {
+      await DeviceAlarmService.instance.deleteAlarm(id);
+    } catch (e) {
+      debugPrint('[ReminderDatabaseService] Failed to cancel device alarm for $id: $e');
+    }
+    final count = await db.delete(
+      table,
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+    debugPrint('[ReminderDatabaseService] Deleted reminder $id from SQLite (count=$count).');
+    return count;
+  }
+
+  /// Cancels a reminder alarm on device for a single date.
+  Future<bool> cancelReminderOnce(String id, dynamic date) async {
+    try {
+      return await DeviceAlarmService.instance.cancelOnce(id, date);
+    } catch (e) {
+      debugPrint('[ReminderDatabaseService] Failed to cancelOnce for $id on $date: $e');
+      return false;
+    }
+  }
+
+  /// Cancels recurring device alarm schedule for a reminder.
+  Future<bool> cancelReminderRecurring(String id) async {
+    try {
+      return await DeviceAlarmService.instance.cancelRecurring(id);
+    } catch (e) {
+      debugPrint('[ReminderDatabaseService] Failed to cancelRecurring for $id: $e');
+      return false;
+    }
   }
 
   /// Returns total count of reminders stored in SQLite.
