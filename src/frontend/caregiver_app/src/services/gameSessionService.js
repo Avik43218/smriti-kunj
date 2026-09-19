@@ -117,14 +117,33 @@ export const getGameSessions = async (patientId, options = {}) => {
 };
 
 /**
- * Safely parses any ISO date string into a Date object.
+/**
+ * Resolves the client's display timezone. If the environment or browser defaults to
+ * UTC (common in privacy browsers, webviews, or headless containers), defaults to
+ * Indian Standard Time ('Asia/Kolkata') to match patient device time.
+ */
+export const resolveDisplayTimeZone = () => {
+  try {
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    if (tz && tz !== 'UTC' && tz !== 'Etc/UTC') {
+      return tz;
+    }
+  } catch (_) {}
+  return 'Asia/Kolkata';
+};
+
+/**
+ * Safely parses any ISO date string, SQL date string, or timestamp into a Date object.
  * If the string has date and time ('T') but lacks a timezone indicator ('Z' or '+/-HH:MM'),
  * it treats it as UTC, matching backend MongoDB UTC storage.
  */
 export const parseSessionDate = (raw) => {
   if (!raw) return null;
-  if (raw instanceof Date) return raw;
-  if (typeof raw === 'number') return new Date(raw);
+  if (raw instanceof Date) return isNaN(raw.getTime()) ? null : raw;
+  if (typeof raw === 'number') {
+    const ms = raw < 1e11 ? raw * 1000 : raw;
+    return new Date(ms);
+  }
 
   let str = String(raw).trim();
   if (!str) return null;
@@ -149,17 +168,21 @@ export const parseSessionDate = (raw) => {
 /**
  * Formats date to concise user-friendly display in user's local timezone (e.g. "Sep 19" or "Sep 19, 4:10 PM")
  */
-export const formatSessionDate = (isoString, includeTime = false) => {
+export const formatSessionDate = (isoString, includeTime = false, customTimeZone = null) => {
   if (!isoString) return '—';
   const date = parseSessionDate(isoString);
   if (!date) return String(isoString);
 
+  const tz = customTimeZone || resolveDisplayTimeZone();
+
   if (includeTime) {
-    const datePart = date.toLocaleDateString(undefined, {
+    const datePart = date.toLocaleDateString('en-US', {
+      timeZone: tz,
       month: 'short',
       day: 'numeric',
     });
-    const timePart = date.toLocaleTimeString(undefined, {
+    const timePart = date.toLocaleTimeString('en-US', {
+      timeZone: tz,
       hour: 'numeric',
       minute: '2-digit',
       hour12: true,
@@ -167,7 +190,8 @@ export const formatSessionDate = (isoString, includeTime = false) => {
     return `${datePart}, ${timePart}`;
   }
 
-  return date.toLocaleDateString(undefined, {
+  return date.toLocaleDateString('en-US', {
+    timeZone: tz,
     month: 'short',
     day: 'numeric',
   });
@@ -193,4 +217,5 @@ export default {
   parseSessionDate,
   formatSessionDate,
   formatDuration,
+  resolveDisplayTimeZone,
 };
