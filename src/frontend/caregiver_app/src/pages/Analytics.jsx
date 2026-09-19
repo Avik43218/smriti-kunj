@@ -487,13 +487,24 @@ export const Analytics = () => {
 
             <button
               type="button"
-              onClick={handleDownloadCsv}
+              onClick={() => setShowReportModal(true)}
               disabled={!patient}
               className="inline-flex items-center justify-center gap-2 px-5 py-3 bg-terracotta hover:bg-terracotta-dark text-cream text-xs sm:text-sm font-bold rounded-card shadow-sm hover:shadow active:scale-95 transition-all cursor-pointer h-full self-stretch min-h-[58px] focus:outline-none focus:ring-2 focus:ring-terracotta/40"
+              title="Download patient cognitive report card in PDF or HTML format"
+            >
+              <FileText className="w-4 h-4 text-cream" />
+              <span>Download Report Card</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleDownloadCsv}
+              disabled={!patient}
+              className="inline-flex items-center justify-center gap-2 px-4 py-3 bg-cream dark:bg-ink-soft/40 hover:bg-surface border border-border dark:border-ink-soft/50 text-ink dark:text-cream text-xs sm:text-sm font-bold rounded-card shadow-sm hover:shadow active:scale-95 transition-all cursor-pointer h-full self-stretch min-h-[58px] focus:outline-none focus:ring-2 focus:ring-terracotta/40"
               title="Download all numerical stats and session logs in CSV format"
             >
-              <Download className="w-4 h-4 text-cream" />
-              <span>Download Stats</span>
+              <Download className="w-4 h-4 text-terracotta" />
+              <span>Export CSV</span>
             </button>
           </div>
         </div>
