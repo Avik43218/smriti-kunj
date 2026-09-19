@@ -5,6 +5,7 @@ import {
   getGameSessions,
   DOMAIN_CONFIG,
   formatSessionDate,
+  parseSessionDate,
 } from '../services/gameSessionService';
 import { fetchReminders } from '../services/reminderService';
 import {
@@ -314,7 +315,7 @@ export const PatientDetails = () => {
 
           // Take the 3 most recent sessions (sorted descending by date)
           const sortedSessions = [...(sessionsData || [])].sort(
-            (a, b) => new Date(b.session_date).getTime() - new Date(a.session_date).getTime()
+            (a, b) => (parseSessionDate(b.session_date)?.getTime() || 0) - (parseSessionDate(a.session_date)?.getTime() || 0)
           );
           setRecentSessions(sortedSessions.slice(0, 3));
 

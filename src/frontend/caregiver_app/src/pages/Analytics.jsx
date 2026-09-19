@@ -36,6 +36,7 @@ import {
   GAME_TYPES,
   DOMAIN_CONFIG,
   formatSessionDate,
+  parseSessionDate,
   formatDuration,
 } from '../services/gameSessionService';
 
@@ -204,7 +205,7 @@ export const Analytics = () => {
         id: s.session_id,
         date: formatSessionDate(s.session_date),
         fullDate: formatSessionDate(s.session_date, true),
-        rawDate: new Date(s.session_date).getTime(),
+        rawDate: parseSessionDate(s.session_date)?.getTime() || 0,
         score: s.score_normalized,
         difficulty: s.difficulty_level,
         duration: s.session_duration,
@@ -236,7 +237,7 @@ export const Analytics = () => {
   // All sessions sorted newest first for the history table
   const sortedSessions = useMemo(() => {
     return [...sessions].sort(
-      (a, b) => new Date(b.session_date).getTime() - new Date(a.session_date).getTime()
+      (a, b) => (parseSessionDate(b.session_date)?.getTime() || 0) - (parseSessionDate(a.session_date)?.getTime() || 0)
     );
   }, [sessions]);
 

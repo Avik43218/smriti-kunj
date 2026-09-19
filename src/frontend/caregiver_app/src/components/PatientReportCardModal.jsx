@@ -21,7 +21,7 @@ import {
   Award,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { DOMAINS, formatDuration } from '../services/gameSessionService';
+import { DOMAINS, formatDuration, formatSessionDate, parseSessionDate } from '../services/gameSessionService';
 import { downloadPatientStatsCsv } from '../services/csvExportService';
 
 export const PatientReportCardModal = ({
@@ -109,7 +109,7 @@ export const PatientReportCardModal = ({
 
   // Recent 5 Sessions
   const recentSessions = [...sessions]
-    .sort((a, b) => new Date(b.session_date).getTime() - new Date(a.session_date).getTime())
+    .sort((a, b) => (parseSessionDate(b.session_date)?.getTime() || 0) - (parseSessionDate(a.session_date)?.getTime() || 0))
     .slice(0, 5);
 
   // Trigger browser print
@@ -417,7 +417,7 @@ export const PatientReportCardModal = ({
           .map(
             (s) => `
           <tr>
-            <td>${new Date(s.session_date).toLocaleDateString()}</td>
+            <td>${formatSessionDate(s.session_date, true)}</td>
             <td style="text-transform: capitalize;">${s.domain || 'Cognitive'}</td>
             <td>${s.game_type ? s.game_type.replace(/_/g, ' ') : 'Session'}</td>
             <td>Lvl ${s.difficulty_level || 1}</td>
@@ -812,7 +812,7 @@ export const PatientReportCardModal = ({
                     recentSessions.map((s) => (
                       <tr key={s.session_id} className="hover:bg-cream/30 dark:hover:bg-ink-soft/10">
                         <td className="py-2.5 px-3 font-medium text-ink dark:text-cream">
-                          {new Date(s.session_date).toLocaleDateString()}
+                          {formatSessionDate(s.session_date, true)}
                         </td>
                         <td className="py-2.5 px-3 capitalize text-ink-soft dark:text-cream/70">
                           {s.domain}

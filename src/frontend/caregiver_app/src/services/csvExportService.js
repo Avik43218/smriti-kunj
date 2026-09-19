@@ -6,7 +6,7 @@
  * into a standardized, RFC-4180-compliant CSV file.
  */
 
-import { formatDuration, DOMAINS } from './gameSessionService';
+import { formatDuration, DOMAINS, parseSessionDate } from './gameSessionService';
 
 /**
  * Escapes a cell value for standard CSV compatibility (RFC 4180).
@@ -230,8 +230,8 @@ export const downloadPatientStatsCsv = ({
 
   // Sort sessions newest to oldest for chronological analysis
   const sorted = [...sessions].sort(
-    (a, b) => new Date(b.session_date || b.client_timestamp || 0).getTime() -
-              new Date(a.session_date || a.client_timestamp || 0).getTime()
+    (a, b) => (parseSessionDate(b.session_date || b.client_timestamp)?.getTime() || 0) -
+              (parseSessionDate(a.session_date || a.client_timestamp)?.getTime() || 0)
   );
 
   sorted.forEach((s) => {
@@ -239,10 +239,10 @@ export const downloadPatientStatsCsv = ({
     let datePart = '—';
     let timePart = '—';
     if (sessionDate) {
-      const d = new Date(sessionDate);
-      if (!isNaN(d.getTime())) {
-        datePart = d.toISOString().slice(0, 10);
-        timePart = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      const d = parseSessionDate(sessionDate);
+      if (d) {
+        datePart = d.toLocaleDateString(undefined, { year: 'numeric', month: '2-digit', day: '2-digit' });
+        timePart = d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
       }
     }
 
