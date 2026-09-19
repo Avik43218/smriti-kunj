@@ -61,6 +61,17 @@ export const logout = async () => {
   return { success: true };
 };
 
+// Changes password for currently authenticated user
+export const changePassword = async (currentPassword, newPassword) => {
+  return await apiClient('/api/auth/change-password', {
+    method: 'POST',
+    body: JSON.stringify({
+      current_password: currentPassword,
+      new_password: newPassword,
+    }),
+  });
+};
+
 export default {
   register,
   registerAdmin,
@@ -68,4 +79,6 @@ export default {
   verifyOtp,
   login,
   logout,
+  changePassword,
 };
+

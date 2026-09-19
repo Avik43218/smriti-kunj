@@ -16,6 +16,7 @@ class UserOut(BaseModel):
     pairing_token: Optional[str] = None
     emergency_contact: Optional[Dict[str, Any]] = None
     device_id: Optional[str] = None
+    must_change_password: Optional[bool] = False
 
     class Config:
         from_attributes = True
@@ -25,9 +26,11 @@ class CaregiverOut(BaseModel):
     id: uuid.UUID
     name: str
     email: EmailStr
+    phone: Optional[str] = None
     region_language: Optional[str] = "bn"
     role: str = "caregiver"
     status: Optional[str] = "active"
+    must_change_password: Optional[bool] = False
 
     class Config:
         from_attributes = True
@@ -64,6 +67,7 @@ class OtpVerifyRequest(BaseModel):
 class OtpRequestResponse(BaseModel):
     message: str
     email: EmailStr
+    debug_otp: Optional[str] = None
 
 
 class OtpVerifyResponse(BaseModel):
@@ -73,6 +77,17 @@ class OtpVerifyResponse(BaseModel):
     token: str
     caregiver: CaregiverOut
     user: Optional[UserOut] = None
+    must_change_password: Optional[bool] = False
+
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str = Field(min_length=8)
+
+
+class ChangePasswordResponse(BaseModel):
+    message: str = "Password changed successfully"
+    must_change_password: bool = False
 
 
 class LogoutResponse(BaseModel):

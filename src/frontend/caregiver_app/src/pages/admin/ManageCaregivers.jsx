@@ -6,6 +6,7 @@ import {
   createCaregiver,
   updateCaregiver,
   deleteCaregiver,
+  resetCaregiverPassword,
 } from '../../services/adminService';
 import { StyledSelect } from '../../components/StyledSelect';
 import {
@@ -23,7 +24,11 @@ import {
   ChevronDown,
   ChevronUp,
   Smartphone,
-  HeartHandshake
+  HeartHandshake,
+  Key,
+  Copy,
+  Check,
+  Phone,
 } from 'lucide-react';
 
 export const ManageCaregivers = () => {
@@ -41,11 +46,14 @@ export const ManageCaregivers = () => {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editingCaregiver, setEditingCaregiver] = useState(null);
   const [deletingCaregiver, setDeletingCaregiver] = useState(null);
+  const [tempPasswordReveal, setTempPasswordReveal] = useState(null);
+  const [copied, setCopied] = useState(false);
 
   // Form states
   const [formData, setFormData] = useState({
     name: '',
     email: '',
+    phone: '',
     password: '',
     region_language: 'en',
     status: 'active',
@@ -85,7 +93,10 @@ export const ManageCaregivers = () => {
   }, [caregivers, searchQuery]);
 
   const getCaregiverPatients = (caregiverId) => {
-    return patients.filter(p => String(p.caregiver_id) === String(caregiverId));
+    return patients.filter((p) => {
+      const assigned = p.assigned_caregiver_ids ? p.assigned_caregiver_ids.map(String) : [];
+      return assigned.includes(String(caregiverId)) || String(p.caregiver_id) === String(caregiverId);
+    });
   };
 
   const toggleExpand = (id) => {
@@ -94,7 +105,7 @@ export const ManageCaregivers = () => {
 
   // Open Add Modal
   const handleOpenAddModal = () => {
-    setFormData({ name: '', email: '', password: '', region_language: 'en', status: 'active' });
+    setFormData({ name: '', email: '', phone: '', password: '', region_language: 'en', status: 'active' });
     setFormError(null);
     setIsAddModalOpen(true);
   };
@@ -106,6 +117,7 @@ export const ManageCaregivers = () => {
     setFormData({
       name: cg.name,
       email: cg.email,
+      phone: cg.phone || '',
       password: '',
       region_language: cg.region_language || 'en',
       status: cg.status || 'active',
@@ -119,10 +131,28 @@ export const ManageCaregivers = () => {
     setFormSubmitting(true);
     setFormError(null);
     try {
-      await createCaregiver(formData);
-      setSuccessMessage(`Caregiver account created successfully.`);
+      const payload = {
+        name: formData.name.trim(),
+        email: formData.email.trim(),
+        region_language: formData.region_language,
+        status: formData.status,
+      };
+      if (formData.phone?.trim()) payload.phone = formData.phone.trim();
+      if (formData.password?.trim()) payload.password = formData.password.trim();
+
+      const created = await createCaregiver(payload);
       setIsAddModalOpen(false);
       await loadData();
+
+      if (created?.temporary_password) {
+        setTempPasswordReveal({
+          name: created.name,
+          email: created.email,
+          password: created.temporary_password,
+        });
+      } else {
+        setSuccessMessage(`Caregiver account created successfully.`);
+      }
     } catch (err) {
       setFormError(err?.message || 'Failed to create caregiver.');
     } finally {
@@ -138,8 +168,9 @@ export const ManageCaregivers = () => {
     setFormError(null);
     try {
       await updateCaregiver(editingCaregiver.id, {
-        name: formData.name,
-        email: formData.email,
+        name: formData.name.trim(),
+        email: formData.email.trim(),
+        phone: formData.phone?.trim() || null,
         region_language: formData.region_language,
         status: formData.status,
       });
@@ -150,6 +181,29 @@ export const ManageCaregivers = () => {
       setFormError(err?.message || 'Failed to update caregiver.');
     } finally {
       setFormSubmitting(false);
+    }
+  };
+
+  // Reset Caregiver Password
+  const handleResetPassword = async (cg, e) => {
+    e.stopPropagation();
+    if (!window.confirm(`Reset password for ${cg.name}? A new secure temporary password will be generated.`)) {
+      return;
+    }
+    setLoading(true);
+    try {
+      const res = await resetCaregiverPassword(cg.id);
+      setTempPasswordReveal({
+        name: cg.name,
+        email: cg.email,
+        password: res.temporary_password,
+      });
+      setSuccessMessage(`Password reset for ${cg.name}.`);
+      await loadData();
+    } catch (err) {
+      setError(err?.message || 'Failed to reset password.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -336,6 +390,13 @@ export const ManageCaregivers = () => {
                       {cg.status === 'active' ? <CheckCircle className="w-4 h-4 text-sage" /> : <XCircle className="w-4 h-4 text-alert" />}
                     </button>
                     <button
+                      onClick={(e) => handleResetPassword(cg, e)}
+                      title="Reset Temporary Password"
+                      className="p-2 rounded-full bg-cream dark:bg-ink-soft/30 border border-border/80 dark:border-ink-soft/40 text-gold hover:text-gold-dark dark:hover:text-gold transition-colors shadow-xs"
+                    >
+                      <Key className="w-4 h-4" />
+                    </button>
+                    <button
                       onClick={(e) => handleOpenEditModal(cg, e)}
                       title="Edit Caregiver"
                       className="p-2 rounded-full bg-cream dark:bg-ink-soft/30 border border-border/80 dark:border-ink-soft/40 text-ink-soft hover:text-ink dark:text-cream/70 dark:hover:text-cream transition-colors shadow-xs"
@@ -441,8 +502,12 @@ export const ManageCaregivers = () => {
                 <input required type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} placeholder="caregiver@smritikunj.org" className="w-full px-3.5 py-2 rounded-lg bg-cream/70 dark:bg-ink-soft/20 border border-border/80 dark:border-ink-soft/40 text-xs sm:text-sm text-ink dark:text-cream placeholder:text-ink-soft/60 focus:outline-none focus:ring-1 focus:ring-terracotta transition-colors" />
               </div>
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-ink-soft dark:text-cream/70 mb-1">Password</label>
-                <input required type="password" minLength={8} value={formData.password} onChange={(e) => setFormData({ ...formData, password: e.target.value })} placeholder="Minimum 8 characters" className="w-full px-3.5 py-2 rounded-lg bg-cream/70 dark:bg-ink-soft/20 border border-border/80 dark:border-ink-soft/40 text-xs sm:text-sm text-ink dark:text-cream placeholder:text-ink-soft/60 focus:outline-none focus:ring-1 focus:ring-terracotta transition-colors" />
+                <label className="block text-xs font-semibold uppercase tracking-wider text-ink-soft dark:text-cream/70 mb-1">Phone (Optional)</label>
+                <input type="tel" value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} placeholder="+91 98765 43210" className="w-full px-3.5 py-2 rounded-lg bg-cream/70 dark:bg-ink-soft/20 border border-border/80 dark:border-ink-soft/40 text-xs sm:text-sm text-ink dark:text-cream placeholder:text-ink-soft/60 focus:outline-none focus:ring-1 focus:ring-terracotta transition-colors" />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-ink-soft dark:text-cream/70 mb-1">Temporary Password (Optional — auto-generated if left blank)</label>
+                <input type="password" minLength={8} value={formData.password} onChange={(e) => setFormData({ ...formData, password: e.target.value })} placeholder="Leave blank to auto-generate secure password" className="w-full px-3.5 py-2 rounded-lg bg-cream/70 dark:bg-ink-soft/20 border border-border/80 dark:border-ink-soft/40 text-xs sm:text-sm text-ink dark:text-cream placeholder:text-ink-soft/60 focus:outline-none focus:ring-1 focus:ring-terracotta transition-colors" />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
@@ -506,6 +571,10 @@ export const ManageCaregivers = () => {
                 <label className="block text-xs font-semibold uppercase tracking-wider text-ink-soft dark:text-cream/70 mb-1">Email</label>
                 <input required type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} className="w-full px-3.5 py-2 rounded-lg bg-cream/70 dark:bg-ink-soft/20 border border-border/80 dark:border-ink-soft/40 text-xs sm:text-sm text-ink dark:text-cream placeholder:text-ink-soft/60 focus:outline-none focus:ring-1 focus:ring-terracotta transition-colors" />
               </div>
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-ink-soft dark:text-cream/70 mb-1">Phone</label>
+                <input type="tel" value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} placeholder="+91 98765 43210" className="w-full px-3.5 py-2 rounded-lg bg-cream/70 dark:bg-ink-soft/20 border border-border/80 dark:border-ink-soft/40 text-xs sm:text-sm text-ink dark:text-cream placeholder:text-ink-soft/60 focus:outline-none focus:ring-1 focus:ring-terracotta transition-colors" />
+              </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold uppercase tracking-wider text-ink-soft dark:text-cream/70 mb-1">Language</label>
@@ -561,6 +630,65 @@ export const ManageCaregivers = () => {
             <div className="flex items-center justify-end gap-2 pt-2 border-t border-border/60 dark:border-ink-soft/30">
               <button type="button" onClick={() => setDeletingCaregiver(null)} className="px-4 py-2 rounded-full border border-border/80 dark:border-ink-soft/40 text-xs font-medium text-ink-soft dark:text-cream/70 hover:bg-cream dark:hover:bg-ink-soft/30 transition-colors">Cancel</button>
               <button type="button" disabled={formSubmitting} onClick={handleConfirmDelete} className="px-4 py-2 rounded-full bg-alert hover:bg-alert/90 text-cream text-xs font-semibold shadow-xs transition-colors">Confirm Delete</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Temporary Password Reveal Modal */}
+      {tempPasswordReveal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-ink/60 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="w-full max-w-md bg-surface dark:bg-ink-soft/20 backdrop-blur-2xl border border-border/80 dark:border-ink-soft/40 rounded-card shadow-card p-6 sm:p-7 space-y-4">
+            <div className="flex items-center justify-between border-b border-border/60 dark:border-ink-soft/30 pb-3">
+              <div className="flex items-center gap-2 text-gold">
+                <Key className="w-5 h-5" />
+                <h3 className="text-base sm:text-lg font-bold text-ink dark:text-cream">Temporary Credentials</h3>
+              </div>
+              <button onClick={() => setTempPasswordReveal(null)} className="text-ink-soft hover:text-ink dark:hover:text-cream transition-colors">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <p className="text-xs sm:text-sm text-ink dark:text-cream/90 leading-relaxed">
+              Temporary password generated for <strong className="text-terracotta">{tempPasswordReveal.name}</strong> ({tempPasswordReveal.email}):
+            </p>
+
+            <div className="p-3.5 rounded-xl bg-cream/70 dark:bg-ink-soft/30 border border-border/80 dark:border-ink-soft/40 flex items-center justify-between gap-2">
+              <span className="font-mono text-base font-bold text-ink dark:text-cream tracking-wider select-all">
+                {tempPasswordReveal.password}
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  navigator.clipboard.writeText(tempPasswordReveal.password);
+                  setCopied(true);
+                  setTimeout(() => setCopied(false), 2000);
+                }}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-terracotta text-cream text-xs font-semibold hover:bg-terracotta-dark transition-colors shrink-0"
+              >
+                {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                <span>{copied ? 'Copied' : 'Copy'}</span>
+              </button>
+            </div>
+
+            <div className="p-3 rounded-lg bg-gold/10 border border-gold/30 text-xs text-ink-soft dark:text-cream/80 space-y-1">
+              <p className="font-semibold text-gold-dark flex items-center gap-1.5">
+                <AlertCircle className="w-3.5 h-3.5" />
+                Single-View Temporary Password
+              </p>
+              <p>
+                This temporary password will not be shown again. Share it securely with the caregiver. On their first sign-in, they will be prompted to rotate it immediately.
+              </p>
+            </div>
+
+            <div className="flex justify-end pt-2 border-t border-border/60 dark:border-ink-soft/30">
+              <button
+                type="button"
+                onClick={() => setTempPasswordReveal(null)}
+                className="px-4 py-2 rounded-full bg-terracotta hover:bg-terracotta-dark text-cream text-xs font-semibold shadow-xs transition-colors"
+              >
+                Done
+              </button>
             </div>
           </div>
         </div>

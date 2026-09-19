@@ -138,10 +138,18 @@ async def get_caregiver_patient_risk_overview(caregiver: User = Depends(require_
     to perform real-time batch inference through xgboost_patient_risk_model.pkl.
     """
     try:
-        patients = await User.find(
-            User.caregiver_id == caregiver.id,
-            User.role == RoleEnum.patient,
-        ).to_list()
+        if caregiver.role == RoleEnum.admin or getattr(caregiver.role, "value", None) == "admin":
+            patients = await User.find(User.role == RoleEnum.patient).to_list()
+        else:
+            patients = await User.find(
+                {
+                    "role": RoleEnum.patient,
+                    "$or": [
+                        {"caregiver_id": caregiver.id},
+                        {"assigned_caregiver_ids": caregiver.id},
+                    ],
+                }
+            ).to_list()
     except Exception:
         patients = []
 

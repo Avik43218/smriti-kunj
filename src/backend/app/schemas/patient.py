@@ -120,6 +120,7 @@ class GameSessionOut(BaseModel):
     game_type: str
     domain: str
     session_date: str
+    synced_at: Optional[str] = None
     session_duration: Union[float, int] = 120
     status: str = "completed"
     difficulty_level: Union[int, str] = 1

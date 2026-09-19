@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useLocation, Link } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { LanguageSelector } from '../components/LanguageSelector';
@@ -15,8 +15,12 @@ import {
   User,
   Eye,
   EyeOff,
+  Lock,
+  KeyRound,
+  CheckCircle2,
 } from 'lucide-react';
 import { OtpInput } from '../components/OtpInput';
+import { changePassword as apiChangePassword } from '../services/authService';
 import loginBg from '../assets/regional/image1a.avif';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -24,10 +28,10 @@ const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 export const Login = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { login, requestOtp, verifyOtp, isAuthenticated, loading, role, isAdmin } = useAuth();
+  const { login, requestOtp, verifyOtp, logout, updateUserData, isAuthenticated, loading, role, isAdmin } = useAuth();
   const { theme, toggleTheme } = useTheme();
 
-  // Multi-step authentication state: 'credentials' | 'otp'
+  // Multi-step authentication state: 'credentials' | 'otp' | 'force_password_change'
   const [step, setStep] = useState('credentials');
 
   // ROLE TRACKER: 'caregiver' | 'admin'
@@ -38,20 +42,25 @@ export const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [otp, setOtp] = useState('');
 
+  // Password rotation state (for temporary passwords)
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showNewPassword, setShowNewPassword] = useState(false);
+
   const [errors, setErrors] = useState({});
   const [submitError, setSubmitError] = useState('');
   const [resendNotice, setResendNotice] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isResending, setIsResending] = useState(false);
 
-  // Redirect if already authenticated
+  // Redirect if already authenticated and not in forced password change
   useEffect(() => {
-    if (isAuthenticated) {
+    if (isAuthenticated && step !== 'force_password_change') {
       const defaultDest = isAdmin || role === 'admin' ? '/admin/dashboard' : '/dashboard';
       const origin = location.state?.from?.pathname || defaultDest;
       navigate(origin, { replace: true });
     }
-  }, [isAuthenticated, navigate, location, role, isAdmin]);
+  }, [isAuthenticated, step, navigate, location, role, isAdmin]);
 
   const validateCredentials = () => {
     const nextErrors = {};
@@ -81,9 +90,14 @@ export const Login = () => {
 
     setIsSubmitting(true);
     try {
-      await login(email.trim(), password, loginRole);
+      const loginRes = await login(email.trim(), password, loginRole);
       setStep('otp');
-      setOtp('');
+      if (loginRes?.debug_otp) {
+        setOtp(loginRes.debug_otp);
+        setResendNotice(`Testing code: ${loginRes.debug_otp}`);
+      } else {
+        setOtp('');
+      }
     } catch (err) {
       setSubmitError(err.message || 'Unable to sign in. Please check your credentials and try again.');
     } finally {
@@ -104,6 +118,20 @@ export const Login = () => {
     setIsSubmitting(true);
     try {
       const response = await verifyOtp(email.trim(), otp);
+      const mustChange = Boolean(
+        response?.must_change_password ||
+        response?.caregiver?.must_change_password ||
+        response?.user?.must_change_password
+      );
+
+      if (mustChange) {
+        setStep('force_password_change');
+        setNewPassword('');
+        setConfirmPassword('');
+        setErrors({});
+        return;
+      }
+
       const userRole = response?.user?.role || response?.caregiver?.role || loginRole;
       if (userRole === 'admin') {
         const fromPath = location.state?.from?.pathname;
@@ -121,13 +149,65 @@ export const Login = () => {
     }
   };
 
+  const handlePasswordChangeSubmit = async (e) => {
+    e.preventDefault();
+    setSubmitError('');
+    const nextErrors = {};
+
+    if (!newPassword || newPassword.length < 8) {
+      nextErrors.newPassword = 'New password must be at least 8 characters long';
+    }
+    if (newPassword !== confirmPassword) {
+      nextErrors.confirmPassword = 'Passwords do not match';
+    }
+
+    if (Object.keys(nextErrors).length > 0) {
+      setErrors(nextErrors);
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      await apiChangePassword(password, newPassword);
+      if (updateUserData) {
+        updateUserData({ must_change_password: false });
+      }
+      const userRole = role || loginRole;
+      if (userRole === 'admin' || isAdmin) {
+        navigate('/admin/dashboard', { replace: true });
+      } else {
+        navigate('/dashboard', { replace: true });
+      }
+    } catch (err) {
+      setSubmitError(err.message || 'Failed to update password. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleCancelPasswordChange = async () => {
+    await logout();
+    setStep('credentials');
+    setPassword('');
+    setNewPassword('');
+    setConfirmPassword('');
+    setOtp('');
+    setSubmitError('');
+    setErrors({});
+  };
+
   const handleResendOtp = async () => {
     setSubmitError('');
     setResendNotice('');
     setIsResending(true);
     try {
-      await requestOtp(email.trim());
-      setResendNotice('A fresh verification code has been sent to your email.');
+      const res = await requestOtp(email.trim());
+      if (res?.debug_otp) {
+        setOtp(res.debug_otp);
+        setResendNotice(`Testing code: ${res.debug_otp}`);
+      } else {
+        setResendNotice('A fresh verification code has been sent to your email.');
+      }
     } catch (err) {
       setSubmitError(err.message || 'Failed to resend code. Please try again.');
     } finally {
@@ -409,23 +489,14 @@ export const Login = () => {
                     </button>
                   </div>
 
-                  {/* Register link */}
+                  {/* Managed accounts notice */}
                   <div className="text-center pt-3 mt-1 border-t border-border/60 dark:border-ink-soft/30">
-                    <p className="text-xs text-ink-soft dark:text-cream/70">
-                      {loginRole === 'admin' ? (
-                        <>
-                          Need an administrative account?{' '}
-                          <Link to="/admin/register" className="text-terracotta hover:text-terracotta-dark font-semibold transition-colors focus:outline-none focus:underline">
-                            Register Admin
-                          </Link>
-                        </>
-                      ) : (
-                        <>
-                          Don't have an account?{' '}
-                          <Link to="/register" className="text-terracotta hover:text-terracotta-dark font-semibold transition-colors focus:outline-none focus:underline">
-                            Register
-                          </Link>
-                        </>
+                    <p className="text-xs text-ink-soft dark:text-cream/70 leading-relaxed">
+                      Caregiver and admin accounts are managed by facility administrators.
+                      {loginRole === 'admin' && (
+                        <span className="block mt-1 font-mono text-[11px] text-terracotta dark:text-gold/90 font-medium">
+                          Demo Admin: admin@smritikunj.org &bull; admin123
+                        </span>
                       )}
                     </p>
                   </div>
@@ -500,6 +571,118 @@ export const Login = () => {
                       className="text-terracotta hover:text-terracotta-dark font-medium transition-colors disabled:opacity-50 focus:outline-none"
                     >
                       {isResending ? 'Sending...' : 'Resend code'}
+                    </button>
+                  </div>
+                </form>
+              )}
+
+              {/* STEP 3: Forced Password Change on Temporary Password */}
+              {step === 'force_password_change' && (
+                <form onSubmit={handlePasswordChangeSubmit} noValidate className="space-y-4">
+                  <div className="text-center pb-1">
+                    <div className="w-10 h-10 rounded-full bg-gold/15 text-gold border border-gold/30 flex items-center justify-center mx-auto mb-2">
+                      <KeyRound className="w-5 h-5" />
+                    </div>
+                    <h3 className="text-base font-bold text-ink dark:text-cream">
+                      Create Permanent Password
+                    </h3>
+                    <p className="text-xs text-ink-soft dark:text-cream/70 mt-1 leading-relaxed">
+                      You are logging in with a temporary password. Please choose a new secure password to activate your account.
+                    </p>
+                  </div>
+
+                  {/* New Password */}
+                  <div>
+                    <label htmlFor="newPassword" className="block text-xs font-semibold uppercase tracking-wider text-ink-soft dark:text-cream/70 mb-1.5">
+                      New Password (min 8 characters)
+                    </label>
+                    <div className="relative">
+                      <input
+                        id="newPassword"
+                        type={showNewPassword ? 'text' : 'password'}
+                        value={newPassword}
+                        onChange={(e) => {
+                          setNewPassword(e.target.value);
+                          if (errors.newPassword) setErrors((prev) => ({ ...prev, newPassword: undefined }));
+                        }}
+                        placeholder="••••••••••••"
+                        className={`w-full px-3.5 py-2.5 pr-10 bg-cream/70 dark:bg-ink-soft/20 border rounded-lg text-sm text-ink dark:text-cream placeholder:text-ink-soft/60 focus:outline-none focus:ring-1 focus:ring-terracotta transition-colors ${
+                          errors.newPassword ? 'border-status-urgent' : 'border-border/80 dark:border-ink-soft/40 focus:border-terracotta'
+                        }`}
+                        disabled={isSubmitting}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowNewPassword((prev) => !prev)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-soft dark:text-cream/60 hover:text-ink dark:hover:text-cream focus:outline-none"
+                      >
+                        {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                    {errors.newPassword && (
+                      <p className="text-xs text-status-urgent dark:text-gold font-medium mt-1.5 flex items-center gap-1">
+                        <AlertCircle className="w-3.5 h-3.5" />
+                        {errors.newPassword}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Confirm Password */}
+                  <div>
+                    <label htmlFor="confirmPassword" className="block text-xs font-semibold uppercase tracking-wider text-ink-soft dark:text-cream/70 mb-1.5">
+                      Confirm New Password
+                    </label>
+                    <input
+                      id="confirmPassword"
+                      type={showNewPassword ? 'text' : 'password'}
+                      value={confirmPassword}
+                      onChange={(e) => {
+                        setConfirmPassword(e.target.value);
+                        if (errors.confirmPassword) setErrors((prev) => ({ ...prev, confirmPassword: undefined }));
+                      }}
+                      placeholder="••••••••••••"
+                      className={`w-full px-3.5 py-2.5 bg-cream/70 dark:bg-ink-soft/20 border rounded-lg text-sm text-ink dark:text-cream placeholder:text-ink-soft/60 focus:outline-none focus:ring-1 focus:ring-terracotta transition-colors ${
+                        errors.confirmPassword ? 'border-status-urgent' : 'border-border/80 dark:border-ink-soft/40 focus:border-terracotta'
+                      }`}
+                      disabled={isSubmitting}
+                    />
+                    {errors.confirmPassword && (
+                      <p className="text-xs text-status-urgent dark:text-gold font-medium mt-1.5 flex items-center gap-1">
+                        <AlertCircle className="w-3.5 h-3.5" />
+                        {errors.confirmPassword}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Submit Button */}
+                  <div className="pt-2">
+                    <button
+                      type="submit"
+                      disabled={isSubmitting || !newPassword || !confirmPassword}
+                      className="w-full py-3 px-4 bg-terracotta hover:bg-terracotta-dark text-surface font-medium text-sm rounded-lg transition-colors flex items-center justify-center gap-2 focus:outline-none focus:ring-2 focus:ring-terracotta/40 disabled:opacity-60 disabled:cursor-not-allowed shadow-card"
+                    >
+                      {isSubmitting ? (
+                        <>
+                          <div className="w-4 h-4 border-2 border-surface border-t-transparent rounded-full animate-spin" />
+                          <span>Updating password...</span>
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle2 className="w-4 h-4" />
+                          <span>Save Password &amp; Continue</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+
+                  <div className="text-center pt-2">
+                    <button
+                      type="button"
+                      onClick={handleCancelPasswordChange}
+                      disabled={isSubmitting}
+                      className="text-xs text-ink-soft dark:text-cream/70 hover:text-ink dark:hover:text-cream font-medium transition-colors focus:outline-none"
+                    >
+                      Cancel and sign out
                     </button>
                   </div>
                 </form>
