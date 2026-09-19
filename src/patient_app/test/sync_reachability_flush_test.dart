@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:patient_app/models/patient_activity.dart';
-import 'package:patient_app/games/shared/services/game_session_repository.dart';
+
 import 'package:patient_app/services/activity_database_service.dart';
 import 'package:patient_app/services/api_service.dart';
 
@@ -121,14 +121,7 @@ void main() {
         sessionDate: now,
       ));
 
-      // Simulate reachability check failing
-      final isReachable = false;
-
-      if (!isReachable) {
-        // Does nothing, preserves data
-      } else {
-        await activityDb.wipeCleanAllActivities();
-      }
+      // Backend is unreachable — no flush is performed; local SQLite must be preserved.
 
       // Verify SQLite records are completely preserved
       final pending = await activityDb.getUnsyncedActivities();
