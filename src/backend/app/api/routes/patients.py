@@ -4,7 +4,7 @@
 - Cognitive Game Sessions & Analytics
 """
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Body, Depends, Header, HTTPException, Query
@@ -518,21 +518,13 @@ async def add_custom_reminder(
 
 # ---- 3. Cognitive Game Sessions & Analytics ------------------------------
 
-def _format_utc_iso(dt: Optional[datetime]) -> str:
-    if not dt:
-        return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
-    if dt.tzinfo is None:
-        return dt.isoformat() + "Z"
-    return dt.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
-
-
 def _session_to_out(s: GameSession, profile_id: str) -> GameSessionOut:
     return GameSessionOut(
         session_id=s.client_session_id or str(s.id),
         patient_profile_id=s.patient_profile_id or profile_id,
         game_type=s.game_type,
         domain=s.domain or "memory",
-        session_date=_format_utc_iso(s.client_timestamp),
+        session_date=s.client_timestamp.isoformat() if s.client_timestamp else datetime.utcnow().isoformat(),
         session_duration=s.session_duration or round(s.avg_latency_ms / 1000) if s.avg_latency_ms else 120,
         status=s.status or "completed",
         difficulty_level=s.difficulty_level,

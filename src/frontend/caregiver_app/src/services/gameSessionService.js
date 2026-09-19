@@ -117,84 +117,20 @@ export const getGameSessions = async (patientId, options = {}) => {
 };
 
 /**
-/**
- * Resolves the client's display timezone. If the environment or browser defaults to
- * UTC (common in privacy browsers, webviews, or headless containers), defaults to
- * Indian Standard Time ('Asia/Kolkata') to match patient device time.
+ * Formats date to concise user-friendly display (e.g. "Aug 24" or "24 Aug, 10:30 AM")
  */
-export const resolveDisplayTimeZone = () => {
-  try {
-    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    if (tz && tz !== 'UTC' && tz !== 'Etc/UTC') {
-      return tz;
-    }
-  } catch (_) {}
-  return 'Asia/Kolkata';
-};
-
-/**
- * Safely parses any ISO date string, SQL date string, or timestamp into a Date object.
- * If the string has date and time ('T') but lacks a timezone indicator ('Z' or '+/-HH:MM'),
- * it treats it as UTC, matching backend MongoDB UTC storage.
- */
-export const parseSessionDate = (raw) => {
-  if (!raw) return null;
-  if (raw instanceof Date) return isNaN(raw.getTime()) ? null : raw;
-  if (typeof raw === 'number') {
-    const ms = raw < 1e11 ? raw * 1000 : raw;
-    return new Date(ms);
-  }
-
-  let str = String(raw).trim();
-  if (!str) return null;
-
-  // Replace space separator between date and time with 'T' (e.g. '2026-09-19 10:53:00' -> '2026-09-19T10:53:00')
-  if (/^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}/.test(str)) {
-    str = str.replace(/\s+/, 'T');
-  }
-
-  // If it's a date-time string without any timezone indicator (no 'Z' and no '+/-HH:mm'),
-  // treat it as UTC because all session records in the database are stored in UTC.
-  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(str)) {
-    if (!str.endsWith('Z') && !/[+-]\d{2}(:?\d{2})?$/.test(str)) {
-      str += 'Z';
-    }
-  }
-
-  const date = new Date(str);
-  return isNaN(date.getTime()) ? null : date;
-};
-
-/**
- * Formats date to concise user-friendly display in user's local timezone (e.g. "Sep 19" or "Sep 19, 4:10 PM")
- */
-export const formatSessionDate = (isoString, includeTime = false, customTimeZone = null) => {
+export const formatSessionDate = (isoString, includeTime = false) => {
   if (!isoString) return '—';
-  const date = parseSessionDate(isoString);
-  if (!date) return String(isoString);
+  const date = new Date(isoString);
+  if (isNaN(date.getTime())) return isoString;
 
-  const tz = customTimeZone || resolveDisplayTimeZone();
-
-  if (includeTime) {
-    const datePart = date.toLocaleDateString('en-US', {
-      timeZone: tz,
-      month: 'short',
-      day: 'numeric',
-    });
-    const timePart = date.toLocaleTimeString('en-US', {
-      timeZone: tz,
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true,
-    });
-    return `${datePart}, ${timePart}`;
-  }
-
-  return date.toLocaleDateString('en-US', {
-    timeZone: tz,
+  const options = {
     month: 'short',
     day: 'numeric',
-  });
+    ...(includeTime ? { hour: '2-digit', minute: '2-digit' } : {}),
+  };
+
+  return date.toLocaleDateString(undefined, options);
 };
 
 /**
@@ -214,8 +150,6 @@ export default {
   GAME_TYPES,
   DOMAIN_CONFIG,
   getGameSessions,
-  parseSessionDate,
   formatSessionDate,
   formatDuration,
-  resolveDisplayTimeZone,
 };

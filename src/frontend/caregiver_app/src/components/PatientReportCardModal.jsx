@@ -21,7 +21,7 @@ import {
   Award,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { DOMAINS, formatDuration, formatSessionDate, parseSessionDate } from '../services/gameSessionService';
+import { DOMAINS, formatDuration } from '../services/gameSessionService';
 import { downloadPatientStatsCsv } from '../services/csvExportService';
 
 export const PatientReportCardModal = ({
@@ -96,27 +96,6 @@ export const PatientReportCardModal = ({
   const driftSlope = patientRisk?.drift_slope_7d !== undefined ? (patientRisk.drift_slope_7d > 0 ? `+${patientRisk.drift_slope_7d.toFixed(3)}` : patientRisk.drift_slope_7d.toFixed(3)) : '-0.012';
   const alertCount = patientRisk?.active_alert_count !== undefined ? patientRisk.active_alert_count : 0;
 
-  // Patient Current Condition & Clinical Status
-  const patientCondition =
-    patient.condition ||
-    patient.diagnosis ||
-    patient.healthIssue ||
-    patient.clinicalDiagnosis ||
-    (patient.statusLabel ? patient.statusLabel : 'Mild Cognitive Impairment');
-
-  const patientClinicalStatus =
-    patient.statusLabel ||
-    (patient.status ? patient.status.charAt(0).toUpperCase() + patient.status.slice(1) : 'Stable • Device Synced');
-
-  // Helper to format score into explicit numeric value and percentage (e.g. "0.85 (85/100)")
-  const formatNumericScore = (score) => {
-    if (score === null || score === undefined || isNaN(score)) return '0.00 (0/100)';
-    const num = Number(score);
-    const norm = num <= 1.0 ? num : num / 100;
-    const scoreOutOf100 = Math.round(norm * 100);
-    return `${norm.toFixed(2)} (${scoreOutOf100}/100)`;
-  };
-
   // Lifestyle & Physical Vitals
   const lifestyleVitals = {
     weight: patient.weight ? `${patient.weight} kg` : '68.5 kg',
@@ -130,49 +109,11 @@ export const PatientReportCardModal = ({
 
   // Recent 5 Sessions
   const recentSessions = [...sessions]
-    .sort((a, b) => (parseSessionDate(b.session_date)?.getTime() || 0) - (parseSessionDate(a.session_date)?.getTime() || 0))
+    .sort((a, b) => new Date(b.session_date).getTime() - new Date(a.session_date).getTime())
     .slice(0, 5);
 
   // Trigger browser print
   const handlePrint = () => {
-    window.print();
-  };
-
-  // Trigger Direct PDF Download (.pdf)
-  const handleDownloadPdf = async () => {
-    try {
-      if (!window.html2pdf) {
-        await new Promise((resolve, reject) => {
-          const existing = document.getElementById('html2pdf-cdn');
-          if (existing) {
-            existing.onload = resolve;
-            return;
-          }
-          const script = document.createElement('script');
-          script.id = 'html2pdf-cdn';
-          script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
-          script.onload = resolve;
-          script.onerror = reject;
-          document.head.appendChild(script);
-        });
-      }
-
-      if (window.html2pdf && reportRef.current) {
-        const opt = {
-          margin: [8, 8, 8, 8],
-          filename: `Smriti_Kunj_Report_${(patient.name || 'Patient').replace(/\s+/g, '_')}_${new Date().toISOString().slice(0, 10)}.pdf`,
-          image: { type: 'jpeg', quality: 0.98 },
-          html2canvas: { scale: 2, useCORS: true, logging: false },
-          jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-        };
-        await window.html2pdf().set(opt).from(reportRef.current).save();
-        return;
-      }
-    } catch (err) {
-      console.warn('html2pdf CDN download fallback to window.print():', err);
-    }
-
-    // Fallback: Opens system print dialog configured for Save to PDF
     window.print();
   };
 
@@ -187,7 +128,7 @@ export const PatientReportCardModal = ({
     });
   };
 
-  // Trigger Standalone HTML Download (.html)
+  // Trigger Standalone HTML Download
   const handleDownloadHtml = () => {
     const reportHtml = `<!DOCTYPE html>
 <html lang="en">
@@ -363,7 +304,7 @@ export const PatientReportCardModal = ({
       </div>
     </div>
 
-    <!-- Patient Details & Current Condition -->
+    <!-- Patient Details -->
     <div class="patient-grid">
       <div class="metric-cell">
         <div class="label">Patient Name</div>
@@ -378,16 +319,8 @@ export const PatientReportCardModal = ({
         <div class="value">${patient.age || 'N/A'} yrs • ${patient.gender || 'N/A'}</div>
       </div>
       <div class="metric-cell">
-        <div class="label">Current Condition</div>
-        <div class="value" style="color: #C85A32; font-weight: 800;">${patientCondition}</div>
-      </div>
-      <div class="metric-cell" style="grid-column: span 2;">
-        <div class="label">Clinical Status</div>
-        <div class="value">${patientClinicalStatus}</div>
-      </div>
-      <div class="metric-cell" style="grid-column: span 2;">
-        <div class="label">Risk Grade</div>
-        <div class="value">${riskLevel} (Grade ${riskGrade})</div>
+        <div class="label">Primary Condition</div>
+        <div class="value">${patient.condition || 'Mild Cognitive Impairment'}</div>
       </div>
     </div>
 
@@ -413,8 +346,8 @@ export const PatientReportCardModal = ({
         <div style="font-size: 11px; color: #7A7265; margin-bottom: 12px;">Pair Matching & Market Trip Trials</div>
         
         <table style="width: 100%; font-size: 11px; line-height: 1.8;">
-          <tr><td>Latest Numeric Score:</td><td style="font-weight: 700; text-align: right; font-family: monospace;">${formatNumericScore(latestMemory ? latestMemory.score : (avgMemoryScore / 100))}</td></tr>
-          <tr><td>Average Domain Score:</td><td style="font-weight: 700; text-align: right; font-family: monospace;">${formatNumericScore(avgMemoryScore / 100)}</td></tr>
+          <tr><td>Latest Score:</td><td style="font-weight: 700; text-align: right;">${latestMemory ? Math.round(latestMemory.score * 100) : avgMemoryScore}%</td></tr>
+          <tr><td>Average Domain Score:</td><td style="font-weight: 700; text-align: right;">${avgMemoryScore}%</td></tr>
           <tr><td>Match Rate Precision:</td><td style="font-weight: 700; text-align: right;">${latestMemory?.keyMetricValue || '88%'}</td></tr>
           <tr><td>Longitudinal Trajectory:</td><td style="font-weight: 700; text-align: right; text-transform: capitalize;">${memoryTrend}</td></tr>
           <tr><td>Completed Trials:</td><td style="font-weight: 700; text-align: right;">${memorySessions.length} sessions</td></tr>
@@ -427,8 +360,8 @@ export const PatientReportCardModal = ({
         <div style="font-size: 11px; color: #7A7265; margin-bottom: 12px;">Tap the Target Reaction Latency</div>
         
         <table style="width: 100%; font-size: 11px; line-height: 1.8;">
-          <tr><td>Latest Numeric Score:</td><td style="font-weight: 700; text-align: right; font-family: monospace;">${formatNumericScore(latestAttention ? latestAttention.score : (avgAttentionScore / 100))}</td></tr>
-          <tr><td>Average Domain Score:</td><td style="font-weight: 700; text-align: right; font-family: monospace;">${formatNumericScore(avgAttentionScore / 100)}</td></tr>
+          <tr><td>Latest Score:</td><td style="font-weight: 700; text-align: right;">${latestAttention ? Math.round(latestAttention.score * 100) : avgAttentionScore}%</td></tr>
+          <tr><td>Average Domain Score:</td><td style="font-weight: 700; text-align: right;">${avgAttentionScore}%</td></tr>
           <tr><td>Mean Reaction Latency:</td><td style="font-weight: 700; text-align: right;">${latestAttention?.keyMetricValue || '540 ms'}</td></tr>
           <tr><td>Longitudinal Trajectory:</td><td style="font-weight: 700; text-align: right; text-transform: capitalize;">${attentionTrend}</td></tr>
           <tr><td>Completed Trials:</td><td style="font-weight: 700; text-align: right;">${attentionSessions.length} sessions</td></tr>
@@ -466,16 +399,16 @@ export const PatientReportCardModal = ({
     </div>
 
     <!-- Recent Session Chronology Table -->
-    <div class="section-title">Recent Cognitive Session Telemetry & Numeric Game Scores</div>
+    <div class="section-title">Recent Cognitive Session Telemetry (Latest 5 Trials)</div>
     <table class="table">
       <thead>
         <tr>
-          <th>Date & Time</th>
+          <th>Date</th>
           <th>Domain</th>
-          <th>Game Type</th>
+          <th>Game</th>
           <th>Difficulty</th>
           <th>Duration</th>
-          <th>Numeric Score (0.00 – 1.00)</th>
+          <th>Score</th>
           <th>Status</th>
         </tr>
       </thead>
@@ -484,17 +417,12 @@ export const PatientReportCardModal = ({
           .map(
             (s) => `
           <tr>
-            <td>${formatSessionDate(s.session_date, true)}</td>
+            <td>${new Date(s.session_date).toLocaleDateString()}</td>
             <td style="text-transform: capitalize;">${s.domain || 'Cognitive'}</td>
-            <td><strong>${s.game_type ? s.game_type.replace(/_/g, ' ') : 'Session'}</strong></td>
+            <td>${s.game_type ? s.game_type.replace(/_/g, ' ') : 'Session'}</td>
             <td>Lvl ${s.difficulty_level || 1}</td>
             <td>${formatDuration(s.session_duration)}</td>
-            <td>
-              <strong style="color: #B5562F; font-family: monospace;">${formatNumericScore(s.score_normalized)}</strong>
-              ${s.correct_match_rate ? `<div style="font-size: 10px; color: #7A7265;">Match: ${Math.round(s.correct_match_rate * 100)}%</div>` : ''}
-              ${s.reaction_time_avg ? `<div style="font-size: 10px; color: #7A7265;">Latency: ${Math.round(s.reaction_time_avg)}ms</div>` : ''}
-              ${s.words_recalled_count ? `<div style="font-size: 10px; color: #7A7265;">Words: ${s.words_recalled_count}</div>` : ''}
-            </td>
+            <td><strong>${Math.round((s.score_normalized || 0) * 100)}%</strong></td>
             <td><span style="color: ${s.status === 'completed' ? '#6E8C6A' : '#8C2C24'}; font-weight: 600; text-transform: uppercase; font-size: 10px;">${s.status}</span></td>
           </tr>`
           )
@@ -527,7 +455,6 @@ export const PatientReportCardModal = ({
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
   };
-
 
   const getTrajectoryBadge = (trajectory) => {
     if (trajectory === 'improving') {
@@ -575,19 +502,17 @@ export const PatientReportCardModal = ({
           <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={handleDownloadPdf}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-terracotta hover:bg-terracotta-dark text-cream text-xs font-semibold rounded-lg transition-all shadow-2xs cursor-pointer active:scale-95"
-              title="Download Clinical Report Card as a PDF document"
+              onClick={handlePrint}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-ink dark:bg-cream text-cream dark:text-ink text-xs font-semibold rounded-lg hover:opacity-90 transition-all shadow-2xs cursor-pointer"
             >
-              <Download className="w-3.5 h-3.5" />
-              <span>Download (.pdf)</span>
+              <Printer className="w-3.5 h-3.5" />
+              <span>Print / PDF</span>
             </button>
 
             <button
               type="button"
               onClick={handleDownloadHtml}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-sage hover:bg-sage/90 text-cream text-xs font-semibold rounded-lg transition-all shadow-2xs cursor-pointer active:scale-95"
-              title="Download standalone interactive HTML report card"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-terracotta text-cream text-xs font-semibold rounded-lg hover:bg-terracotta/90 transition-all shadow-2xs cursor-pointer"
             >
               <Download className="w-3.5 h-3.5" />
               <span>Download (.html)</span>
@@ -596,21 +521,11 @@ export const PatientReportCardModal = ({
             <button
               type="button"
               onClick={handleDownloadCsv}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-cream dark:bg-ink-soft/40 hover:bg-surface border border-border dark:border-ink-soft/40 text-ink dark:text-cream text-xs font-semibold rounded-lg transition-all shadow-2xs cursor-pointer active:scale-95"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-terracotta hover:bg-terracotta-dark text-cream text-xs font-semibold rounded-lg transition-all shadow-2xs cursor-pointer active:scale-95"
               title="Download full numerical statistics as a CSV file"
             >
-              <FileText className="w-3.5 h-3.5 text-terracotta" />
-              <span>Export CSV</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={handlePrint}
-              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-ink-soft dark:text-cream/70 hover:text-ink dark:hover:text-cream text-xs font-semibold rounded-lg hover:bg-cream/80 dark:hover:bg-ink-soft/40 transition-all cursor-pointer"
-              title="Print document or Save to PDF via system dialog"
-            >
-              <Printer className="w-3.5 h-3.5" />
-              <span>Print</span>
+              <Download className="w-3.5 h-3.5" />
+              <span>Download Stats</span>
             </button>
 
             <button
@@ -652,7 +567,7 @@ export const PatientReportCardModal = ({
             </div>
           </div>
 
-          {/* PATIENT PROFILE SUMMARY GRID & CURRENT CONDITION */}
+          {/* PATIENT PROFILE SUMMARY GRID */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-cream/50 dark:bg-ink-soft/20 border border-border/80 dark:border-ink-soft/40 rounded-xl p-4">
             <div>
               <span className="text-[10px] uppercase tracking-wider font-bold text-ink-soft dark:text-cream/60">
@@ -676,26 +591,10 @@ export const PatientReportCardModal = ({
             </div>
             <div>
               <span className="text-[10px] uppercase tracking-wider font-bold text-ink-soft dark:text-cream/60">
-                Current Condition
+                Clinical Diagnosis
               </span>
-              <p className="text-sm font-extrabold text-terracotta mt-0.5 truncate" title={patientCondition}>
-                {patientCondition}
-              </p>
-            </div>
-            <div className="col-span-2">
-              <span className="text-[10px] uppercase tracking-wider font-bold text-ink-soft dark:text-cream/60">
-                Clinical Status
-              </span>
-              <p className="text-xs font-semibold text-ink dark:text-cream mt-0.5">
-                {patientClinicalStatus}
-              </p>
-            </div>
-            <div className="col-span-2">
-              <span className="text-[10px] uppercase tracking-wider font-bold text-ink-soft dark:text-cream/60">
-                Cognitive Risk Grade
-              </span>
-              <p className="text-xs font-semibold text-ink dark:text-cream mt-0.5">
-                {riskLevel} (Grade {riskGrade})
+              <p className="text-sm font-bold text-terracotta mt-0.5 truncate">
+                {patient.condition || 'Cognitive Monitoring'}
               </p>
             </div>
           </div>
@@ -769,15 +668,15 @@ export const PatientReportCardModal = ({
 
                 <div className="grid grid-cols-2 gap-3 text-xs">
                   <div className="bg-cream/40 dark:bg-ink-soft/20 p-2 rounded-lg">
-                    <span className="text-[10px] text-ink-soft dark:text-cream/60 block">Latest Numeric Score</span>
-                    <span className="text-xs font-black text-terracotta font-mono">
-                      {formatNumericScore(latestMemory ? latestMemory.score : (avgMemoryScore / 100))}
+                    <span className="text-[10px] text-ink-soft dark:text-cream/60 block">Latest Score</span>
+                    <span className="text-sm font-black text-terracotta">
+                      {latestMemory ? `${Math.round(latestMemory.score * 100)}%` : `${avgMemoryScore}%`}
                     </span>
                   </div>
                   <div className="bg-cream/40 dark:bg-ink-soft/20 p-2 rounded-lg">
-                    <span className="text-[10px] text-ink-soft dark:text-cream/60 block">Average Numeric Score</span>
-                    <span className="text-xs font-bold text-ink dark:text-cream font-mono">
-                      {formatNumericScore(avgMemoryScore / 100)}
+                    <span className="text-[10px] text-ink-soft dark:text-cream/60 block">Average Score</span>
+                    <span className="text-sm font-bold text-ink dark:text-cream">
+                      {avgMemoryScore}%
                     </span>
                   </div>
                   <div className="bg-cream/40 dark:bg-ink-soft/20 p-2 rounded-lg">
@@ -816,15 +715,15 @@ export const PatientReportCardModal = ({
 
                 <div className="grid grid-cols-2 gap-3 text-xs">
                   <div className="bg-cream/40 dark:bg-ink-soft/20 p-2 rounded-lg">
-                    <span className="text-[10px] text-ink-soft dark:text-cream/60 block">Latest Numeric Score</span>
-                    <span className="text-xs font-black text-gold font-mono">
-                      {formatNumericScore(latestAttention ? latestAttention.score : (avgAttentionScore / 100))}
+                    <span className="text-[10px] text-ink-soft dark:text-cream/60 block">Latest Score</span>
+                    <span className="text-sm font-black text-gold">
+                      {latestAttention ? `${Math.round(latestAttention.score * 100)}%` : `${avgAttentionScore}%`}
                     </span>
                   </div>
                   <div className="bg-cream/40 dark:bg-ink-soft/20 p-2 rounded-lg">
-                    <span className="text-[10px] text-ink-soft dark:text-cream/60 block">Average Numeric Score</span>
-                    <span className="text-xs font-bold text-ink dark:text-cream font-mono">
-                      {formatNumericScore(avgAttentionScore / 100)}
+                    <span className="text-[10px] text-ink-soft dark:text-cream/60 block">Average Score</span>
+                    <span className="text-sm font-bold text-ink dark:text-cream">
+                      {avgAttentionScore}%
                     </span>
                   </div>
                   <div className="bg-cream/40 dark:bg-ink-soft/20 p-2 rounded-lg">
@@ -887,7 +786,7 @@ export const PatientReportCardModal = ({
               <div className="flex items-center gap-2">
                 <Calendar className="w-4 h-4 text-ink-soft dark:text-cream/70" />
                 <h2 className="text-xs font-bold uppercase tracking-wider text-ink-soft dark:text-cream/80">
-                  Recent Cognitive Trials Log & Numeric Game Scores (Latest 5 Sessions)
+                  Recent Cognitive Trials Log (Latest 5 Sessions)
                 </h2>
               </div>
               <span className="text-[11px] text-ink-soft dark:text-cream/60 font-medium">
@@ -899,12 +798,12 @@ export const PatientReportCardModal = ({
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
                   <tr className="bg-cream/60 dark:bg-ink-soft/30 text-ink-soft dark:text-cream/70 text-[10px] uppercase font-bold border-b border-border/70 dark:border-ink-soft/30">
-                    <th className="py-2.5 px-3">Date & Time</th>
+                    <th className="py-2.5 px-3">Date</th>
                     <th className="py-2.5 px-3">Domain</th>
                     <th className="py-2.5 px-3">Game Type</th>
                     <th className="py-2.5 px-3">Difficulty</th>
                     <th className="py-2.5 px-3">Duration</th>
-                    <th className="py-2.5 px-3">Numeric Score (0.00 – 1.00)</th>
+                    <th className="py-2.5 px-3">Score</th>
                     <th className="py-2.5 px-3 text-right">Status</th>
                   </tr>
                 </thead>
@@ -912,8 +811,8 @@ export const PatientReportCardModal = ({
                   {recentSessions.length > 0 ? (
                     recentSessions.map((s) => (
                       <tr key={s.session_id} className="hover:bg-cream/30 dark:hover:bg-ink-soft/10">
-                        <td className="py-2.5 px-3 font-medium text-ink dark:text-cream whitespace-nowrap">
-                          {formatSessionDate(s.session_date, true)}
+                        <td className="py-2.5 px-3 font-medium text-ink dark:text-cream">
+                          {new Date(s.session_date).toLocaleDateString()}
                         </td>
                         <td className="py-2.5 px-3 capitalize text-ink-soft dark:text-cream/70">
                           {s.domain}
@@ -927,25 +826,8 @@ export const PatientReportCardModal = ({
                         <td className="py-2.5 px-3 text-ink-soft dark:text-cream/70">
                           {formatDuration(s.session_duration)}
                         </td>
-                        <td className="py-2.5 px-3">
-                          <span className="font-bold text-terracotta font-mono text-xs block">
-                            {formatNumericScore(s.score_normalized)}
-                          </span>
-                          {s.correct_match_rate !== null && s.correct_match_rate !== undefined && (
-                            <span className="text-[10px] text-ink-soft dark:text-cream/60 block">
-                              Match: {Math.round(s.correct_match_rate * 100)}%
-                            </span>
-                          )}
-                          {s.reaction_time_avg !== null && s.reaction_time_avg !== undefined && (
-                            <span className="text-[10px] text-ink-soft dark:text-cream/60 block">
-                              Latency: {Math.round(s.reaction_time_avg)}ms
-                            </span>
-                          )}
-                          {s.words_recalled_count !== null && s.words_recalled_count !== undefined && (
-                            <span className="text-[10px] text-ink-soft dark:text-cream/60 block">
-                              Words: {s.words_recalled_count}
-                            </span>
-                          )}
+                        <td className="py-2.5 px-3 font-bold text-terracotta">
+                          {Math.round((s.score_normalized || 0) * 100)}%
                         </td>
                         <td className="py-2.5 px-3 text-right">
                           <span
@@ -971,7 +853,6 @@ export const PatientReportCardModal = ({
               </table>
             </div>
           </div>
-
 
           {/* CLINICAL SIGN-OFF & ATTESTATION BLOCK */}
           <div className="pt-6 border-t-2 border-dashed border-border/80 dark:border-ink-soft/40 grid grid-cols-1 sm:grid-cols-2 gap-8">
