@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { SettingsDropdown } from './SettingsDropdown';
@@ -13,6 +13,10 @@ export const ProfilePopover = () => {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
   const containerRef = useRef(null);
+
+  const handleCloseChangePassword = useCallback(() => {
+    setIsChangePasswordOpen(false);
+  }, []);
 
   const isCaregiverPortal = !isAdmin && role !== 'admin' && !location.pathname.startsWith('/admin');
 
@@ -158,7 +162,7 @@ export const ProfilePopover = () => {
       {isCaregiverPortal && (
         <ChangePasswordModal
           isOpen={isChangePasswordOpen}
-          onClose={() => setIsChangePasswordOpen(false)}
+          onClose={handleCloseChangePassword}
         />
       )}
 

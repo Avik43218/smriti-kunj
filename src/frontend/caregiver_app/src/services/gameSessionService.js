@@ -191,7 +191,6 @@ export default {
   DOMAIN_CONFIG,
   getGameSessions,
   parseSessionDate,
-  parseSessionDate,
   formatSessionDate,
   formatDuration,
 };
