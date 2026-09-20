@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { getPatientById, getCareStatusConfig, deletePatient, updatePatient } from '../services/patientService';
+import { getPatientById, deletePatient, updatePatient } from '../services/patientService';
 import {
   getGameSessions,
   DOMAIN_CONFIG,
@@ -37,10 +37,8 @@ import {
   Upload,
   X,
   Save,
-  Check,
   QrCode,
   Plus,
-  UserCheck,
   UserPlus,
 } from 'lucide-react';
 import { PairingQrPanel } from '../components/PairingQrPanel';
@@ -245,7 +243,6 @@ export const PatientDetails = () => {
         await updatePatient(patient.id, { avatarUrl: dataUrl });
         setPatient((prev) => ({ ...prev, avatarUrl: dataUrl }));
         setPhotoFeedback('Photo updated successfully!');
-        setTimeout(() => setPhotoFeedback(''), 3000);
         setTimeout(() => setPhotoFeedback(''), 3000);
       } catch (err) {
         setPhotoFeedback('Failed to update photo.');
@@ -724,6 +721,18 @@ export const PatientDetails = () => {
               >
                 <Camera className="w-3.5 h-3.5" />
               </label>
+
+              {photoFeedback && (
+                <div
+                  className={`absolute -bottom-6 left-1/2 -translate-x-1/2 whitespace-nowrap text-[10px] font-semibold px-2 py-0.5 rounded-full shadow-xs z-30 ${
+                    photoFeedback.includes('exceeds') || photoFeedback.includes('Failed')
+                      ? 'bg-status-urgent/15 text-status-urgent border border-status-urgent/30'
+                      : 'bg-sage/15 text-sage border border-sage/30'
+                  }`}
+                >
+                  {photoFeedback}
+                </div>
+              )}
             </div>
 
             {/* Core Patient Identity */}
@@ -1191,27 +1200,6 @@ export const PatientDetails = () => {
                 </span>
               )}
             </div>
-
-          {patient.deviceStatus ? (
-            <div className="space-y-3">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wider text-ink-soft dark:text-cream/60 mb-0.5">
-                  Linked Hardware Unit
-                </p>
-                {/* Show device name only when the backend provides a real one */}
-                <p className="text-sm sm:text-base font-bold text-ink dark:text-cream">
-                  {patient.deviceStatus.deviceName && patient.deviceStatus.deviceName !== 'Patient Device'
-                    ? patient.deviceStatus.deviceName
-                    : 'Smriti Kunj Patient Device'}
-                </p>
-                {/* Pairing code — generated at registration, acts as device identifier */}
-                <div className="flex items-center gap-2 mt-1.5">
-                  <span className="text-[11px] font-semibold uppercase tracking-wider text-ink-soft dark:text-cream/60">
-                    Device No.
-                  </span>
-                  <code className="font-mono text-xs font-bold text-ink dark:text-cream bg-cream dark:bg-ink-soft/40 px-2 py-0.5 rounded border border-border/70 dark:border-ink-soft/30 tracking-wider">
-                    {pairedCode}
-                  </code>
             {/* Two-column layout on wide screens, stacked on narrow screens (<= 768px) */}
             <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-center">
               {/* Details Column */}
@@ -1221,7 +1209,9 @@ export const PatientDetails = () => {
                     Linked Hardware Unit
                   </p>
                   <p className="text-sm sm:text-base font-bold text-ink dark:text-cream">
-                    {patient.deviceStatus?.deviceName || 'Patient Device'}
+                    {patient.deviceStatus?.deviceName && patient.deviceStatus.deviceName !== 'Patient Device'
+                      ? patient.deviceStatus.deviceName
+                      : 'Smriti Kunj Patient Device'}
                   </p>
                   <div className="mt-2.5 space-y-1">
                     <p className="text-xs font-semibold uppercase tracking-wider text-ink-soft dark:text-cream/60">
@@ -1233,32 +1223,26 @@ export const PatientDetails = () => {
                   </div>
                 </div>
 
-              <div className="pt-2 flex items-center gap-1.5 text-xs text-ink-soft dark:text-cream/70">
-                <Clock className="w-3.5 h-3.5 text-terracotta/80 shrink-0" />
-                <span>
-                  Last Synced:{' '}
-                  {(() => {
-                    const raw = patient.deviceStatus.lastSynced || patient.lastCheckIn;
-                    if (!raw) return 'Recent';
-                    // Parse ISO string and format to "Sep 20, 2026, 3:45 PM"
-                    try {
-                      return new Date(raw).toLocaleString('en-US', {
-                        month: 'short',
-                        day: 'numeric',
-                        year: 'numeric',
-                        hour: 'numeric',
-                        minute: '2-digit',
-                        hour12: true,
-                      });
-                    } catch {
-                      return raw;
-                    }
-                  })()}
-                </span>
                 <div className="pt-2 border-t border-border/50 dark:border-ink-soft/20 flex items-center gap-1.5 text-xs text-ink-soft dark:text-cream/70">
                   <Clock className="w-3.5 h-3.5 text-terracotta/80 shrink-0" />
                   <span>
-                    Last Synced: {patient.deviceStatus?.lastSynced || patient.lastCheckIn || 'Pending sync'}
+                    Last Synced:{' '}
+                    {(() => {
+                      const raw = patient.deviceStatus?.lastSynced || patient.lastCheckIn;
+                      if (!raw) return 'Pending sync';
+                      try {
+                        return new Date(raw).toLocaleString('en-US', {
+                          month: 'short',
+                          day: 'numeric',
+                          year: 'numeric',
+                          hour: 'numeric',
+                          minute: '2-digit',
+                          hour12: true,
+                        });
+                      } catch {
+                        return raw;
+                      }
+                    })()}
                   </span>
                 </div>
               </div>
