@@ -479,7 +479,7 @@ export const PatientReportCardModal = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-ink/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 print:p-0 print:static print:bg-white">
+    <div className="fixed inset-0 z-50 overflow-y-auto custom-scrollbar bg-ink/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 print:p-0 print:static print:bg-white">
       {/* MODAL WRAPPER */}
       <div className="bg-surface dark:bg-ink border border-border dark:border-ink-soft/40 w-full max-w-4xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh] print:max-h-none print:shadow-none print:border-none print:w-full print:rounded-none">
         
@@ -543,7 +543,7 @@ export const PatientReportCardModal = ({
         <div
           ref={reportRef}
           id="clinical-report-card"
-          className="p-6 sm:p-8 overflow-y-auto space-y-6 text-ink dark:text-cream print:p-0 print:overflow-visible print:text-black"
+          className="p-6 sm:p-8 overflow-y-auto custom-scrollbar space-y-6 text-ink dark:text-cream print:p-0 print:overflow-visible print:text-black"
         >
           {/* REPORT HEADER BANNER */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b-2 border-border/80 dark:border-ink-soft/40 pb-5">
@@ -794,7 +794,7 @@ export const PatientReportCardModal = ({
               </span>
             </div>
 
-            <div className="overflow-x-auto rounded-lg border border-border/70 dark:border-ink-soft/30">
+            <div className="overflow-x-auto custom-scrollbar rounded-lg border border-border/70 dark:border-ink-soft/30">
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
                   <tr className="bg-cream/60 dark:bg-ink-soft/30 text-ink-soft dark:text-cream/70 text-[10px] uppercase font-bold border-b border-border/70 dark:border-ink-soft/30">

@@ -156,7 +156,7 @@ export const Modal = ({
         ref={cardRef}
         tabIndex={-1}
         onClick={(e) => e.stopPropagation()}
-        className={`w-full ${maxWidth} max-h-[calc(100dvh-2rem)] overflow-y-auto bg-surface dark:bg-ink border border-border/80 dark:border-ink-soft/40 rounded-card sm:rounded-2xl shadow-2xl p-5 sm:p-7 space-y-4 text-ink dark:text-cream relative transition-all duration-200 animate-in zoom-in-95 outline-none motion-reduce:animate-none`}
+        className={`w-full ${maxWidth} max-h-[calc(100dvh-2rem)] overflow-y-auto custom-scrollbar bg-surface dark:bg-ink border border-border/80 dark:border-ink-soft/40 rounded-card sm:rounded-2xl shadow-2xl p-5 sm:p-7 space-y-4 text-ink dark:text-cream relative transition-all duration-200 animate-in zoom-in-95 outline-none motion-reduce:animate-none`}
       >
         {children}
       </div>
