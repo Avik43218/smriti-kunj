@@ -151,6 +151,7 @@ def evaluate_patients_risk(
             "name": str(item.get("name") or f"Patient {i+1}"),
             "age": int(feature_rows[i]["age"]),
             "gender": str(item.get("gender") or "Not Specified"),
+            "diagnosis": str(item.get("diagnosis") or "Mild Cognitive Impairment (MCI)"),
             "active_alerts_count": alerts_count,
             "risk_grade": pred_int,
             "grade_label": meta["grade_label"],

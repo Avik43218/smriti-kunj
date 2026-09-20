@@ -290,12 +290,13 @@ export const PatientRiskOverviewTable = () => {
       */}
       <div className="overflow-x-auto custom-scrollbar">
         <div className="overflow-y-auto custom-scrollbar" style={{ maxHeight: '240px' }}>
-          <table className="w-full text-left border-collapse min-w-[460px]">
+          <table className="w-full text-left border-collapse min-w-[580px]">
             <thead className="sticky top-0 z-10">
               <tr className="border-b border-border/80 dark:border-ink-soft/40 bg-cream/60 dark:bg-ink-soft/30 text-[10px] font-bold text-ink-soft dark:text-cream/70 uppercase tracking-wider select-none">
                 <th scope="col" className="py-2.5 px-4 w-28">Patient ID</th>
                 <th scope="col" className="py-2.5 px-4">Patient Name</th>
                 <th scope="col" className="py-2.5 px-4 w-28">Age &amp; Gender</th>
+                <th scope="col" className="py-2.5 px-4">Primary Diagnosis</th>
                 <th scope="col" className="py-2.5 px-4 w-36">Risk Level</th>
               </tr>
             </thead>
@@ -308,6 +309,7 @@ export const PatientRiskOverviewTable = () => {
                     <td className="py-3 px-4"><div className="h-3.5 w-14 bg-cream dark:bg-ink-soft/30 rounded" /></td>
                     <td className="py-3 px-4"><div className="h-3.5 w-28 bg-cream dark:bg-ink-soft/30 rounded" /></td>
                     <td className="py-3 px-4"><div className="h-3.5 w-16 bg-cream dark:bg-ink-soft/30 rounded" /></td>
+                    <td className="py-3 px-4"><div className="h-3.5 w-32 bg-cream dark:bg-ink-soft/30 rounded" /></td>
                     <td className="py-3 px-4"><div className="h-5 w-24 bg-cream dark:bg-ink-soft/30 rounded-full" /></td>
                   </tr>
                 ))}
@@ -315,7 +317,7 @@ export const PatientRiskOverviewTable = () => {
               {/* Error */}
               {!loading && error && (
                 <tr>
-                  <td colSpan={4} className="py-6 text-center text-status-urgent">
+                  <td colSpan={5} className="py-6 text-center text-status-urgent">
                     <div className="flex flex-col items-center gap-2">
                       <ShieldAlert className="w-5 h-5" />
                       <p className="text-xs font-semibold">{error}</p>
@@ -334,7 +336,7 @@ export const PatientRiskOverviewTable = () => {
               {/* Empty */}
               {!loading && !error && filteredAndSortedPatients.length === 0 && (
                 <tr>
-                  <td colSpan={4} className="py-8 text-center text-ink-soft dark:text-cream/60">
+                  <td colSpan={5} className="py-8 text-center text-ink-soft dark:text-cream/60">
                     <p className="text-xs font-semibold">
                       {data.patients.length === 0
                         ? 'No patients registered'
@@ -389,7 +391,15 @@ export const PatientRiskOverviewTable = () => {
                         {patient.gender}
                       </td>
 
-                      {/* 4. Risk Level badge */}
+                      {/* 4. Primary Diagnosis */}
+                      <td className="py-3 px-4 text-xs text-ink dark:text-cream/90">
+                        {patient.diagnosis
+                          ? <span className="font-medium">{patient.diagnosis}</span>
+                          : <span className="text-ink-soft/50 dark:text-cream/30 italic">—</span>
+                        }
+                      </td>
+
+                      {/* 5. Risk Level badge */}
                       <td className="py-3 px-4 whitespace-nowrap">
                         <span
                           className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${config.badgeBg || 'bg-sage/15'} ${config.badgeText || 'text-sage'} ${config.badgeBorder || 'border-sage/30'}`}
