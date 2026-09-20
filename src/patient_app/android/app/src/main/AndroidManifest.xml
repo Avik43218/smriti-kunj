@@ -2,8 +2,12 @@
     <uses-permission android:name="android.permission.INTERNET"/>
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
     <uses-permission android:name="android.permission.RECORD_AUDIO"/>
-    <uses-permission android:name="com.android.alarm.permission.SET_ALARM"/>
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"/>
+    <uses-permission android:name="android.permission.VIBRATE"/>
+    <uses-permission android:name="android.permission.WAKE_LOCK"/>
+
     <application
         android:label="Smriti Kunj"
         android:name="${applicationName}"
@@ -36,6 +40,24 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+
+        <!-- BroadcastReceiver for scheduled reminder alarms -->
+        <receiver
+            android:name=".MainActivity$AlarmReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.smritikunj.patient_app.ALARM_TRIGGER" />
+            </intent-filter>
+        </receiver>
+
+        <!-- BroadcastReceiver for heads-up notification 'Done' action button -->
+        <receiver
+            android:name=".MainActivity$ReminderActionReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.smritikunj.patient_app.ACTION_REMINDER_DONE" />
+            </intent-filter>
+        </receiver>
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and
@@ -49,9 +71,6 @@
         </intent>
         <intent>
             <action android:name="android.speech.RecognitionService"/>
-        </intent>
-        <intent>
-            <action android:name="android.intent.action.SET_ALARM"/>
         </intent>
         <intent>
             <action android:name="android.intent.action.DIAL"/>

@@ -11,6 +11,7 @@ class ReminderItem {
   final IconData icon;
   final Color categoryColor;
   bool isCompleted;
+  final String status; // 'upcoming', 'done', 'missed'
   final String? pairingCode;
   final String? createdAt;
 
@@ -23,9 +24,11 @@ class ReminderItem {
     IconData? icon,
     Color? categoryColor,
     this.isCompleted = false,
+    String? status,
     this.pairingCode,
     this.createdAt,
-  })  : icon = icon ?? _resolveIcon(category, title),
+  })  : status = status ?? (isCompleted ? 'done' : 'upcoming'),
+        icon = icon ?? _resolveIcon(category, title),
         categoryColor = categoryColor ?? _resolveColor(category);
 
   static IconData _resolveIcon(String category, String title) {
@@ -70,6 +73,7 @@ class ReminderItem {
       'category': category,
       'dosage': dosage,
       'is_completed': isCompleted ? 1 : 0,
+      'status': status,
       'pairing_code': pairingCode,
       'created_at': createdAt ?? DateTime.now().toIso8601String(),
     };
@@ -79,13 +83,16 @@ class ReminderItem {
   factory ReminderItem.fromMap(Map<String, dynamic> map) {
     final cat = (map['category'] as String?) ?? 'custom';
     final titleStr = (map['title'] as String?) ?? 'Daily Reminder';
+    final isDone = (map['is_completed'] as int?) == 1;
+    final rowStatus = (map['status'] as String?) ?? (isDone ? 'done' : 'upcoming');
     return ReminderItem(
       id: map['id'] as String,
       title: titleStr,
       time: (map['time'] as String?) ?? '12:00 PM',
       category: cat,
       dosage: map['dosage'] as String?,
-      isCompleted: (map['is_completed'] as int?) == 1,
+      isCompleted: isDone || rowStatus == 'done',
+      status: rowStatus,
       pairingCode: map['pairing_code'] as String?,
       createdAt: map['created_at'] as String?,
       icon: _resolveIcon(cat, titleStr),
@@ -101,9 +108,12 @@ class ReminderItem {
         (json['name'] as String?) ??
         'Daily Reminder';
     final idStr = (json['id'] != null) ? json['id'].toString() : 'rem_${DateTime.now().millisecondsSinceEpoch}';
+    final rawStatus = json['status'] as String?;
     final isDone = json['is_completed'] == true ||
         json['isCompleted'] == true ||
-        json['status'] == 'completed';
+        rawStatus == 'completed' ||
+        rawStatus == 'done';
+    final resolvedStatus = rawStatus == 'missed' ? 'missed' : (isDone ? 'done' : 'upcoming');
 
     return ReminderItem(
       id: idStr,
@@ -112,6 +122,7 @@ class ReminderItem {
       category: cat,
       dosage: json['dosage'] as String?,
       isCompleted: isDone,
+      status: resolvedStatus,
       pairingCode: pairingCode ?? (json['pairing_code'] as String?),
       createdAt: DateTime.now().toIso8601String(),
       icon: _resolveIcon(cat, titleStr),
@@ -128,6 +139,7 @@ class ReminderItem {
     IconData? icon,
     Color? categoryColor,
     bool? isCompleted,
+    String? status,
     String? pairingCode,
     String? createdAt,
   }) {
@@ -140,6 +152,7 @@ class ReminderItem {
       icon: icon ?? this.icon,
       categoryColor: categoryColor ?? this.categoryColor,
       isCompleted: isCompleted ?? this.isCompleted,
+      status: status ?? this.status,
       pairingCode: pairingCode ?? this.pairingCode,
       createdAt: createdAt ?? this.createdAt,
     );
