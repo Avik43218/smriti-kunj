@@ -1004,19 +1004,45 @@ export const PatientDetails = () => {
                 <p className="text-xs font-semibold uppercase tracking-wider text-ink-soft dark:text-cream/60 mb-0.5">
                   Linked Hardware Unit
                 </p>
+                {/* Show device name only when the backend provides a real one */}
                 <p className="text-sm sm:text-base font-bold text-ink dark:text-cream">
-                  {patient.deviceStatus.deviceName || 'Patient Device'}
+                  {patient.deviceStatus.deviceName && patient.deviceStatus.deviceName !== 'Patient Device'
+                    ? patient.deviceStatus.deviceName
+                    : 'Smriti Kunj Patient Device'}
                 </p>
-                <div className="flex items-center gap-2 mt-1">
-                  <p className="text-xs text-ink-soft dark:text-cream/70 font-mono">
-                    Paired Device Code: <span className="font-bold text-ink dark:text-cream">{pairedCode}</span>
-                  </p>
+                {/* Pairing code — generated at registration, acts as device identifier */}
+                <div className="flex items-center gap-2 mt-1.5">
+                  <span className="text-[11px] font-semibold uppercase tracking-wider text-ink-soft dark:text-cream/60">
+                    Device No.
+                  </span>
+                  <code className="font-mono text-xs font-bold text-ink dark:text-cream bg-cream dark:bg-ink-soft/40 px-2 py-0.5 rounded border border-border/70 dark:border-ink-soft/30 tracking-wider">
+                    {pairedCode}
+                  </code>
                 </div>
               </div>
 
               <div className="pt-2 flex items-center gap-1.5 text-xs text-ink-soft dark:text-cream/70">
                 <Clock className="w-3.5 h-3.5 text-terracotta/80 shrink-0" />
-                <span>Last Synced: {patient.deviceStatus.lastSynced || patient.lastCheckIn || 'Recent'}</span>
+                <span>
+                  Last Synced:{' '}
+                  {(() => {
+                    const raw = patient.deviceStatus.lastSynced || patient.lastCheckIn;
+                    if (!raw) return 'Recent';
+                    // Parse ISO string and format to "Sep 20, 2026, 3:45 PM"
+                    try {
+                      return new Date(raw).toLocaleString('en-US', {
+                        month: 'short',
+                        day: 'numeric',
+                        year: 'numeric',
+                        hour: 'numeric',
+                        minute: '2-digit',
+                        hour12: true,
+                      });
+                    } catch {
+                      return raw;
+                    }
+                  })()}
+                </span>
               </div>
             </div>
           ) : (
