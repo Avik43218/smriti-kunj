@@ -79,6 +79,9 @@ class PatientAdminOut(BaseModel):
     age: Optional[int] = None
     gender: Optional[str] = None
     diagnosis: Optional[str] = None
+    weight: Optional[str] = None
+    body_weight: Optional[str] = None
+    bodyWeight: Optional[str] = None
     status: Optional[str] = "stable"
     status_label: Optional[str] = None
     caregiver_id: Optional[uuid.UUID] = None

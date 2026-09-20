@@ -348,6 +348,7 @@ def _build_patient_admin_out(patient: User, caregiver_lookup: Dict[uuid.UUID, Us
                 primary_name = cg.name
                 primary_email = cg.email
 
+    val_weight = patient.body_weight or patient.weight
     return PatientAdminOut(
         id=patient.patient_code or str(patient.id),
         uuid_id=patient.id,
@@ -356,6 +357,9 @@ def _build_patient_admin_out(patient: User, caregiver_lookup: Dict[uuid.UUID, Us
         age=patient.age,
         gender=patient.gender,
         diagnosis=patient.diagnosis,
+        weight=val_weight,
+        body_weight=val_weight,
+        bodyWeight=val_weight,
         status=patient.status or "stable",
         status_label=patient.status_label or "Active • Device synced",
         caregiver_id=patient.caregiver_id,

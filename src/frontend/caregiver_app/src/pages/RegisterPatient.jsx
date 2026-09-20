@@ -350,6 +350,8 @@ export const RegisterPatient = () => {
       notes: formData.notes.trim() || 'Initial registration record. Baseline routine scheduled.',
       preferredLanguage: formData.preferredLanguage,
       weight: effectiveWeight,
+      body_weight: effectiveWeight,
+      bodyWeight: effectiveWeight,
       diabetic: formData.diabetic,
       nutritionDiet: formData.nutritionDiet,
       alcoholLevel: formData.alcoholLevel,

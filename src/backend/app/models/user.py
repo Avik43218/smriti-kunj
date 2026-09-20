@@ -47,6 +47,12 @@ class User(Document):
     date_of_birth: Optional[str] = None
     diagnosis: Optional[str] = None
     health_issue: Optional[str] = None
+    body_weight: Optional[str] = None  # e.g. "68 kg" / "68.5 kg"
+    weight: Optional[str] = None  # synonym/alias for body_weight
+    diabetic: Optional[str] = None
+    nutrition_diet: Optional[str] = None
+    alcohol_level: Optional[str] = None
+    smoking_status: Optional[str] = None
     avatar_url: Optional[str] = None
     status: Optional[str] = "active"
     status_label: Optional[str] = "Active • Device synced"

@@ -22,6 +22,9 @@ class PatientSummaryOut(BaseModel):
     name: str
     age: Optional[int] = None
     diagnosis: Optional[str] = None
+    weight: Optional[str] = None
+    body_weight: Optional[str] = None
+    bodyWeight: Optional[str] = None
     avatarUrl: Optional[str] = None
     status: str = "stable"
     statusLabel: str = "Active • Device synced"
@@ -36,6 +39,13 @@ class PatientDetailOut(BaseModel):
     gender: Optional[str] = None
     dateOfBirth: Optional[str] = None
     healthIssue: Optional[str] = None
+    weight: Optional[str] = None
+    body_weight: Optional[str] = None
+    bodyWeight: Optional[str] = None
+    diabetic: Optional[str] = None
+    nutritionDiet: Optional[str] = None
+    alcoholLevel: Optional[str] = None
+    smokingStatus: Optional[str] = None
     avatarUrl: Optional[str] = None
     status: str = "stable"
     statusLabel: str = "Active • Device synced"
@@ -53,6 +63,13 @@ class PatientCreateRequest(BaseModel):
     dateOfBirth: Optional[str] = None
     diagnosis: Optional[str] = None
     healthIssue: Optional[str] = None
+    weight: Optional[str] = None
+    body_weight: Optional[str] = None
+    bodyWeight: Optional[str] = None
+    diabetic: Optional[str] = None
+    nutritionDiet: Optional[str] = None
+    alcoholLevel: Optional[str] = None
+    smokingStatus: Optional[str] = None
     avatarUrl: Optional[str] = None
     status: Optional[str] = "stable"
     statusLabel: Optional[str] = "Registration completed"

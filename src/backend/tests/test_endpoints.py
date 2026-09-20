@@ -68,6 +68,8 @@ class TestCaregiverAndPatientEndpoints(unittest.IsolatedAsyncioTestCase):
             date_of_birth="March 14, 1954",
             diagnosis="Mild Cognitive Impairment",
             health_issue="Mild Cognitive Impairment (MCI)",
+            body_weight="68.5 kg",
+            weight="68.5 kg",
             status="stable",
             status_label="Active • Tablet synced",
             last_check_in="Today, 10:30 AM",
@@ -109,11 +111,33 @@ class TestCaregiverAndPatientEndpoints(unittest.IsolatedAsyncioTestCase):
                     age=68,
                     gender="Female",
                     diagnosis="Early Stage Alzheimer's",
+                    weight="62.5 kg",
                 )
                 res = await caregiver.register_patient(payload, self.caregiver_user)
                 self.assertEqual(res.id, "p521")
                 self.assertEqual(res.name, "Maya Sen")
+                self.assertEqual(res.weight, "62.5 kg")
+                self.assertEqual(res.body_weight, "62.5 kg")
                 mock_insert.assert_called_once()
+
+    async def test_register_patient_updates_existing_body_weight(self):
+        with patch("app.api.routes.caregiver.find_patient_for_caregiver", new_callable=AsyncMock) as mock_find, \
+             patch("app.models.user.User.save", new_callable=AsyncMock) as mock_save:
+            existing_patient = self.patient_user
+            mock_find.return_value = existing_patient
+            payload = PatientCreateRequest(
+                id="p101",
+                name="Aarav Sharma",
+                age=72,
+                gender="Male",
+                body_weight="71.2 kg",
+            )
+            res = await caregiver.register_patient(payload, self.caregiver_user)
+            self.assertEqual(res.weight, "71.2 kg")
+            self.assertEqual(res.body_weight, "71.2 kg")
+            self.assertEqual(existing_patient.body_weight, "71.2 kg")
+            self.assertEqual(existing_patient.weight, "71.2 kg")
+            mock_save.assert_called_once()
 
     async def test_get_patient_detail_success(self):
         with patch("app.api.routes.caregiver.find_patient_for_caregiver", new_callable=AsyncMock) as mock_find:
@@ -123,6 +147,8 @@ class TestCaregiverAndPatientEndpoints(unittest.IsolatedAsyncioTestCase):
             self.assertIsInstance(detail, PatientDetailOut)
             self.assertEqual(detail.id, "p101")
             self.assertEqual(detail.name, "Aarav Sharma")
+            self.assertEqual(detail.weight, "68.5 kg")
+            self.assertEqual(detail.body_weight, "68.5 kg")
             self.assertIsNotNone(detail.emergencyContact)
             self.assertEqual(detail.emergencyContact.name, "Priya Sharma")
             self.assertIsNotNone(detail.deviceStatus)

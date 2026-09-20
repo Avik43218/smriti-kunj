@@ -21,11 +21,15 @@ router = APIRouter(prefix="/api/caregiver", tags=["caregiver"])
 
 
 def _user_to_patient_summary(user: User) -> PatientSummaryOut:
+    val_weight = user.body_weight or user.weight
     return PatientSummaryOut(
         id=user.patient_code or str(user.id),
         name=user.name,
         age=user.age,
         diagnosis=user.diagnosis,
+        weight=val_weight,
+        body_weight=val_weight,
+        bodyWeight=val_weight,
         avatarUrl=user.avatar_url,
         status=user.status or "stable",
         statusLabel=user.status_label or "Active • Device synced",
@@ -51,6 +55,7 @@ def _user_to_patient_detail(user: User) -> PatientDetailOut:
             lastSynced=user.device_status.get("lastSynced"),
         )
 
+    val_weight = user.body_weight or user.weight
     return PatientDetailOut(
         id=user.patient_code or str(user.id),
         name=user.name,
@@ -58,6 +63,13 @@ def _user_to_patient_detail(user: User) -> PatientDetailOut:
         gender=user.gender,
         dateOfBirth=user.date_of_birth,
         healthIssue=user.health_issue,
+        weight=val_weight,
+        body_weight=val_weight,
+        bodyWeight=val_weight,
+        diabetic=getattr(user, "diabetic", None),
+        nutritionDiet=getattr(user, "nutrition_diet", None),
+        alcoholLevel=getattr(user, "alcohol_level", None),
+        smokingStatus=getattr(user, "smoking_status", None),
         avatarUrl=user.avatar_url,
         status=user.status or "stable",
         statusLabel=user.status_label or "Active • Device synced",
@@ -157,6 +169,10 @@ async def register_patient(
     )
 
     is_admin = caregiver.role == RoleEnum.admin
+    incoming_weight = payload.body_weight or payload.weight or payload.bodyWeight
+    if incoming_weight and isinstance(incoming_weight, str):
+        incoming_weight = incoming_weight.strip()
+
     existing = await find_patient_for_caregiver(patient_code, caregiver.id, is_admin=is_admin)
     if existing:
         existing.name = payload.name.strip()
@@ -165,6 +181,17 @@ async def register_patient(
         existing.date_of_birth = payload.dateOfBirth
         existing.diagnosis = payload.diagnosis
         existing.health_issue = payload.healthIssue
+        if incoming_weight is not None:
+            existing.body_weight = incoming_weight
+            existing.weight = incoming_weight
+        if payload.diabetic is not None:
+            existing.diabetic = payload.diabetic
+        if payload.nutritionDiet is not None:
+            existing.nutrition_diet = payload.nutritionDiet
+        if payload.alcoholLevel is not None:
+            existing.alcohol_level = payload.alcoholLevel
+        if payload.smokingStatus is not None:
+            existing.smoking_status = payload.smokingStatus
         existing.avatar_url = payload.avatarUrl
         existing.status = payload.status or "stable"
         existing.status_label = payload.statusLabel or "Active • Device synced"
@@ -193,6 +220,12 @@ async def register_patient(
             date_of_birth=payload.dateOfBirth,
             diagnosis=payload.diagnosis,
             health_issue=payload.healthIssue,
+            body_weight=incoming_weight,
+            weight=incoming_weight,
+            diabetic=payload.diabetic,
+            nutrition_diet=payload.nutritionDiet,
+            alcohol_level=payload.alcoholLevel,
+            smoking_status=payload.smokingStatus,
             avatar_url=payload.avatarUrl,
             status=payload.status or "stable",
             status_label=payload.statusLabel or "Active • Device synced",

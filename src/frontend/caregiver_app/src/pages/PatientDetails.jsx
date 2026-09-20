@@ -170,7 +170,7 @@ export const PatientDetails = () => {
       diagnosis: patient.diagnosis || 'Mild Cognitive Impairment (MCI)',
       healthIssue: patient.healthIssue || '',
       notes: patient.notes || '',
-      weight: (patient.weight || '').replace(/\s*kg$/i, ''),
+      weight: (patient.weight || patient.body_weight || patient.bodyWeight || '').replace(/\s*kg$/i, ''),
       diabetic: patient.diabetic || 'Non-Diabetic',
       nutritionDiet: patient.nutritionDiet || 'Healthy & Balanced (Regular nutritious meals)',
       alcoholLevel: patient.alcoholLevel || 'None / Non-Drinker',
@@ -250,6 +250,8 @@ export const PatientDetails = () => {
         healthIssue: editFormData.healthIssue.trim() || patient.healthIssue,
         notes: editFormData.notes.trim() || patient.notes,
         weight: effectiveWeight,
+        body_weight: effectiveWeight,
+        bodyWeight: effectiveWeight,
         diabetic: editFormData.diabetic,
         nutritionDiet: editFormData.nutritionDiet,
         alcoholLevel: editFormData.alcoholLevel,
@@ -755,7 +757,7 @@ export const PatientDetails = () => {
             </div>
             <div>
               <p className="text-base sm:text-lg font-bold text-ink dark:text-cream">
-                {patient.weight || 'Not recorded'}
+                {patient.weight || patient.body_weight || patient.bodyWeight || 'Not recorded'}
               </p>
               <span className="text-[10px] text-ink-soft dark:text-cream/60 block mt-0.5">
                 Physical baseline
