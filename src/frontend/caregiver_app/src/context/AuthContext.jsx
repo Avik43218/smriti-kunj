@@ -132,20 +132,52 @@ export const AuthProvider = ({ children }) => {
     }
   }, []);
 
+  const updateUserData = useCallback((partialData) => {
+    setCaregiver((prev) => {
+      if (!prev) return prev;
+      const updated = { ...prev, ...partialData };
+      try {
+        localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(updated));
+      } catch (err) {
+        console.error('Failed to update user data in storage:', err);
+      }
+      return updated;
+    });
+  }, []);
+
+  const setSession = useCallback((newToken, newUser) => {
+    if (newToken) {
+      setToken(newToken);
+      try {
+        localStorage.setItem(STORAGE_KEYS.TOKEN, newToken);
+      } catch (e) { }
+    }
+    if (newUser) {
+      setCaregiver(newUser);
+      try {
+        localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(newUser));
+      } catch (e) { }
+    }
+  }, []);
+
   const isAuthenticated = Boolean(token && caregiver);
   const role = caregiver?.role || 'caregiver';
   const isAdmin = role === 'admin';
+  const mustChangePassword = Boolean(caregiver?.must_change_password);
 
   const value = {
     user: caregiver,
     caregiver,
     role,
     isAdmin,
+    mustChangePassword,
     token,
     login,
     requestOtp,
     verifyOtp,
     logout,
+    updateUserData,
+    setSession,
     isAuthenticated,
     loading,
   };

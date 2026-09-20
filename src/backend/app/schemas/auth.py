@@ -45,7 +45,7 @@ class TokenOut(BaseModel):
 class CaregiverRegisterRequest(BaseModel):
     name: str
     email: EmailStr
-    password: str = Field(min_length=8)
+    password: str = Field(min_length=10)
     region_language: str = "bn"
 
 
@@ -81,13 +81,24 @@ class OtpVerifyResponse(BaseModel):
 
 
 class ChangePasswordRequest(BaseModel):
-    current_password: str
-    new_password: str = Field(min_length=8)
+    current_password: Optional[str] = None
+    new_password: str = Field(min_length=10)
 
 
 class ChangePasswordResponse(BaseModel):
     message: str = "Password changed successfully"
     must_change_password: bool = False
+    token: Optional[str] = None
+
+
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+
+class ResetPasswordRequest(BaseModel):
+    email: EmailStr
+    otp: str = Field(min_length=4, max_length=8)
+    new_password: str = Field(min_length=10)
 
 
 class LogoutResponse(BaseModel):

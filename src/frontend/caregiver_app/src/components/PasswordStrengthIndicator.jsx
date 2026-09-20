@@ -18,7 +18,7 @@ export const PasswordStrengthIndicator = ({ password = '' }) => {
   if (!password) return null;
 
   const length = password.length;
-  const hasMinLength = length >= 8;
+  const hasMinLength = length >= 10;
   const hasLength12 = length >= 12;
   const hasLength16 = length >= 16;
 
@@ -35,13 +35,13 @@ export const PasswordStrengthIndicator = ({ password = '' }) => {
   if (length < 6) {
     // Under 6 chars is always Very Weak
     score = 1;
-  } else if (length < 8) {
-    // 6-7 characters: Weak if mixed, otherwise Very Weak
+  } else if (length < 10) {
+    // 6-9 characters: Below organizational policy min length (10)
     score = varietyCount >= 2 ? 2 : 1;
   } else {
-    // 8+ chars base requirement satisfied
+    // 10+ chars base policy satisfied
     if (varietyCount === 1) {
-      // 8+ chars but single character type (e.g. "aaaaaaaa" or "12345678")
+      // 10+ chars but single character type (e.g. "aaaaaaaaaa")
       score = 2; // Weak
     } else if (
       (length >= 14 && varietyCount >= 3) ||
@@ -55,10 +55,10 @@ export const PasswordStrengthIndicator = ({ password = '' }) => {
       (length >= 10 && varietyCount >= 3) ||
       varietyCount === 4
     ) {
-      // 10+ chars with 3 types, or 8+ chars with all 4 types (symbols included)
+      // 10+ chars with 3 types, or with all 4 types
       score = 4; // Strong
     } else {
-      // Standard 8-9 chars with 2-3 types (e.g. "Password", "Pass1234") or 10-11 chars with 2 types
+      // 10-11 chars with 2 types
       score = 3; // Fair
     }
   }

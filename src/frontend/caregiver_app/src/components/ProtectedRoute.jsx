@@ -3,7 +3,7 @@ import { Navigate, useLocation, Outlet } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 export const ProtectedRoute = ({ children, allowedRoles }) => {
-  const { isAuthenticated, loading, role } = useAuth();
+  const { isAuthenticated, loading, role, mustChangePassword } = useAuth();
   const location = useLocation();
 
   if (loading) {
@@ -19,6 +19,10 @@ export const ProtectedRoute = ({ children, allowedRoles }) => {
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace state={{ from: location }} />;
+  }
+
+  if (mustChangePassword) {
+    return <Navigate to="/login" replace state={{ forcePasswordChange: true, from: location }} />;
   }
 
   if (allowedRoles && Array.isArray(allowedRoles) && allowedRoles.length > 0) {

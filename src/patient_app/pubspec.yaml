@@ -23,7 +23,7 @@ dependencies:
   # SVG rendering — for in-app logo display (flutter_svg)
   flutter_svg: ^2.0.10+1
 
-  tflite_flutter: ^0.10.4
+  tflite_flutter: ^0.12.1
   url_launcher: ^6.3.2
 
 dev_dependencies:

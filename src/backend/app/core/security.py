@@ -41,6 +41,7 @@ def _create_token(
     role: Any,
     expires_delta: timedelta,
     must_change_password: bool = False,
+    token_version: int = 1,
 ) -> str:
     expire = datetime.now(timezone.utc) + expires_delta
     role_str = role.value if hasattr(role, "value") else str(role)
@@ -48,27 +49,38 @@ def _create_token(
         "sub": str(user_id),
         "role": role_str,
         "must_change_password": must_change_password,
+        "ver": token_version,
         "jti": uuid.uuid4().hex,
         "exp": expire,
     }
     return jwt.encode(payload, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
 
 
-def create_caregiver_token(user_id: uuid.UUID, must_change_password: bool = False) -> str:
+def create_caregiver_token(
+    user_id: uuid.UUID,
+    must_change_password: bool = False,
+    token_version: int = 1,
+) -> str:
     return _create_token(
         user_id,
         RoleEnum.caregiver,
         timedelta(minutes=settings.CAREGIVER_TOKEN_EXPIRE_MINUTES),
         must_change_password=must_change_password,
+        token_version=token_version,
     )
 
 
-def create_admin_token(user_id: uuid.UUID, must_change_password: bool = False) -> str:
+def create_admin_token(
+    user_id: uuid.UUID,
+    must_change_password: bool = False,
+    token_version: int = 1,
+) -> str:
     return _create_token(
         user_id,
         RoleEnum.admin,
         timedelta(minutes=settings.CAREGIVER_TOKEN_EXPIRE_MINUTES),
         must_change_password=must_change_password,
+        token_version=token_version,
     )
 
 
@@ -78,6 +90,18 @@ def create_patient_device_token(user_id: uuid.UUID) -> str:
         RoleEnum.patient,
         timedelta(days=settings.PATIENT_TOKEN_EXPIRE_DAYS),
         must_change_password=False,
+        token_version=1,
+    )
+
+
+def create_user_token(user: User, expires_delta: Optional[timedelta] = None) -> str:
+    delta = expires_delta or timedelta(minutes=settings.CAREGIVER_TOKEN_EXPIRE_MINUTES)
+    return _create_token(
+        user_id=user.id,
+        role=user.role,
+        expires_delta=delta,
+        must_change_password=bool(getattr(user, "must_change_password", False)),
+        token_version=getattr(user, "token_version", 1) or 1,
     )
 
 
@@ -122,12 +146,26 @@ async def get_current_user(creds: HTTPAuthorizationCredentials = Depends(bearer_
     if getattr(user, "status", None) == "disabled":
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account is disabled")
 
+    # Invalidate session if user's token version changed (password changed or reset)
+    token_ver = payload.get("ver")
+    current_ver = getattr(user, "token_version", 1) or 1
+    if token_ver is not None and token_ver != current_ver:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Session expired due to password change. Please log in again.",
+        )
+
     return user
 
 
 async def require_admin(user: User = Depends(get_current_user)) -> User:
     if getattr(user, "status", None) == "disabled":
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account is disabled")
+    if getattr(user, "must_change_password", False):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Password change required before accessing platform features",
+        )
     role_val = user.role.value if hasattr(user.role, "value") else str(user.role)
     if role_val != "admin" and user.role != RoleEnum.admin:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin access required")
@@ -137,6 +175,11 @@ async def require_admin(user: User = Depends(get_current_user)) -> User:
 async def require_caregiver(user: User = Depends(get_current_user)) -> User:
     if getattr(user, "status", None) == "disabled":
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account is disabled")
+    if getattr(user, "must_change_password", False):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Password change required before accessing platform features",
+        )
     role_val = user.role.value if hasattr(user.role, "value") else str(user.role)
     if role_val not in ["caregiver", "admin"] and user.role not in [RoleEnum.caregiver, RoleEnum.admin]:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Caregiver access required")

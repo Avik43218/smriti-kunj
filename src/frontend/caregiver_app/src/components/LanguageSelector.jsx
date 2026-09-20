@@ -4,6 +4,7 @@ import { Globe, ChevronDown, Check } from 'lucide-react';
 const LANGUAGE_OPTIONS = [
   { code: 'en', label: 'English', native: 'English' },
   { code: 'as', label: 'Assamese', native: 'অসমীয়া' },
+  { code: 'bn', label: 'Bengali', native: 'বাংলা' },
 ];
 
 export const LanguageSelector = ({ variant = 'default' }) => {
@@ -38,6 +39,7 @@ export const LanguageSelector = ({ variant = 'default' }) => {
     setIsOpen(false);
     try {
       localStorage.setItem('caregiver_language', langCode);
+      window.dispatchEvent(new CustomEvent('languagechange', { detail: { language: langCode } }));
     } catch (err) {
       console.error('Failed to save language preference:', err);
     }
