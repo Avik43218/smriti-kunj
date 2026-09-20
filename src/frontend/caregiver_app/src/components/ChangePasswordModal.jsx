@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   KeyRound,
   X,
@@ -147,7 +147,7 @@ export const ChangePasswordModal = ({ isOpen, onClose }) => {
     newPassword !== currentPassword &&
     newPassword === confirmPassword;
 
-  const handleClose = () => {
+  const handleClose = useCallback(() => {
     if (isSubmitting) return;
     setCurrentPassword('');
     setNewPassword('');
@@ -159,7 +159,7 @@ export const ChangePasswordModal = ({ isOpen, onClose }) => {
     setSubmitError('');
     setSuccessMessage('');
     onClose();
-  };
+  }, [isSubmitting, onClose]);
 
   const validate = () => {
     const errs = {};

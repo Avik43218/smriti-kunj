@@ -46,6 +46,13 @@ def _user_to_patient_detail(user: User) -> PatientDetailOut:
             relationship=user.emergency_contact.get("relationship", "Guardian"),
             phone=user.emergency_contact.get("phone", "+91 90000 00000"),
         )
+    alt_ec = None
+    if user.alternative_emergency_contact:
+        alt_ec = EmergencyContact(
+            name=user.alternative_emergency_contact.get("name", "Alternative Contact"),
+            relationship=user.alternative_emergency_contact.get("relationship", "Alternative Guardian"),
+            phone=user.alternative_emergency_contact.get("phone", "+91 90000 00000"),
+        )
     ds = None
     if user.device_status:
         ds = DeviceStatus(
@@ -75,6 +82,7 @@ def _user_to_patient_detail(user: User) -> PatientDetailOut:
         statusLabel=user.status_label or "Active • Device synced",
         lastCheckIn=user.last_check_in or "Just registered",
         emergencyContact=ec,
+        alternativeEmergencyContact=alt_ec,
         deviceStatus=ds,
         pairingToken=user.pairing_token,
     )
@@ -197,8 +205,9 @@ async def register_patient(
         existing.status_label = payload.statusLabel or "Active • Device synced"
         existing.notes = payload.notes
         existing.pairing_token = pairing_token
-        if payload.emergencyContact:
+        if payload.emergencyContact is not None:
             existing.emergency_contact = payload.emergencyContact
+        existing.alternative_emergency_contact = payload.alternativeEmergencyContact
         if payload.deviceStatus:
             existing.device_status = payload.deviceStatus
         curr_assigned = list(existing.assigned_caregiver_ids or [])
@@ -232,6 +241,7 @@ async def register_patient(
             last_check_in="Just registered",
             notes=payload.notes,
             emergency_contact=payload.emergencyContact,
+            alternative_emergency_contact=payload.alternativeEmergencyContact,
             device_status=payload.deviceStatus,
         )
         await patient.insert()

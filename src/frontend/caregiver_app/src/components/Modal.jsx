@@ -31,11 +31,42 @@ export const Modal = ({
   const cardRef = useRef(null);
   const triggerElementRef = useRef(null);
 
-  // Capture previously active element to restore focus on close
+  // Keep latest callbacks/flags in stable refs so effects don't depend on them
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+  const isSubmittingRef = useRef(isSubmitting);
+  isSubmittingRef.current = isSubmitting;
+  const preventCloseRef = useRef(preventClose);
+  preventCloseRef.current = preventClose;
+
+  // Initial focus on card or first interactive element ONCE on open, and restore focus on close
   useEffect(() => {
-    if (isOpen) {
-      triggerElementRef.current = document.activeElement;
-    }
+    if (!isOpen) return;
+
+    // Capture the element that had focus before opening the modal
+    triggerElementRef.current = document.activeElement;
+
+    const timer = setTimeout(() => {
+      if (cardRef.current) {
+        const firstInput =
+          cardRef.current.querySelector('input:not([disabled]):not([type="hidden"])') ||
+          cardRef.current.querySelector(
+            'button:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
+          );
+        if (firstInput) {
+          firstInput.focus();
+        } else {
+          cardRef.current.focus();
+        }
+      }
+    }, 50);
+
+    return () => {
+      clearTimeout(timer);
+      if (triggerElementRef.current && typeof triggerElementRef.current.focus === 'function') {
+        triggerElementRef.current.focus();
+      }
+    };
   }, [isOpen]);
 
   // Lock body scroll while modal is active
@@ -57,16 +88,16 @@ export const Modal = ({
     };
   }, [isOpen]);
 
-  // Escape key handler & focus trap
+  // Escape key handler & focus trap - only mounted while isOpen is true
   useEffect(() => {
     if (!isOpen) return;
 
     const handleKeyDown = (e) => {
       // Escape key to close
       if (e.key === 'Escape') {
-        if (!isSubmitting && !preventClose) {
+        if (!isSubmittingRef.current && !preventCloseRef.current) {
           e.preventDefault();
-          onClose();
+          onCloseRef.current?.();
         }
         return;
       }
@@ -97,35 +128,16 @@ export const Modal = ({
     };
 
     document.addEventListener('keydown', handleKeyDown);
-
-    // Initial focus on card or first interactive element
-    const timer = setTimeout(() => {
-      if (cardRef.current) {
-        const firstInput = cardRef.current.querySelector(
-          'input:not([disabled]), button:not([disabled]), [tabindex]:not([tabindex="-1"])'
-        );
-        if (firstInput) {
-          firstInput.focus();
-        } else {
-          cardRef.current.focus();
-        }
-      }
-    }, 50);
-
     return () => {
       document.removeEventListener('keydown', handleKeyDown);
-      clearTimeout(timer);
-      if (triggerElementRef.current && typeof triggerElementRef.current.focus === 'function') {
-        triggerElementRef.current.focus();
-      }
     };
-  }, [isOpen, isSubmitting, preventClose, onClose]);
+  }, [isOpen]);
 
   if (!isOpen || typeof document === 'undefined') return null;
 
   const handleBackdropClick = (e) => {
-    if (e.target === overlayRef.current && !isSubmitting && !preventClose) {
-      onClose();
+    if (e.target === overlayRef.current && !isSubmittingRef.current && !preventCloseRef.current) {
+      onCloseRef.current?.();
     }
   };
 
