@@ -1,4 +1,5 @@
-import React, { useRef } from 'react';
+import React, { useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Printer,
   Download,
@@ -35,6 +36,27 @@ export const PatientReportCardModal = ({
 }) => {
   const { user: currentUser } = useAuth();
   const reportRef = useRef(null);
+
+  // Lock body scroll and handle Escape key while modal is open
+  useEffect(() => {
+    if (!isOpen || !patient) return;
+
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        onClose?.();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      document.body.style.overflow = originalOverflow;
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isOpen, patient, onClose]);
 
   if (!isOpen || !patient) return null;
 
@@ -478,8 +500,8 @@ export const PatientReportCardModal = ({
     );
   };
 
-  return (
-    <div className="fixed inset-0 z-50 overflow-y-auto custom-scrollbar bg-ink/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 print:p-0 print:static print:bg-white">
+  return createPortal(
+    <div className="fixed inset-0 z-[100] overflow-y-auto custom-scrollbar bg-ink/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 print:p-0 print:static print:bg-white">
       {/* MODAL WRAPPER */}
       <div className="bg-surface dark:bg-ink border border-border dark:border-ink-soft/40 w-full max-w-4xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh] print:max-h-none print:shadow-none print:border-none print:w-full print:rounded-none">
         
@@ -878,7 +900,8 @@ export const PatientReportCardModal = ({
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
 
