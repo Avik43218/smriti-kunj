@@ -36,7 +36,7 @@ class ReminderDatabaseService {
 
     _db = await openDatabase(
       fullPath,
-      version: 7,
+      version: 8,
       onCreate: (db, version) async {
         await createTableIfNotExists(db);
       },
@@ -58,14 +58,19 @@ class ReminderDatabaseService {
         category     TEXT NOT NULL,
         dosage       TEXT,
         is_completed INTEGER NOT NULL DEFAULT 0,
+        status       TEXT NOT NULL DEFAULT 'upcoming',
         pairing_code TEXT,
         created_at   TEXT NOT NULL
       )
     ''');
+    // Ensure 'status' column exists in case created with older schema
+    try {
+      await db.execute("ALTER TABLE $table ADD COLUMN status TEXT NOT NULL DEFAULT 'upcoming'");
+    } catch (_) {}
   }
 
   /// Persists a batch of [ReminderItem]s into local SQLite.
-  /// Preserves already completed state locally if the backend item is not completed.
+  /// Preserves already completed or missed state locally if the backend item is not completed.
   Future<void> saveReminders(List<ReminderItem> items, {String? pairingCode}) async {
     if (items.isEmpty) return;
     final db = await database;
@@ -74,7 +79,7 @@ class ReminderDatabaseService {
       for (final item in items) {
         final code = pairingCode ?? item.pairingCode;
 
-        // Check if item already exists locally to preserve user completion status
+        // Check if item already exists locally to preserve user completion / missed status
         final existing = await txn.query(
           table,
           where: 'id = ?',
@@ -83,15 +88,22 @@ class ReminderDatabaseService {
         );
 
         int isCompletedInt = item.isCompleted ? 1 : 0;
+        String statusStr = item.status;
+
         if (existing.isNotEmpty && !item.isCompleted) {
           final localCompleted = existing.first['is_completed'] as int?;
-          if (localCompleted == 1) {
+          final localStatus = existing.first['status'] as String?;
+          if (localCompleted == 1 || localStatus == 'done') {
             isCompletedInt = 1;
+            statusStr = 'done';
+          } else if (localStatus == 'missed') {
+            statusStr = 'missed';
           }
         }
 
         final map = item.toMap();
         map['is_completed'] = isCompletedInt;
+        map['status'] = statusStr;
         if (code != null && code.isNotEmpty) {
           map['pairing_code'] = code.toUpperCase();
         }
@@ -129,16 +141,25 @@ class ReminderDatabaseService {
     return rows.map((r) => ReminderItem.fromMap(r)).toList();
   }
 
-  /// Marks a specific reminder as completed or pending in SQLite.
-  Future<void> toggleReminderCompleted(String id, bool isCompleted) async {
+  /// Updates the status of a reminder (e.g. 'done', 'upcoming', 'missed').
+  Future<void> updateReminderStatus(String id, String status) async {
     final db = await database;
+    final isDone = status == 'done';
     await db.update(
       table,
-      {'is_completed': isCompleted ? 1 : 0},
+      {
+        'status': status,
+        'is_completed': isDone ? 1 : 0,
+      },
       where: 'id = ?',
       whereArgs: [id],
     );
-    debugPrint('[ReminderDatabaseService] Toggled reminder $id completed: $isCompleted');
+    debugPrint('[ReminderDatabaseService] Updated reminder $id status to: $status');
+  }
+
+  /// Marks a specific reminder as completed or pending in SQLite.
+  Future<void> toggleReminderCompleted(String id, bool isCompleted) async {
+    await updateReminderStatus(id, isCompleted ? 'done' : 'upcoming');
   }
 
   /// Flushes the local SQLite table containing those reminders.
