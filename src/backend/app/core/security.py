@@ -10,7 +10,7 @@ even though it hasn't technically expired yet.
 """
 import uuid
 from datetime import datetime, timedelta, timezone
-from typing import Any
+from typing import Any, Optional
 
 import bcrypt
 from fastapi import Depends, HTTPException, status
