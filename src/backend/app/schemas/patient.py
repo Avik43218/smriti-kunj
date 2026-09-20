@@ -1,5 +1,22 @@
+import re
 from typing import Any, Dict, List, Optional, Union
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
+
+
+def normalize_phone_digits(phone: Optional[str]) -> str:
+    """Extract standard digits for comparison, stripping country code if 91."""
+    if not phone:
+        return ""
+    digits = re.sub(r"\D", "", phone)
+    if digits.startswith("91") and len(digits) == 12:
+        digits = digits[2:]
+    return digits
+
+
+def validate_phone_number(phone: str) -> bool:
+    """Validate standard phone number (accepts 10-digit mobile or international format with 7-15 digits)."""
+    digits = re.sub(r"\D", "", phone)
+    return 7 <= len(digits) <= 15
 
 
 # ---- Patient Roster & Details Schemas ------------------------------------
@@ -51,6 +68,7 @@ class PatientDetailOut(BaseModel):
     statusLabel: str = "Active • Device synced"
     lastCheckIn: Optional[str] = None
     emergencyContact: Optional[EmergencyContact] = None
+    alternativeEmergencyContact: Optional[EmergencyContact] = None
     deviceStatus: Optional[DeviceStatus] = None
     pairingToken: Optional[str] = None
 
@@ -75,8 +93,48 @@ class PatientCreateRequest(BaseModel):
     statusLabel: Optional[str] = "Registration completed"
     notes: Optional[str] = None
     emergencyContact: Optional[Dict[str, Any]] = None
+    alternativeEmergencyContact: Optional[Dict[str, Any]] = None
     deviceStatus: Optional[Dict[str, Any]] = None
     pairingToken: Optional[str] = None
+
+    @model_validator(mode="after")
+    def validate_emergency_contacts(self) -> "PatientCreateRequest":
+        # Normalize alternativeEmergencyContact: if dict has only empty values or whitespace, normalize to None
+        alt = self.alternativeEmergencyContact
+        if alt is not None:
+            if isinstance(alt, dict):
+                cleaned_name = str(alt.get("name") or "").strip()
+                cleaned_phone = str(alt.get("phone") or "").strip()
+                cleaned_rel = str(alt.get("relationship") or "").strip()
+
+                # If all fields are empty, normalize to None
+                if not cleaned_name and not cleaned_phone and not cleaned_rel:
+                    self.alternativeEmergencyContact = None
+                else:
+                    if not cleaned_name:
+                        raise ValueError("Alternative emergency contact name is required when alternative contact is provided.")
+                    if not cleaned_phone:
+                        raise ValueError("Alternative emergency contact phone is required when alternative contact is provided.")
+                    if not validate_phone_number(cleaned_phone):
+                        raise ValueError("Please enter a valid phone number for alternative emergency contact.")
+
+                    self.alternativeEmergencyContact = {
+                        "name": cleaned_name,
+                        "relationship": cleaned_rel or "Alternative Guardian",
+                        "phone": cleaned_phone,
+                    }
+
+        # Check duplicate phone number against primary contact
+        if self.alternativeEmergencyContact and self.emergencyContact:
+            primary_phone = str(self.emergencyContact.get("phone") or "").strip()
+            alt_phone = str(self.alternativeEmergencyContact.get("phone") or "").strip()
+            if primary_phone and alt_phone:
+                primary_digits = normalize_phone_digits(primary_phone)
+                alt_digits = normalize_phone_digits(alt_phone)
+                if primary_digits and primary_digits == alt_digits:
+                    raise ValueError("Alternative emergency contact cannot have the same phone number as the primary emergency contact.")
+
+        return self
 
 
 # ---- Memory Gallery (Family Members) Schemas ----------------------------

@@ -38,7 +38,13 @@ import {
   X,
   Save,
   Check,
+  QrCode,
+  Plus,
+  UserCheck,
+  UserPlus,
 } from 'lucide-react';
+import { PairingQrPanel } from '../components/PairingQrPanel';
+import { PairingQrModal } from '../components/PairingQrModal';
 
 const DIAGNOSIS_OPTIONS = [
   'Mild Cognitive Impairment (MCI)',
@@ -137,8 +143,28 @@ export const PatientDetails = () => {
   // ML-derived risk config for this patient (null until the risk API responds)
   const [mlRiskConfig, setMlRiskConfig] = useState(null);
 
+  // Enlarged Pairing QR Modal State & Language
+  const [isQrModalOpen, setIsQrModalOpen] = useState(false);
+  const [currentLanguage, setCurrentLanguage] = useState(() => {
+    try {
+      return localStorage.getItem('caregiver_language') || 'en';
+    } catch {
+      return 'en';
+    }
+  });
+
+  useEffect(() => {
+    const handleLangChange = (e) => {
+      const newLang = e?.detail?.language || localStorage.getItem('caregiver_language') || 'en';
+      setCurrentLanguage(newLang);
+    };
+    window.addEventListener('languagechange', handleLangChange);
+    return () => window.removeEventListener('languagechange', handleLangChange);
+  }, []);
+
   // Edit Profile State
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showAlternativeContact, setShowAlternativeContact] = useState(false);
   const [isSavingEdit, setIsSavingEdit] = useState(false);
   const [editError, setEditError] = useState(null);
   const [photoFeedback, setPhotoFeedback] = useState('');
@@ -161,10 +187,20 @@ export const PatientDetails = () => {
       relationship: '',
       phone: '',
     },
+    alternativeEmergencyContact: {
+      name: '',
+      relationship: '',
+      phone: '',
+    },
   });
 
   const openEditModal = () => {
     if (!patient) return;
+    const hasAlt = Boolean(
+      patient.alternativeEmergencyContact &&
+      (patient.alternativeEmergencyContact.name || patient.alternativeEmergencyContact.phone)
+    );
+    setShowAlternativeContact(hasAlt);
     setEditFormData({
       name: patient.name || '',
       age: patient.age ? String(patient.age) : '',
@@ -183,6 +219,11 @@ export const PatientDetails = () => {
         name: patient.emergencyContact?.name || '',
         relationship: patient.emergencyContact?.relationship || '',
         phone: patient.emergencyContact?.phone || '',
+      },
+      alternativeEmergencyContact: {
+        name: patient.alternativeEmergencyContact?.name || '',
+        relationship: patient.alternativeEmergencyContact?.relationship || '',
+        phone: patient.alternativeEmergencyContact?.phone || '',
       },
     });
     setEditError(null);
@@ -204,6 +245,7 @@ export const PatientDetails = () => {
         await updatePatient(patient.id, { avatarUrl: dataUrl });
         setPatient((prev) => ({ ...prev, avatarUrl: dataUrl }));
         setPhotoFeedback('Photo updated successfully!');
+        setTimeout(() => setPhotoFeedback(''), 3000);
         setTimeout(() => setPhotoFeedback(''), 3000);
       } catch (err) {
         setPhotoFeedback('Failed to update photo.');
@@ -238,6 +280,40 @@ export const PatientDetails = () => {
       setIsSavingEdit(true);
       setEditError(null);
 
+      // Validation on alternative emergency contact if active:
+      let effectiveAlt = null;
+      if (showAlternativeContact) {
+        const altName = editFormData.alternativeEmergencyContact?.name?.trim() || '';
+        const altRel = editFormData.alternativeEmergencyContact?.relationship?.trim() || '';
+        const altPhone = editFormData.alternativeEmergencyContact?.phone?.trim() || '';
+        const hasAnyAlt = Boolean(altName || altRel || altPhone);
+
+        if (hasAnyAlt) {
+          if (!altName || !altRel || !altPhone) {
+            setEditError('Please fill all fields (Name, Relationship, and Phone) for the alternative emergency contact, or remove it.');
+            setIsSavingEdit(false);
+            return;
+          }
+          const primaryDigits = (editFormData.emergencyContact.phone || '').replace(/\D/g, '');
+          const altDigits = altPhone.replace(/\D/g, '');
+          if (altDigits.length < 7 || altDigits.length > 15) {
+            setEditError('Alternative emergency contact phone number is invalid.');
+            setIsSavingEdit(false);
+            return;
+          }
+          if (primaryDigits && altDigits === primaryDigits) {
+            setEditError('Alternative emergency contact phone number cannot be identical to the primary contact.');
+            setIsSavingEdit(false);
+            return;
+          }
+          effectiveAlt = {
+            name: altName,
+            relationship: altRel,
+            phone: altPhone,
+          };
+        }
+      }
+
       const effectiveWeight = editFormData.weight.trim()
         ? editFormData.weight.trim().toLowerCase().endsWith('kg')
           ? editFormData.weight.trim()
@@ -265,6 +341,7 @@ export const PatientDetails = () => {
           relationship: editFormData.emergencyContact.relationship.trim() || patient.emergencyContact?.relationship || 'Guardian',
           phone: editFormData.emergencyContact.phone.trim() || patient.emergencyContact?.phone || '',
         },
+        alternativeEmergencyContact: effectiveAlt,
       };
 
       await updatePatient(patient.id, updatedPayload);
@@ -709,11 +786,17 @@ export const PatientDetails = () => {
 
           {/* Top-Right Action Controls: Paired Device Code, Profile Synced, Delete Patient */}
           <div className="flex flex-col sm:items-end gap-3 shrink-0 w-full sm:w-auto">
-            {/* 1. Paired Device Code Card */}
-            <div className="w-full sm:w-auto flex items-center justify-between sm:justify-end gap-3 bg-cream/70 dark:bg-ink-soft/30 border border-border/80 dark:border-ink-soft/40 rounded-xl px-3.5 py-2 shadow-2xs">
+            {/* 1. Paired Device Code Button / Chip (Click to open enlarged QR) */}
+            <button
+              type="button"
+              onClick={() => setIsQrModalOpen(true)}
+              aria-label={`Paired Device Code ${pairedCode}. Click to view enlarged QR code`}
+              title="Click to view enlarged QR code"
+              className="w-full sm:w-auto flex items-center justify-between sm:justify-end gap-3 bg-cream/70 dark:bg-ink-soft/30 hover:bg-cream dark:hover:bg-ink-soft/50 border border-border/80 dark:border-ink-soft/40 hover:border-terracotta/40 dark:hover:border-terracotta/40 rounded-xl px-3.5 py-2 shadow-2xs transition-all cursor-pointer group text-left focus:outline-hidden focus-visible:ring-2 focus-visible:ring-terracotta print:border-none"
+            >
               <div className="flex items-center gap-2.5 min-w-0">
-                <div className="w-8 h-8 rounded-lg bg-terracotta/10 dark:bg-terracotta/20 text-terracotta flex items-center justify-center shrink-0">
-                  <Smartphone className="w-4 h-4" />
+                <div className="w-8 h-8 rounded-lg bg-terracotta/10 dark:bg-terracotta/20 text-terracotta flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                  <QrCode className="w-4 h-4" />
                 </div>
                 <div className="min-w-0">
                   <div className="flex items-center gap-1.5">
@@ -731,10 +814,14 @@ export const PatientDetails = () => {
                     <code className="font-mono text-xs sm:text-sm font-bold text-ink dark:text-cream tracking-wider">
                       {pairedCode}
                     </code>
+                    <span className="text-[10px] text-terracotta font-medium ml-1 opacity-80 group-hover:opacity-100 flex items-center gap-0.5 print:hidden">
+                      <span>QR</span>
+                      <ArrowRight className="w-2.5 h-2.5" />
+                    </span>
                   </div>
                 </div>
               </div>
-            </div>
+            </button>
 
             {/* Top Action Controls: Edit Profile, Profile Synced, Delete Patient */}
             <div className="flex items-center flex-wrap gap-2">
@@ -918,85 +1005,192 @@ export const PatientDetails = () => {
       </section>
 
       {/* 3 & 4. Secondary Info Section: Emergency Contact & Device Pairing */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
         {/* Emergency Contact Section */}
         <section
-          aria-label="Emergency Contact"
-          className="bg-surface dark:bg-ink-soft/20 border border-border/80 dark:border-ink-soft/40 rounded-card p-6 shadow-sm transition-colors"
+          aria-label="Emergency Contacts"
+          className="bg-surface dark:bg-ink-soft/20 border border-border/80 dark:border-ink-soft/40 rounded-card p-6 shadow-sm transition-colors flex flex-col justify-between"
         >
-          <div className="flex items-center justify-between gap-2 mb-4 pb-3 border-b border-border/60 dark:border-ink-soft/30">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-full bg-cream dark:bg-ink-soft/30 flex items-center justify-center text-terracotta">
-                <Phone className="w-4 h-4" />
+          <div>
+            {/* Header */}
+            <div className="flex items-center justify-between gap-2 mb-4 pb-3 border-b border-border/60 dark:border-ink-soft/30">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-full bg-cream dark:bg-ink-soft/30 flex items-center justify-center text-terracotta">
+                  <Phone className="w-4 h-4" />
+                </div>
+                <h2 className="text-base font-bold text-ink dark:text-cream">
+                  Emergency Contacts
+                </h2>
               </div>
-              <h2 className="text-base font-bold text-ink dark:text-cream">
-                Emergency Contact
-              </h2>
+              <span className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-0.5 rounded-full bg-terracotta/10 dark:bg-terracotta/20 text-terracotta border border-terracotta/30">
+                <span className="w-1.5 h-1.5 rounded-full bg-terracotta animate-pulse" />
+                <span>
+                  {patient.alternativeEmergencyContact && (patient.alternativeEmergencyContact.name || patient.alternativeEmergencyContact.phone)
+                    ? '2 Contacts Configured'
+                    : 'Primary Responder Active'}
+                </span>
+              </span>
             </div>
-            <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-cream dark:bg-ink-soft/40 text-terracotta border border-border/60 dark:border-ink-soft/30">
-              Primary
-            </span>
+
+            {patient.emergencyContact && (patient.emergencyContact.name || patient.emergencyContact.phone) ? (
+              <div className="space-y-3.5">
+                {/* 1. Primary Contact Profile & Phone */}
+                <div className="p-3.5 rounded-xl bg-cream/40 dark:bg-ink-soft/25 border border-border/70 dark:border-ink-soft/30 space-y-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="w-10 h-10 rounded-xl bg-terracotta/15 dark:bg-terracotta/25 text-terracotta flex items-center justify-center font-bold text-sm shrink-0">
+                        {getInitials(patient.emergencyContact?.name || 'Guardian')}
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="text-sm font-bold text-ink dark:text-cream truncate">
+                            {patient.emergencyContact?.name || 'Primary Guardian'}
+                          </p>
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold bg-cream dark:bg-ink-soft/50 text-ink-soft dark:text-cream/80 border border-border/60">
+                            {patient.emergencyContact?.relationship || 'Guardian'}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-ink-soft dark:text-cream/70 mt-0.5">
+                          Primary family point-of-contact
+                        </p>
+                      </div>
+                    </div>
+                    <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-terracotta/10 text-terracotta border border-terracotta/30 shrink-0">
+                      Primary
+                    </span>
+                  </div>
+
+                  {/* Phone Row */}
+                  <div className="flex items-center gap-2 pt-2.5 border-t border-border/50 dark:border-ink-soft/20">
+                    <Phone className="w-3.5 h-3.5 text-terracotta shrink-0" />
+                    <span className="font-mono text-xs sm:text-sm font-bold text-ink dark:text-cream tracking-wide">
+                      {patient.emergencyContact?.phone || 'No phone recorded'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* 2. Alternative Contact or Calm Empty State */}
+                {patient.alternativeEmergencyContact && (patient.alternativeEmergencyContact.name || patient.alternativeEmergencyContact.phone) ? (
+                  <div className="p-3.5 rounded-xl bg-cream/40 dark:bg-ink-soft/25 border border-border/70 dark:border-ink-soft/30 space-y-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div className="w-10 h-10 rounded-xl bg-sage/15 dark:bg-sage/25 text-sage flex items-center justify-center font-bold text-sm shrink-0">
+                          {getInitials(patient.alternativeEmergencyContact.name || 'Backup')}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <p className="text-sm font-bold text-ink dark:text-cream truncate">
+                              {patient.alternativeEmergencyContact.name || 'Alternative Responder'}
+                            </p>
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold bg-cream dark:bg-ink-soft/50 text-ink-soft dark:text-cream/80 border border-border/60">
+                              {patient.alternativeEmergencyContact.relationship || 'Alternative'}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-ink-soft dark:text-cream/70 mt-0.5">
+                            Secondary backup • Escalation responder
+                          </p>
+                        </div>
+                      </div>
+                      <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-sage/15 text-sage border border-sage/30 shrink-0">
+                        Alternative
+                      </span>
+                    </div>
+
+                    {/* Phone Row */}
+                    <div className="flex items-center gap-2 pt-2.5 border-t border-border/50 dark:border-ink-soft/20">
+                      <Phone className="w-3.5 h-3.5 text-sage shrink-0" />
+                      <span className="font-mono text-xs sm:text-sm font-bold text-ink dark:text-cream tracking-wide">
+                        {patient.alternativeEmergencyContact.phone || 'No phone recorded'}
+                      </span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-3 rounded-xl bg-cream/20 dark:bg-ink-soft/10 border border-dashed border-border/70 dark:border-ink-soft/30 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-lg bg-cream dark:bg-ink-soft/20 text-ink-soft/60 dark:text-cream/40 flex items-center justify-center shrink-0">
+                        <UserPlus className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <p className="text-xs font-semibold text-ink dark:text-cream">
+                          No alternative contact added
+                        </p>
+                        <p className="text-[11px] text-ink-soft/60 dark:text-cream/50">
+                          Add a secondary responder anytime via Edit Profile above.
+                        </p>
+                      </div>
+                    </div>
+                    <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-cream dark:bg-ink-soft/30 text-ink-soft/60 dark:text-cream/40 border border-border/50 shrink-0">
+                      Optional
+                    </span>
+                  </div>
+                )}
+
+                {/* Automated Escalation Protocol Info Banner */}
+                <div className="p-3 rounded-xl bg-cream/40 dark:bg-ink-soft/15 border border-border/60 dark:border-ink-soft/20 space-y-1">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-ink dark:text-cream">
+                    <ShieldCheck className="w-3.5 h-3.5 text-sage shrink-0" />
+                    <span>Emergency Escalation Protocol</span>
+                  </div>
+                  <p className="text-[11px] text-ink-soft dark:text-cream/70 leading-relaxed">
+                    Contacted immediately if acute vitals anomalies or critical distress signals are detected. Primary responder is notified first; secondary contact is alerted if primary is unavailable.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="py-6 px-4 text-center rounded-xl bg-cream/30 dark:bg-ink-soft/20 border border-dashed border-border/80 dark:border-ink-soft/40 space-y-3">
+                <div className="w-10 h-10 rounded-full bg-terracotta/10 text-terracotta flex items-center justify-center mx-auto">
+                  <Phone className="w-5 h-5" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-ink dark:text-cream">
+                    No emergency contact recorded
+                  </p>
+                  <p className="text-xs text-ink-soft dark:text-cream/70 mt-1 max-w-xs mx-auto">
+                    Add family guardian or caregiver phone numbers via the Edit Profile button above.
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
 
-          {patient.emergencyContact ? (
-            <div className="space-y-3">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wider text-ink-soft dark:text-cream/60 mb-0.5">
-                  Contact Name & Relationship
-                </p>
-                <p className="text-sm sm:text-base font-bold text-ink dark:text-cream">
-                  {patient.emergencyContact.name}
-                </p>
-                <p className="text-xs sm:text-sm text-ink-soft dark:text-cream/70">
-                  {patient.emergencyContact.relationship}
-                </p>
-              </div>
-
-              <div className="pt-2">
-                <p className="text-xs font-semibold uppercase tracking-wider text-ink-soft dark:text-cream/60 mb-1">
-                  Phone Number
-                </p>
-                <a
-                  href={`tel:${patient.emergencyContact.phone.replace(/\s+/g, '')}`}
-                  className="inline-flex items-center gap-2 text-sm font-semibold text-terracotta hover:text-terracotta-dark transition-colors"
-                >
-                  <Phone className="w-3.5 h-3.5" />
-                  <span>{patient.emergencyContact.phone}</span>
-                </a>
-              </div>
-            </div>
-          ) : (
-            <p className="text-xs sm:text-sm text-ink-soft dark:text-cream/70">
-              No emergency contact configured yet.
-            </p>
-          )}
+          {/* Card Footer - Notice duplicate 'Edit Details' removed, single entry point is header Edit Profile */}
+          <div className="mt-4 pt-3 border-t border-border/50 dark:border-ink-soft/20 flex items-center justify-between text-xs text-ink-soft dark:text-cream/70">
+            <span className="flex items-center gap-1.5">
+              <Clock className="w-3.5 h-3.5 text-terracotta/80 shrink-0" />
+              <span>Response Window: Immediate (24/7)</span>
+            </span>
+            <span className="text-[11px] text-ink-soft/60 dark:text-cream/50">
+              Manage via Edit Profile
+            </span>
+          </div>
         </section>
 
         {/* Pairing / Device Status Section */}
         <section
           aria-label="Device Pairing Status"
-          className="bg-surface dark:bg-ink-soft/20 border border-border/80 dark:border-ink-soft/40 rounded-card p-6 shadow-sm transition-colors"
+          className="bg-surface dark:bg-ink-soft/20 border border-border/80 dark:border-ink-soft/40 rounded-card p-6 shadow-sm transition-colors flex flex-col justify-between"
         >
-          <div className="flex items-center justify-between gap-2 mb-4 pb-3 border-b border-border/60 dark:border-ink-soft/30">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-full bg-cream dark:bg-ink-soft/30 flex items-center justify-center text-sage">
-                <Smartphone className="w-4 h-4" />
+          <div>
+            <div className="flex items-center justify-between gap-2 mb-4 pb-3 border-b border-border/60 dark:border-ink-soft/30">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-full bg-cream dark:bg-ink-soft/30 flex items-center justify-center text-sage">
+                  <Smartphone className="w-4 h-4" />
+                </div>
+                <h2 className="text-base font-bold text-ink dark:text-cream">
+                  Pairing & Device Status
+                </h2>
               </div>
-              <h2 className="text-base font-bold text-ink dark:text-cream">
-                Pairing & Device Status
-              </h2>
+              {patient.deviceStatus?.linked ? (
+                <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-sage/15 text-sage border border-sage/30">
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  <span>Linked</span>
+                </span>
+              ) : (
+                <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-gold/15 text-gold border border-gold/30">
+                  Unpaired
+                </span>
+              )}
             </div>
-            {patient.deviceStatus?.linked ? (
-              <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-sage/15 text-sage border border-sage/30">
-                <CheckCircle2 className="w-3.5 h-3.5" />
-                <span>Linked</span>
-              </span>
-            ) : (
-              <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-gold/15 text-gold border border-gold/30">
-                Unpaired
-              </span>
-            )}
-          </div>
 
           {patient.deviceStatus ? (
             <div className="space-y-3">
@@ -1018,8 +1212,26 @@ export const PatientDetails = () => {
                   <code className="font-mono text-xs font-bold text-ink dark:text-cream bg-cream dark:bg-ink-soft/40 px-2 py-0.5 rounded border border-border/70 dark:border-ink-soft/30 tracking-wider">
                     {pairedCode}
                   </code>
+            {/* Two-column layout on wide screens, stacked on narrow screens (<= 768px) */}
+            <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-center">
+              {/* Details Column */}
+              <div className="xl:col-span-6 space-y-4">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wider text-ink-soft dark:text-cream/60 mb-0.5">
+                    Linked Hardware Unit
+                  </p>
+                  <p className="text-sm sm:text-base font-bold text-ink dark:text-cream">
+                    {patient.deviceStatus?.deviceName || 'Patient Device'}
+                  </p>
+                  <div className="mt-2.5 space-y-1">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-ink-soft dark:text-cream/60">
+                      Paired Device Code
+                    </p>
+                    <code className="inline-block font-mono text-sm font-bold text-ink dark:text-cream bg-cream/70 dark:bg-ink-soft/40 px-2.5 py-1 rounded-lg border border-border/80 dark:border-ink-soft/40 tracking-wider">
+                      {pairedCode || '—'}
+                    </code>
+                  </div>
                 </div>
-              </div>
 
               <div className="pt-2 flex items-center gap-1.5 text-xs text-ink-soft dark:text-cream/70">
                 <Clock className="w-3.5 h-3.5 text-terracotta/80 shrink-0" />
@@ -1043,20 +1255,28 @@ export const PatientDetails = () => {
                     }
                   })()}
                 </span>
+                <div className="pt-2 border-t border-border/50 dark:border-ink-soft/20 flex items-center gap-1.5 text-xs text-ink-soft dark:text-cream/70">
+                  <Clock className="w-3.5 h-3.5 text-terracotta/80 shrink-0" />
+                  <span>
+                    Last Synced: {patient.deviceStatus?.lastSynced || patient.lastCheckIn || 'Pending sync'}
+                  </span>
+                </div>
+              </div>
+
+              {/* QR Panel Column */}
+              <div className="xl:col-span-6 flex justify-center border-t xl:border-t-0 xl:border-l border-border/60 dark:border-ink-soft/30 pt-5 xl:pt-0 xl:pl-6">
+                <PairingQrPanel
+                  code={pairedCode}
+                  patientId={patient.id}
+                  isLinked={Boolean(patient.deviceStatus?.linked)}
+                  lastSynced={patient.deviceStatus?.lastSynced || patient.lastCheckIn}
+                  deviceName={patient.deviceStatus?.deviceName || 'Patient Device'}
+                  language={currentLanguage}
+                  onEnlarge={() => setIsQrModalOpen(true)}
+                />
               </div>
             </div>
-          ) : (
-            <div className="space-y-2">
-              <p className="text-xs sm:text-sm text-ink-soft dark:text-cream/70">
-                Paired device code is ready to connect.
-              </p>
-              <div className="flex items-center gap-2">
-                <code className="font-mono font-bold text-xs bg-cream dark:bg-ink-soft/40 px-2.5 py-1 rounded border border-border/80 text-ink dark:text-cream">
-                  {pairedCode}
-                </code>
-              </div>
-            </div>
-          )}
+          </div>
         </section>
       </div>
 
@@ -1579,11 +1799,16 @@ export const PatientDetails = () => {
                 </div>
               </div>
 
-              {/* Emergency Contact */}
+              {/* Primary Emergency Contact */}
               <div className="space-y-3">
-                <h4 className="text-xs font-bold uppercase tracking-wider text-terracotta">
-                  Emergency Contact
-                </h4>
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-terracotta">
+                    Primary Emergency Contact
+                  </h4>
+                  <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-terracotta/10 text-terracotta border border-terracotta/30">
+                    Primary
+                  </span>
+                </div>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div>
                     <label className="block text-xs font-semibold text-ink-soft dark:text-cream/80 mb-1">
@@ -1596,6 +1821,7 @@ export const PatientDetails = () => {
                         ...prev,
                         emergencyContact: { ...prev.emergencyContact, name: e.target.value }
                       }))}
+                      placeholder="e.g. Priya Sharma"
                       className="w-full px-3 py-2 bg-cream/40 dark:bg-ink-soft/20 border border-border/80 dark:border-ink-soft/40 rounded-xl text-xs sm:text-sm text-ink dark:text-cream focus:outline-none focus:ring-2 focus:ring-terracotta/40"
                     />
                   </div>
@@ -1610,6 +1836,7 @@ export const PatientDetails = () => {
                         ...prev,
                         emergencyContact: { ...prev.emergencyContact, relationship: e.target.value }
                       }))}
+                      placeholder="e.g. Daughter (Primary Guardian)"
                       className="w-full px-3 py-2 bg-cream/40 dark:bg-ink-soft/20 border border-border/80 dark:border-ink-soft/40 rounded-xl text-xs sm:text-sm text-ink dark:text-cream focus:outline-none focus:ring-2 focus:ring-terracotta/40"
                     />
                   </div>
@@ -1624,10 +1851,120 @@ export const PatientDetails = () => {
                         ...prev,
                         emergencyContact: { ...prev.emergencyContact, phone: e.target.value }
                       }))}
+                      placeholder="e.g. +91 98765 43210"
                       className="w-full px-3 py-2 bg-cream/40 dark:bg-ink-soft/20 border border-border/80 dark:border-ink-soft/40 rounded-xl text-xs sm:text-sm text-ink dark:text-cream focus:outline-none focus:ring-2 focus:ring-terracotta/40"
                     />
                   </div>
                 </div>
+              </div>
+
+              {/* Alternative Emergency Contact (Optional) */}
+              <div className="space-y-3 pt-3 border-t border-border/60 dark:border-ink-soft/30">
+                {!showAlternativeContact ? (
+                  <div className="flex items-center justify-between p-3 rounded-xl bg-cream/20 dark:bg-ink-soft/10 border border-dashed border-border/70 dark:border-ink-soft/30">
+                    <div>
+                      <p className="text-xs font-semibold text-ink dark:text-cream">
+                        Alternative Emergency Contact
+                      </p>
+                      <p className="text-[11px] text-ink-soft dark:text-cream/60">
+                        Optional secondary backup responder if primary is unavailable.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowAlternativeContact(true)}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-terracotta hover:text-terracotta-dark border border-terracotta/40 bg-terracotta/5 hover:bg-terracotta/10 transition-colors cursor-pointer"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Add Alternative</span>
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <h4 className="text-xs font-bold uppercase tracking-wider text-terracotta">
+                          Alternative Emergency Contact
+                        </h4>
+                        <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-sage/15 text-sage border border-sage/30">
+                          Alternative
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowAlternativeContact(false);
+                          setEditFormData((prev) => ({
+                            ...prev,
+                            alternativeEmergencyContact: { name: '', relationship: '', phone: '' }
+                          }));
+                        }}
+                        className="inline-flex items-center gap-1 text-xs font-semibold text-ink-soft dark:text-cream/60 hover:text-alert transition-colors cursor-pointer"
+                        title="Remove alternative contact"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        <span>Remove</span>
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div>
+                        <label className="block text-xs font-semibold text-ink-soft dark:text-cream/80 mb-1">
+                          Contact Name
+                        </label>
+                        <input
+                          type="text"
+                          value={editFormData.alternativeEmergencyContact?.name || ''}
+                          onChange={(e) => setEditFormData((prev) => ({
+                            ...prev,
+                            alternativeEmergencyContact: {
+                              ...prev.alternativeEmergencyContact,
+                              name: e.target.value
+                            }
+                          }))}
+                          placeholder="e.g. Rahul Sharma"
+                          className="w-full px-3 py-2 bg-cream/40 dark:bg-ink-soft/20 border border-border/80 dark:border-ink-soft/40 rounded-xl text-xs sm:text-sm text-ink dark:text-cream focus:outline-none focus:ring-2 focus:ring-terracotta/40"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-ink-soft dark:text-cream/80 mb-1">
+                          Relationship
+                        </label>
+                        <input
+                          type="text"
+                          value={editFormData.alternativeEmergencyContact?.relationship || ''}
+                          onChange={(e) => setEditFormData((prev) => ({
+                            ...prev,
+                            alternativeEmergencyContact: {
+                              ...prev.alternativeEmergencyContact,
+                              relationship: e.target.value
+                            }
+                          }))}
+                          placeholder="e.g. Son / Family Physician"
+                          className="w-full px-3 py-2 bg-cream/40 dark:bg-ink-soft/20 border border-border/80 dark:border-ink-soft/40 rounded-xl text-xs sm:text-sm text-ink dark:text-cream focus:outline-none focus:ring-2 focus:ring-terracotta/40"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-ink-soft dark:text-cream/80 mb-1">
+                          Phone Number
+                        </label>
+                        <input
+                          type="tel"
+                          value={editFormData.alternativeEmergencyContact?.phone || ''}
+                          onChange={(e) => setEditFormData((prev) => ({
+                            ...prev,
+                            alternativeEmergencyContact: {
+                              ...prev.alternativeEmergencyContact,
+                              phone: e.target.value
+                            }
+                          }))}
+                          placeholder="e.g. +91 98765 43211"
+                          className="w-full px-3 py-2 bg-cream/40 dark:bg-ink-soft/20 border border-border/80 dark:border-ink-soft/40 rounded-xl text-xs sm:text-sm text-ink dark:text-cream focus:outline-none focus:ring-2 focus:ring-terracotta/40"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </form>
 
@@ -1662,6 +1999,16 @@ export const PatientDetails = () => {
           </div>
         </div>
       )}
+
+      {/* Enlarged QR Code Dialog Modal */}
+      <PairingQrModal
+        isOpen={isQrModalOpen}
+        onClose={() => setIsQrModalOpen(false)}
+        code={pairedCode}
+        patientId={patient?.id}
+        patientName={patient?.name}
+        language={currentLanguage}
+      />
     </div>
   );
 };

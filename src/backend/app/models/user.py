@@ -59,6 +59,7 @@ class User(Document):
     last_check_in: Optional[str] = None
     notes: Optional[str] = None
     emergency_contact: Optional[Dict[str, Any]] = None
+    alternative_emergency_contact: Optional[Dict[str, Any]] = None
     device_status: Optional[Dict[str, Any]] = None
 
     created_at: datetime = Field(default_factory=datetime.utcnow)
