@@ -271,6 +271,7 @@ async def reset_caregiver_password(
 
     caregiver.hashed_password = hash_password(new_pwd)
     caregiver.must_change_password = True
+    caregiver.token_version = (getattr(caregiver, "token_version", 1) or 1) + 1
     await caregiver.save()
 
     await AdminAuditLog(

@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 from typing import Any, Dict, List, Literal, Optional
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, field_validator
 
 
 class CaregiverAdminOut(BaseModel):
@@ -33,6 +33,13 @@ class CaregiverCreateAdminRequest(BaseModel):
     status: Literal["active", "disabled"] = "active"
     assigned_patient_ids: Optional[List[uuid.UUID]] = None
 
+    @field_validator("password")
+    @classmethod
+    def validate_password(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and v.strip() and len(v.strip()) < 10:
+            raise ValueError("Password must be at least 10 characters long")
+        return v
+
 
 class CaregiverUpdateAdminRequest(BaseModel):
     name: Optional[str] = None
@@ -44,6 +51,13 @@ class CaregiverUpdateAdminRequest(BaseModel):
 
 class CaregiverResetPasswordRequest(BaseModel):
     new_password: Optional[str] = None
+
+    @field_validator("new_password")
+    @classmethod
+    def validate_new_password(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and v.strip() and len(v.strip()) < 10:
+            raise ValueError("New password must be at least 10 characters long")
+        return v
 
 
 class CaregiverResetPasswordResponse(BaseModel):

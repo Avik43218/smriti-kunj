@@ -36,6 +36,7 @@ class User(Document):
     device_id: Optional[str] = None
     phone: Optional[str] = None
     must_change_password: bool = False
+    token_version: int = 1
     assigned_caregiver_ids: List[uuid.UUID] = Field(default_factory=list)
 
     # Patient profile attributes

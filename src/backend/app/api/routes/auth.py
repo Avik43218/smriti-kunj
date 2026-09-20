@@ -40,6 +40,7 @@ from app.schemas.auth import (
     CaregiverRegisterRequest,
     ChangePasswordRequest,
     ChangePasswordResponse,
+    ForgotPasswordRequest,
     LoginRequest,
     LogoutResponse,
     OtpRequestRequest,
@@ -49,6 +50,7 @@ from app.schemas.auth import (
     PatientPairCompleteOut,
     PatientPairCompleteRequest,
     PatientPairStartOut,
+    ResetPasswordRequest,
     TokenOut,
     UserOut,
 )
@@ -161,6 +163,7 @@ async def verify_otp(payload: OtpVerifyRequest):
         user.role,
         timedelta(minutes=settings.CAREGIVER_TOKEN_EXPIRE_MINUTES),
         must_change_password=must_change,
+        token_version=getattr(user, "token_version", 1) or 1,
     )
 
     caregiver_out = CaregiverOut(
@@ -200,14 +203,87 @@ async def change_password(
     payload: ChangePasswordRequest,
     user: User = Depends(get_current_user),
 ):
-    if not user.hashed_password or not verify_password(payload.current_password, user.hashed_password):
-        raise HTTPException(status_code=400, detail="Current password is incorrect")
+    if payload.current_password is not None and payload.current_password != "":
+        if not user.hashed_password or not verify_password(payload.current_password, user.hashed_password):
+            raise HTTPException(status_code=400, detail="Current password is incorrect")
+
+    if user.hashed_password and verify_password(payload.new_password, user.hashed_password):
+        raise HTTPException(status_code=400, detail="New password cannot be the same as your current password")
 
     user.hashed_password = hash_password(payload.new_password)
     user.must_change_password = False
+    user.token_version = (getattr(user, "token_version", 1) or 1) + 1
     await user.save()
 
-    return ChangePasswordResponse(message="Password changed successfully", must_change_password=False)
+    # Issue a brand new token stamped with the new token_version and must_change_password=False
+    fresh_token = _create_token(
+        user.id,
+        user.role,
+        timedelta(minutes=settings.CAREGIVER_TOKEN_EXPIRE_MINUTES),
+        must_change_password=False,
+        token_version=user.token_version,
+    )
+
+    return ChangePasswordResponse(
+        message="Password changed successfully",
+        must_change_password=False,
+        token=fresh_token,
+    )
+
+
+@router.post("/forgot-password", response_model=OtpRequestResponse)
+async def forgot_password(payload: ForgotPasswordRequest):
+    """Initiate a password reset by sending a 6-digit OTP to the registered email."""
+    user = await User.find_one(User.email == payload.email)
+    debug_otp = None
+    if user and user.role != RoleEnum.patient and getattr(user, "status", None) != "disabled":
+        code = await _issue_otp(user.email)
+        if not (settings.BREVO_API_KEY and settings.BREVO_API_KEY.strip()):
+            debug_otp = code
+
+    return OtpRequestResponse(
+        message="If that email is registered, a verification code has been sent.",
+        email=payload.email,
+        debug_otp=debug_otp,
+    )
+
+
+@router.post("/reset-password", response_model=ChangePasswordResponse)
+async def reset_password(payload: ResetPasswordRequest):
+    """Verify OTP and set a new password, invalidating any previous active sessions."""
+    user = await User.find_one(User.email == payload.email)
+    otp_record = await OtpCode.find_one(OtpCode.email == payload.email)
+
+    if not user or not otp_record or user.role == RoleEnum.patient:
+        raise HTTPException(status_code=400, detail="Invalid or expired code")
+
+    if getattr(user, "status", None) == "disabled":
+        raise HTTPException(status_code=403, detail="Account is disabled")
+
+    if otp_record.expires_at < datetime.utcnow():
+        await otp_record.delete()
+        raise HTTPException(status_code=400, detail="Invalid or expired code")
+
+    if otp_record.attempts >= settings.OTP_MAX_ATTEMPTS:
+        await otp_record.delete()
+        raise HTTPException(status_code=429, detail="Too many attempts — request a new code")
+
+    if not verify_otp_code(payload.otp, otp_record.otp_hash):
+        otp_record.attempts += 1
+        await otp_record.save()
+        raise HTTPException(status_code=400, detail="Invalid or expired code")
+
+    await otp_record.delete()
+
+    user.hashed_password = hash_password(payload.new_password)
+    user.must_change_password = False
+    user.token_version = (getattr(user, "token_version", 1) or 1) + 1
+    await user.save()
+
+    return ChangePasswordResponse(
+        message="Password has been reset successfully. Please sign in with your new password.",
+        must_change_password=False,
+    )
 
 
 @router.post("/logout", response_model=LogoutResponse)

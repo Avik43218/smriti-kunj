@@ -117,12 +117,33 @@ export const getGameSessions = async (patientId, options = {}) => {
 };
 
 /**
+ * Safely parses any session date value (ISO string, epoch ms, Date object)
+ * Returns a valid Date object or null if invalid/missing.
+ */
+export const parseSessionDate = (value) => {
+  if (!value) return null;
+  if (value instanceof Date) return isNaN(value.getTime()) ? null : value;
+  if (typeof value === 'number') {
+    const d = new Date(value);
+    return isNaN(d.getTime()) ? null : d;
+  }
+  const date = new Date(value);
+  if (!isNaN(date.getTime())) return date;
+  const num = Number(value);
+  if (!isNaN(num) && num > 0) {
+    const d = new Date(num);
+    if (!isNaN(d.getTime())) return d;
+  }
+  return null;
+};
+
+/**
  * Formats date to concise user-friendly display (e.g. "Aug 24" or "24 Aug, 10:30 AM")
  */
 export const formatSessionDate = (isoString, includeTime = false) => {
   if (!isoString) return '—';
-  const date = new Date(isoString);
-  if (isNaN(date.getTime())) return isoString;
+  const date = parseSessionDate(isoString);
+  if (!date) return isoString;
 
   const options = {
     month: 'short',
@@ -150,6 +171,7 @@ export default {
   GAME_TYPES,
   DOMAIN_CONFIG,
   getGameSessions,
+  parseSessionDate,
   formatSessionDate,
   formatDuration,
 };

@@ -35,6 +35,7 @@ import {
   GAME_TYPES,
   DOMAIN_CONFIG,
   formatSessionDate,
+  parseSessionDate,
   formatDuration,
 } from '../services/gameSessionService';
 
@@ -192,7 +193,7 @@ export const Analytics = () => {
         id: s.session_id,
         date: formatSessionDate(s.session_date),
         fullDate: formatSessionDate(s.session_date, true),
-        rawDate: new Date(s.session_date).getTime(),
+        rawDate: parseSessionDate(s.session_date)?.getTime() || 0,
         score: s.score_normalized,
         difficulty: s.difficulty_level,
         duration: s.session_duration,
