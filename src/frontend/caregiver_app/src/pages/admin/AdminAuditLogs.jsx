@@ -209,7 +209,7 @@ export const AdminAuditLogs = () => {
 
       {/* Audit Log Table */}
       <div className="rounded-card bg-surface dark:bg-ink-soft/20 border border-border/80 dark:border-ink-soft/40 shadow-sm overflow-hidden transition-colors">
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto custom-scrollbar">
           <table className="w-full text-left text-xs sm:text-sm">
             <thead className="bg-cream/40 dark:bg-ink-soft/30 border-b border-border/80 dark:border-ink-soft/40 text-ink-soft dark:text-cream/70 text-xs font-semibold uppercase tracking-wider">
               <tr>
@@ -266,7 +266,7 @@ export const AdminAuditLogs = () => {
                     {isExpanded && (
                       <tr className="bg-cream/20 dark:bg-ink-soft/30">
                         <td colSpan={5} className="py-3 px-6 text-xs">
-                          <div className="p-3 rounded-lg bg-surface dark:bg-ink/60 border border-border/80 dark:border-ink-soft/40 font-mono text-[11px] overflow-x-auto text-ink-soft dark:text-cream/80">
+                          <div className="p-3 rounded-lg bg-surface dark:bg-ink/60 border border-border/80 dark:border-ink-soft/40 font-mono text-[11px] overflow-x-auto custom-scrollbar text-ink-soft dark:text-cream/80">
                             <pre>{JSON.stringify(log.details || {}, null, 2)}</pre>
                           </div>
                         </td>

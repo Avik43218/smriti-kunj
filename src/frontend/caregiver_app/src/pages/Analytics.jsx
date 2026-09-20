@@ -519,7 +519,7 @@ export const Analytics = () => {
             <p>No game sessions recorded yet for this patient.</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto custom-scrollbar">
             <table className="w-full text-left text-xs text-ink dark:text-cream">
               <thead>
                 <tr className="border-b border-border/80 dark:border-ink-soft/40 bg-cream/50 dark:bg-ink-soft/30 text-ink-soft dark:text-cream/70 uppercase font-bold text-[10px] tracking-wider">

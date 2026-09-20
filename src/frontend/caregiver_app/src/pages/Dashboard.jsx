@@ -555,7 +555,7 @@ export const Dashboard = () => {
           </div>
 
           {/* Filter Pills */}
-          <div className="flex items-center gap-1.5 overflow-x-auto py-0.5 select-none">
+          <div className="flex items-center gap-1.5 overflow-x-auto custom-scrollbar py-0.5 select-none">
             <button
               type="button"
               onClick={() => setStatusFilter('all')}

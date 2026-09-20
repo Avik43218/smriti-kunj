@@ -288,8 +288,8 @@ export const PatientRiskOverviewTable = () => {
         This keeps header and body columns aligned (they share the same column sizing context).
         Capped at ~5 rows (240px) with vertical scroll.
       */}
-      <div className="overflow-x-auto">
-        <div className="overflow-y-auto" style={{ maxHeight: '240px' }}>
+      <div className="overflow-x-auto custom-scrollbar">
+        <div className="overflow-y-auto custom-scrollbar" style={{ maxHeight: '240px' }}>
           <table className="w-full text-left border-collapse min-w-[460px]">
             <thead className="sticky top-0 z-10">
               <tr className="border-b border-border/80 dark:border-ink-soft/40 bg-cream/60 dark:bg-ink-soft/30 text-[10px] font-bold text-ink-soft dark:text-cream/70 uppercase tracking-wider select-none">

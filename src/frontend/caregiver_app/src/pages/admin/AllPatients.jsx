@@ -225,7 +225,7 @@ export const AllPatients = () => {
 
       {/* Patients Table Card */}
       <div className="rounded-card bg-surface dark:bg-ink-soft/20 border border-border/80 dark:border-ink-soft/40 shadow-sm overflow-hidden transition-colors">
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto custom-scrollbar">
           <table className="w-full text-left text-xs sm:text-sm">
             <thead className="bg-cream/40 dark:bg-ink-soft/30 border-b border-border/80 dark:border-ink-soft/40 text-ink-soft dark:text-cream/70 text-xs font-semibold">
               <tr>
@@ -329,7 +329,7 @@ export const AllPatients = () => {
       {/* Multi-Caregiver Assignment Modal */}
       {reassignTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-ink/60 backdrop-blur-xs animate-in fade-in duration-150">
-          <div className="w-full max-w-lg bg-surface dark:bg-ink-soft/20 backdrop-blur-2xl border border-border/80 dark:border-ink-soft/40 rounded-card shadow-card p-6 sm:p-7 space-y-4 max-h-[90vh] overflow-y-auto">
+          <div className="w-full max-w-lg bg-surface dark:bg-ink-soft/20 backdrop-blur-2xl border border-border/80 dark:border-ink-soft/40 rounded-card shadow-card p-6 sm:p-7 space-y-4 max-h-[90vh] overflow-y-auto custom-scrollbar">
             <div className="flex items-center justify-between border-b border-border/60 dark:border-ink-soft/30 pb-3">
               <div className="flex items-center gap-2">
                 <Users className="w-5 h-5 text-terracotta" />
@@ -375,7 +375,7 @@ export const AllPatients = () => {
                   </span>
                 </div>
 
-                <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+                <div className="space-y-2 max-h-60 overflow-y-auto custom-scrollbar pr-1">
                   {caregivers
                     .filter((cg) => cg.status === 'active')
                     .map((cg) => {

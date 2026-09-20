@@ -1533,7 +1533,7 @@ export const PatientDetails = () => {
             </div>
 
             {/* Modal Body - Scrollable */}
-            <form id="edit-patient-form" onSubmit={handleSaveEdit} className="flex-1 overflow-y-auto p-6 space-y-6">
+            <form id="edit-patient-form" onSubmit={handleSaveEdit} className="flex-1 overflow-y-auto custom-scrollbar p-6 space-y-6">
               {editError && (
                 <div className="p-3 rounded-xl bg-status-urgent/10 border border-status-urgent/30 text-status-urgent text-xs flex items-center gap-2 font-medium">
                   <AlertCircle className="w-4 h-4 shrink-0" />
