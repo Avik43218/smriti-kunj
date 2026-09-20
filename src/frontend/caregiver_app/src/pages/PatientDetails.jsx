@@ -7,6 +7,7 @@ import {
   formatSessionDate,
 } from '../services/gameSessionService';
 import { fetchReminders } from '../services/reminderService';
+import { fetchPatientRiskOverview, RISK_LEVEL_CONFIG } from '../services/riskService';
 import {
   ShieldCheck,
   HeartPulse,
@@ -133,6 +134,8 @@ export const PatientDetails = () => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState(null);
+  // ML-derived risk config for this patient (null until the risk API responds)
+  const [mlRiskConfig, setMlRiskConfig] = useState(null);
 
   // Edit Profile State
   const [showEditModal, setShowEditModal] = useState(false);
@@ -424,8 +427,42 @@ export const PatientDetails = () => {
 
     fetchDetail();
 
+    // Fetch ML risk grade for this specific patient (independent of patient detail load)
+    let isRiskMounted = true;
+    const loadRiskGrade = async () => {
+      try {
+        const result = await fetchPatientRiskOverview({
+          onUpdate: (freshResult) => {
+            if (!isRiskMounted || !freshResult?.patients) return;
+            const match = freshResult.patients.find(
+              (p) => String(p.patient_id) === String(id)
+            );
+            setMlRiskConfig(
+              match != null && match.risk_grade != null
+                ? RISK_LEVEL_CONFIG[match.risk_grade] ?? null
+                : null
+            );
+          },
+        });
+        if (isRiskMounted && result?.patients) {
+          const match = result.patients.find(
+            (p) => String(p.patient_id) === String(id)
+          );
+          setMlRiskConfig(
+            match != null && match.risk_grade != null
+              ? RISK_LEVEL_CONFIG[match.risk_grade] ?? null
+              : null
+          );
+        }
+      } catch (err) {
+        console.warn('[PatientDetails] Risk grade fetch failed:', err.message);
+      }
+    };
+    loadRiskGrade();
+
     return () => {
       isMounted = false;
+      isRiskMounted = false;
     };
   }, [id]);
 
@@ -541,9 +578,20 @@ export const PatientDetails = () => {
   ) || '').replace(/^PAIR-/, '');
 
   const initials = getInitials(patient.name);
-  const activeConditionConfig =
-    CONDITION_OPTIONS.find((c) => c.key === patient.careStatus) ||
-    CONDITION_OPTIONS[0];
+
+  // Status config: ML risk grade takes priority over static careStatus mapping.
+  // mlRiskConfig shape matches RISK_LEVEL_CONFIG entries; we adapt it to the
+  // CONDITION_OPTIONS shape that the JSX below already consumes.
+  const activeConditionConfig = mlRiskConfig
+    ? {
+        label: mlRiskConfig.level,          // e.g. 'Low Risk' / 'Moderate Risk' / 'High Risk'
+        badgeBg: mlRiskConfig.badgeBg,
+        badgeText: mlRiskConfig.badgeText,
+        badgeBorder: mlRiskConfig.badgeBorder,
+        dotColor: mlRiskConfig.dotBg,
+        ringColor: `ring-${mlRiskConfig.dotBg.replace('bg-', '')}/40`,
+      }
+    : CONDITION_OPTIONS.find((c) => c.key === patient.careStatus) ?? CONDITION_OPTIONS[0];
 
   return (
     <div className="space-y-6">

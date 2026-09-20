@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { fetchPatients } from '../services/patientService';
+import { fetchPatientRiskOverview } from '../services/riskService';
 import emptyStateBg from '../assets/regional/image4.avif';
 import { getGameSessions, DOMAINS } from '../services/gameSessionService';
 import { PatientCard } from '../components/PatientCard';
@@ -69,6 +70,8 @@ export const Dashboard = () => {
   const [selectedParam, setSelectedParam] = useState('memory'); // 'memory' | 'attention'
   const [patientScores, setPatientScores] = useState({});
   const [loadingScores, setLoadingScores] = useState(false);
+  // ML risk grade map: { [patient_id]: 0 | 1 | 2 }
+  const [riskGradeMap, setRiskGradeMap] = useState({});
 
   const loadPatients = async () => {
     try {
@@ -92,6 +95,37 @@ export const Dashboard = () => {
 
   useEffect(() => {
     loadPatients();
+  }, []);
+
+  // Fetch ML risk grades and build patient_id → risk_grade map
+  useEffect(() => {
+    let isMounted = true;
+    const loadRiskGrades = async () => {
+      try {
+        const result = await fetchPatientRiskOverview({
+          onUpdate: (freshResult) => {
+            if (isMounted && freshResult?.patients) {
+              const map = {};
+              freshResult.patients.forEach((p) => {
+                if (p.patient_id != null) map[String(p.patient_id)] = p.risk_grade ?? null;
+              });
+              setRiskGradeMap(map);
+            }
+          },
+        });
+        if (isMounted && result?.patients) {
+          const map = {};
+          result.patients.forEach((p) => {
+            if (p.patient_id != null) map[String(p.patient_id)] = p.risk_grade ?? null;
+          });
+          setRiskGradeMap(map);
+        }
+      } catch (err) {
+        console.warn('[Dashboard] Risk grade fetch failed:', err.message);
+      }
+    };
+    loadRiskGrades();
+    return () => { isMounted = false; };
   }, []);
 
   // Fetch session data for all patients to compute real average domain scores
@@ -687,7 +721,11 @@ export const Dashboard = () => {
         {!loading && !error && filteredPatients.length > 0 && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
             {filteredPatients.map((patient) => (
-              <PatientCard key={patient.id} patient={patient} />
+              <PatientCard
+                key={patient.id}
+                patient={patient}
+                riskGrade={riskGradeMap[String(patient.id)] ?? null}
+              />
             ))}
           </div>
         )}
