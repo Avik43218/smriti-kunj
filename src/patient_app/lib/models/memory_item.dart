@@ -75,17 +75,21 @@ class MemoryItem {
 
   factory MemoryItem.fromJson(Map<String, dynamic> json, {String? defaultPatientId, int index = 0}) {
     final rawType = json['type']?.toString().toLowerCase();
-    final type = (rawType == 'audio' || (json['audioUrl'] != null && json['photoUrl'] == null))
+    final photoUrl = json['photoUrl']?.toString() ?? json['photo_url']?.toString();
+    final audioUrl = json['audioUrl']?.toString() ?? json['audio_url']?.toString();
+
+    final hasPhoto = photoUrl != null && photoUrl.trim().isNotEmpty;
+    final hasAudio = audioUrl != null && audioUrl.trim().isNotEmpty;
+
+    final type = (rawType == 'audio' || (hasAudio && !hasPhoto))
         ? MemoryType.audio
         : MemoryType.photo;
 
     final id = json['id']?.toString() ?? 'mem_${DateTime.now().millisecondsSinceEpoch}';
     final patientId = json['patientId']?.toString() ?? json['patient_id']?.toString() ?? defaultPatientId ?? 'p101';
-    final title = json['title']?.toString() ?? json['name']?.toString() ?? json['caption']?.toString() ?? 'Family Memory';
+    final title = json['title']?.toString() ?? json['name']?.toString() ?? json['caption']?.toString() ?? (type == MemoryType.audio ? 'Familiar Voice' : 'Family Memory');
     final relationship = json['relationship']?.toString() ?? json['relation']?.toString() ?? (type == MemoryType.audio ? 'Family Voice' : 'Family Member');
     final subtitle = json['subtitle']?.toString() ?? (type == MemoryType.audio ? 'Voice Note & Sound' : '$relationship • Family Photograph');
-    final photoUrl = json['photoUrl']?.toString() ?? json['photo_url']?.toString();
-    final audioUrl = json['audioUrl']?.toString() ?? json['audio_url']?.toString();
     final duration = json['audioDuration']?.toString() ?? json['duration']?.toString();
 
     DateTime? parsedCreated;
@@ -101,8 +105,8 @@ class MemoryItem {
       subtitle: subtitle,
       relationship: relationship,
       type: type,
-      photoUrl: photoUrl,
-      audioUrl: audioUrl,
+      photoUrl: hasPhoto ? photoUrl : null,
+      audioUrl: hasAudio ? audioUrl : null,
       audioDuration: duration,
       placeholderIcon: defaultIconFor(type, relationship),
       accentColor: defaultAccentFor(type, index),

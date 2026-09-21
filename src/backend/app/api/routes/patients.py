@@ -59,6 +59,12 @@ async def find_patient_by_identifier(patient_id: str) -> Optional[User]:
         p = await User.find_one(User.id == val_uuid, User.role == RoleEnum.patient)
         if p:
             return p
+        p = await User.find_one({"_id": clean_id, "role": RoleEnum.patient})
+        if p:
+            return p
+        p = await User.find_one({"_id": str(val_uuid), "role": RoleEnum.patient})
+        if p:
+            return p
     except (ValueError, TypeError, Exception):
         pass
 
@@ -76,16 +82,37 @@ async def find_patient_by_identifier(patient_id: str) -> Optional[User]:
     return None
 
 
-async def _get_candidate_patient_ids(patient_id: str) -> List[str]:
-    """Resolve all possible patient IDs (patient_code, UUID string, raw input) for querying."""
-    candidates = {patient_id.strip()}
-    patient = await find_patient_by_identifier(patient_id)
+async def _get_candidate_patient_ids(patient_id: str) -> List[Any]:
+    """Resolve all possible patient IDs (patient_code, UUID string, UUID object, raw input) for querying."""
+    candidates = set()
+    clean_id = patient_id.strip()
+    if clean_id:
+        candidates.add(clean_id)
+        candidates.add(clean_id.lower())
+        candidates.add(clean_id.upper())
+        try:
+            val_uuid = uuid.UUID(clean_id)
+            candidates.add(val_uuid)
+            candidates.add(str(val_uuid))
+        except (ValueError, TypeError):
+            pass
+
+    patient = await find_patient_by_identifier(clean_id)
     if patient:
         if patient.patient_code:
             candidates.add(patient.patient_code)
+            candidates.add(patient.patient_code.lower())
+            candidates.add(patient.patient_code.upper())
         if patient.id:
             candidates.add(str(patient.id))
-    return [c for c in candidates if c]
+            try:
+                if isinstance(patient.id, uuid.UUID):
+                    candidates.add(patient.id)
+                else:
+                    candidates.add(uuid.UUID(str(patient.id)))
+            except (ValueError, TypeError):
+                pass
+    return [c for c in candidates if c is not None]
 
 
 async def _verify_patient_access(patient_id: str, caregiver: Optional[User] = None) -> str:
@@ -267,16 +294,20 @@ async def get_patient_memories(patientId: str):
     memories: List[MemoryItemOut] = []
 
     for m in members:
+        has_photo = bool(m.photo_url and str(m.photo_url).strip())
+        has_audio = bool(isinstance(getattr(m, "audio_url", None), str) and m.audio_url.strip())
+        mem_type = "photo" if has_photo else "audio"
+
         memories.append(
             MemoryItemOut(
                 id=str(m.id),
                 patientId=str(m.patient_id),
                 title=str(m.name),
-                subtitle=f"{m.relation} • Family Photograph",
+                subtitle=f"{m.relation} • Family Photograph" if has_photo else f"{m.relation} • Voice Recording",
                 relationship=str(m.relation),
-                type="photo",
-                photoUrl=str(m.photo_url),
-                audioUrl=m.audio_url if isinstance(getattr(m, "audio_url", None), str) else None,
+                type=mem_type,
+                photoUrl=str(m.photo_url) if has_photo else None,
+                audioUrl=m.audio_url if has_audio else None,
                 audioDuration=None,
                 createdAt=m.created_at.isoformat() if (hasattr(m, "created_at") and hasattr(m.created_at, "isoformat")) else None,
             )

@@ -527,18 +527,28 @@ class ApiService {
           _customBaseUrl = base;
           final dynamic resData = jsonDecode(response.body);
           if (resData is List) {
-            final memories = resData
-                .asMap()
-                .entries
-                .map((e) => MemoryItem.fromJson(
-                      e.value as Map<String, dynamic>,
-                      defaultPatientId: cleanId,
-                      index: e.key,
-                    ))
-                .toList();
+            final memories = <MemoryItem>[];
+            for (var i = 0; i < resData.length; i++) {
+              final raw = resData[i];
+              if (raw is Map) {
+                try {
+                  memories.add(MemoryItem.fromJson(
+                    Map<String, dynamic>.from(raw),
+                    defaultPatientId: cleanId,
+                    index: i,
+                  ));
+                } catch (err) {
+                  debugPrint('[ApiService] Error parsing memory item $i: $err');
+                }
+              }
+            }
 
             // Cache in local SQLite database for offline availability
-            await ActivityDatabaseService.instance.savePatientMemories(cleanId, memories);
+            try {
+              await ActivityDatabaseService.instance.savePatientMemories(cleanId, memories);
+            } catch (err) {
+              debugPrint('[ApiService] Non-fatal SQLite cache error: $err');
+            }
             return memories;
           }
         }
@@ -547,7 +557,7 @@ class ApiService {
         lastError = e is Exception ? e : Exception(e.toString());
       }
 
-      // 2. Fallback to /api/patients/$cleanId/family-members if memories endpoint was unreachable/unsupported
+      // 2. Fallback to /api/patients/$cleanId/family-members + /familiar-sounds if unified endpoint failed
       try {
         final famEndpoint = Uri.parse('$base/api/patients/$cleanId/family-members');
         final response = await http
@@ -558,17 +568,53 @@ class ApiService {
           _customBaseUrl = base;
           final dynamic resData = jsonDecode(response.body);
           if (resData is List) {
-            final memories = resData
-                .asMap()
-                .entries
-                .map((e) => MemoryItem.fromJson(
-                      e.value as Map<String, dynamic>,
-                      defaultPatientId: cleanId,
-                      index: e.key,
-                    ))
-                .toList();
+            final memories = <MemoryItem>[];
+            for (var i = 0; i < resData.length; i++) {
+              final raw = resData[i];
+              if (raw is Map) {
+                try {
+                  memories.add(MemoryItem.fromJson(
+                    Map<String, dynamic>.from(raw),
+                    defaultPatientId: cleanId,
+                    index: i,
+                  ));
+                } catch (_) {}
+              }
+            }
 
-            await ActivityDatabaseService.instance.savePatientMemories(cleanId, memories);
+            // Also attempt to fetch familiar sounds if supported
+            try {
+              final soundEndpoint = Uri.parse('$base/api/patients/$cleanId/familiar-sounds');
+              final soundRes = await http
+                  .get(soundEndpoint, headers: headers)
+                  .timeout(const Duration(seconds: 3));
+              if (soundRes.statusCode == 200) {
+                final dynamic soundData = jsonDecode(soundRes.body);
+                if (soundData is List) {
+                  for (var i = 0; i < soundData.length; i++) {
+                    final rawSound = soundData[i];
+                    if (rawSound is Map) {
+                      try {
+                        memories.add(MemoryItem.fromJson(
+                          {
+                            ...Map<String, dynamic>.from(rawSound),
+                            'type': 'audio',
+                            'title': rawSound['caption'] ?? 'Familiar Sound',
+                            'relationship': 'Family Voice',
+                          },
+                          defaultPatientId: cleanId,
+                          index: memories.length,
+                        ));
+                      } catch (_) {}
+                    }
+                  }
+                }
+              }
+            } catch (_) {}
+
+            try {
+              await ActivityDatabaseService.instance.savePatientMemories(cleanId, memories);
+            } catch (_) {}
             return memories;
           }
         }

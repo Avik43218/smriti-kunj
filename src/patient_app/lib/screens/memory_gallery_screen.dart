@@ -237,7 +237,22 @@ class _MemoryThumbnailCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isAudio = item.type == MemoryType.audio;
+    final hasAudio = item.audioUrl != null && item.audioUrl!.isNotEmpty;
+    final hasPhoto = item.photoUrl != null && item.photoUrl!.isNotEmpty;
+    final isAudio = item.type == MemoryType.audio || !hasPhoto;
+
+    final String badgeLabel;
+    final IconData badgeIcon;
+    if (isAudio) {
+      badgeLabel = 'Voice';
+      badgeIcon = Icons.volume_up_rounded;
+    } else if (hasAudio) {
+      badgeLabel = 'Photo+Voice';
+      badgeIcon = Icons.record_voice_over_rounded;
+    } else {
+      badgeLabel = 'Photo';
+      badgeIcon = Icons.photo_camera_rounded;
+    }
 
     return Semantics(
       button: true,
@@ -296,13 +311,13 @@ class _MemoryThumbnailCard extends StatelessWidget {
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Icon(
-                                  isAudio ? Icons.volume_up_rounded : Icons.photo_camera_rounded,
+                                  badgeIcon,
                                   size: 16,
                                   color: AppColors.inkSoft,
                                 ),
                                 const SizedBox(width: 4),
                                 Text(
-                                  isAudio ? 'Voice' : 'Photo',
+                                  badgeLabel,
                                   style: const TextStyle(
                                     fontSize: 14,
                                     fontWeight: FontWeight.w600,
@@ -500,8 +515,142 @@ class _MemoryDetailScreenState extends State<MemoryDetailScreen> {
     );
   }
 
+  Widget _buildAudioPlayerCard(MemoryItem item, {bool compact = false}) {
+    return Container(
+      height: compact ? 110 : 320,
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: AppColors.border, width: 2),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.ink.withValues(alpha: 0.08),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: compact
+          ? Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Row(
+                children: [
+                  Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: _toggleAudio,
+                      borderRadius: BorderRadius.circular(30),
+                      child: Ink(
+                        width: 60,
+                        height: 60,
+                        decoration: BoxDecoration(
+                          color: AppColors.terracotta,
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: AppColors.terracotta.withValues(alpha: 0.35),
+                              blurRadius: 8,
+                              offset: const Offset(0, 3),
+                            ),
+                          ],
+                        ),
+                        child: Icon(
+                          _isPlayingAudio ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                          size: 36,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _isPlayingAudio ? 'Playing voice message...' : 'Tap to hear voice clip',
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.ink,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Personal message from ${item.title}',
+                          style: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w500,
+                            color: AppColors.inkSoft,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            )
+          : Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                // Large Play / Pause button
+                Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: _toggleAudio,
+                    borderRadius: BorderRadius.circular(50),
+                    child: Ink(
+                      width: 100,
+                      height: 100,
+                      decoration: BoxDecoration(
+                        color: AppColors.terracotta,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppColors.terracotta.withValues(alpha: 0.35),
+                            blurRadius: 14,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: Icon(
+                        _isPlayingAudio ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                        size: 60,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Text(
+                  _isPlayingAudio ? 'Playing voice note...' : 'Tap to play voice',
+                  style: const TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.ink,
+                  ),
+                ),
+                if (item.audioDuration != null) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    'Duration: ${item.audioDuration}',
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w500,
+                      color: AppColors.inkSoft,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+    );
+  }
+
   Widget _buildSingleMemoryView(MemoryItem item) {
-    final isAudio = item.type == MemoryType.audio;
+    final hasAudio = item.audioUrl != null && item.audioUrl!.isNotEmpty;
+    final hasPhoto = item.photoUrl != null && item.photoUrl!.isNotEmpty;
+    final isAudioOnly = item.type == MemoryType.audio || !hasPhoto;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(24, 16, 24, 120),
@@ -509,76 +658,30 @@ class _MemoryDetailScreenState extends State<MemoryDetailScreen> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           // Main Visual Card
-          Container(
-            height: 320,
-            decoration: BoxDecoration(
-              color: AppColors.surface,
-              borderRadius: BorderRadius.circular(24),
-              border: Border.all(color: AppColors.border, width: 2),
-              boxShadow: [
-                BoxShadow(
-                  color: AppColors.ink.withValues(alpha: 0.08),
-                  blurRadius: 16,
-                  offset: const Offset(0, 4),
-                ),
-              ],
+          if (isAudioOnly)
+            _buildAudioPlayerCard(item)
+          else ...[
+            Container(
+              height: 320,
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: AppColors.border, width: 2),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.ink.withValues(alpha: 0.08),
+                    blurRadius: 16,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: _buildPhotoDetail(item),
             ),
-            child: isAudio
-                ? Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      // Large Play / Pause button
-                      Material(
-                        color: Colors.transparent,
-                        child: InkWell(
-                          onTap: _toggleAudio,
-                          borderRadius: BorderRadius.circular(50),
-                          child: Ink(
-                            width: 100,
-                            height: 100,
-                            decoration: BoxDecoration(
-                              color: AppColors.terracotta,
-                              shape: BoxShape.circle,
-                              boxShadow: [
-                                BoxShadow(
-                                  color: AppColors.terracotta.withValues(alpha: 0.35),
-                                  blurRadius: 14,
-                                  offset: const Offset(0, 4),
-                                ),
-                              ],
-                            ),
-                            child: Icon(
-                              _isPlayingAudio ? Icons.pause_rounded : Icons.play_arrow_rounded,
-                              size: 60,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-                      Text(
-                        _isPlayingAudio ? 'Playing voice note...' : 'Tap to play voice',
-                        style: const TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.ink,
-                        ),
-                      ),
-                      if (item.audioDuration != null) ...[
-                        const SizedBox(height: 6),
-                        Text(
-                          'Duration: ${item.audioDuration}',
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w500,
-                            color: AppColors.inkSoft,
-                          ),
-                        ),
-                      ],
-                    ],
-                  )
-                : _buildPhotoDetail(item),
-          ),
+            if (hasAudio) ...[
+              const SizedBox(height: 16),
+              _buildAudioPlayerCard(item, compact: true),
+            ],
+          ],
           const SizedBox(height: 24),
 
           // Memory details card
