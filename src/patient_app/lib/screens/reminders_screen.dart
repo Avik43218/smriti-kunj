@@ -11,6 +11,7 @@ import '../services/locale_service.dart';
 import '../services/reminder_database_service.dart';
 import '../services/session_service.dart';
 import '../theme/theme.dart';
+import '../widgets/app_background.dart';
 
 const _kAlarmChannel = MethodChannel('com.smritikunj.patient_app/alarm');
 
@@ -238,10 +239,11 @@ class _RemindersScreenState extends State<RemindersScreen> with WidgetsBindingOb
     final s = AppStrings(locale.lang);
     final session = context.watch<SessionService>();
 
-    return Scaffold(
-      backgroundColor: AppColors.cream,
-      appBar: AppBar(
-        backgroundColor: AppColors.cream,
+    return AppBackground(
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        appBar: AppBar(
+          backgroundColor: Colors.transparent,
         elevation: 0,
         scrolledUnderElevation: 0,
         leading: IconButton(
@@ -360,8 +362,9 @@ class _RemindersScreenState extends State<RemindersScreen> with WidgetsBindingOb
                 ],
               ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildEmptyState(BuildContext context, SessionService session) {
     final textTheme = Theme.of(context).textTheme;

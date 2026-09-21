@@ -10,6 +10,7 @@ import '../services/app_strings.dart';
 import '../services/locale_service.dart';
 import '../services/session_service.dart';
 import '../theme/theme.dart';
+import '../widgets/app_background.dart';
 
 /// Read-only Profile Status screen displaying patient identity, caregiver info,
 /// and tap-to-dial emergency contacts with Wi-Fi-only tablet fallback.
@@ -352,10 +353,11 @@ class _ProfileStatusScreenState extends State<ProfileStatusScreen> {
     final status = _profileStatus;
     final isEmpty = status == null || status.isEmpty;
 
-    return Scaffold(
-      backgroundColor: AppColors.cream,
-      appBar: AppBar(
-        backgroundColor: AppColors.cream,
+    return AppBackground(
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        appBar: AppBar(
+          backgroundColor: Colors.transparent,
         elevation: 0,
         scrolledUnderElevation: 0,
         leading: Semantics(
@@ -427,7 +429,8 @@ class _ProfileStatusScreenState extends State<ProfileStatusScreen> {
                 ),
               ),
       ),
-    );
+    ),
+  );
   }
 
   /// Friendly empty state when no patient pairing/data exists yet.

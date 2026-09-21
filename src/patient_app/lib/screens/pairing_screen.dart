@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../services/session_service.dart';
 import '../theme/theme.dart';
+import '../widgets/app_background.dart';
 import 'home_screen.dart';
 import 'qr_scanner_screen.dart';
 
@@ -102,8 +103,9 @@ class _PairingScreenState extends State<PairingScreen> {
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
 
-    return Scaffold(
-      backgroundColor: AppColors.cream,
+    return AppBackground(
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -371,6 +373,7 @@ class _PairingScreenState extends State<PairingScreen> {
           ),
         ),
       ),
-    );
+    ),
+  );
   }
 }
