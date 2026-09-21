@@ -257,3 +257,26 @@ class GameSessionOut(BaseModel):
     trial_count: Optional[int] = None
 
     raw_trials: Optional[List[Dict[str, Any]]] = Field(default_factory=list)
+
+
+# ---- Patient Profile Status Schemas (Read-only for patient device) -------
+
+class CaregiverInfoOut(BaseModel):
+    name: str
+    phone: Optional[str] = None
+    is_primary: bool = False
+
+
+class ProfileStatusContactOut(BaseModel):
+    type: str  # "primary" or "alternative"
+    name: str
+    relationship: str
+    phone: str
+
+
+class PatientProfileStatusOut(BaseModel):
+    patient_name: str
+    caregivers: List[CaregiverInfoOut] = Field(default_factory=list)
+    emergency_contacts: List[ProfileStatusContactOut] = Field(default_factory=list)
+    last_updated: Optional[str] = None
+

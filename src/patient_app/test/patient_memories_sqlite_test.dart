@@ -37,10 +37,33 @@ void main() {
           type             TEXT NOT NULL,
           photo_url        TEXT,
           audio_url        TEXT,
+          duration         TEXT,
           audio_duration   TEXT,
           placeholder_icon TEXT,
           accent_color     INTEGER,
           created_at       TEXT
+        )
+      ''');
+      await inMemoryDb.execute('''
+        CREATE TABLE IF NOT EXISTS patient_diagnosis (
+          id           INTEGER PRIMARY KEY AUTOINCREMENT,
+          pairing_code TEXT NOT NULL UNIQUE,
+          patient_id   TEXT,
+          patient_name TEXT,
+          diagnosis    TEXT NOT NULL,
+          priority     INTEGER NOT NULL,
+          fetched_at   TEXT NOT NULL
+        )
+      ''');
+      await inMemoryDb.execute('''
+        CREATE TABLE IF NOT EXISTS patient_profile_status (
+          id              INTEGER PRIMARY KEY AUTOINCREMENT,
+          patient_id      TEXT,
+          pairing_code    TEXT,
+          patient_name    TEXT,
+          caregivers_json TEXT,
+          contacts_json   TEXT,
+          last_updated    TEXT
         )
       ''');
 

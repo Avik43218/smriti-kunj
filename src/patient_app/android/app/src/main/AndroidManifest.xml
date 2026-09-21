@@ -86,6 +86,10 @@
             <action android:name="android.intent.action.DIAL"/>
             <data android:scheme="tel"/>
         </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:scheme="tel"/>
+        </intent>
         <package android:name="com.google.android.googlequicksearchbox"/>
         <package android:name="com.samsung.android.bixby.agent"/>
         <package android:name="com.samsung.android.svoiceime"/>
