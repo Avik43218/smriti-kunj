@@ -8,6 +8,7 @@ import { fetchPatientRiskOverview } from '../services/riskService';
 import { getGameSessions, DOMAINS } from '../services/gameSessionService';
 import { PatientCard } from '../components/PatientCard';
 import { PatientRiskOverviewTable } from '../components/PatientRiskOverviewTable';
+import { CardLineArt } from '../components/CardLineArt';
 import {
   ResponsiveContainer,
   BarChart,
@@ -318,9 +319,14 @@ export const Dashboard = () => {
       {/* 2. Welcome Card */}
       <section
         aria-label="Welcome Overview"
-        className="bg-surface dark:bg-ink-soft/20 border border-border/80 dark:border-ink-soft/40 rounded-card p-6 sm:p-8 shadow-sm transition-colors"
+        className="relative overflow-hidden bg-surface dark:bg-ink-soft/20 border border-border/80 dark:border-ink-soft/40 rounded-card p-6 sm:p-8 shadow-sm transition-colors"
       >
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <CardLineArt
+          variant="mountains"
+          position="right"
+          className="opacity-35 sm:opacity-50"
+        />
+        <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-cream dark:bg-ink-soft/40 text-terracotta text-xs font-semibold uppercase tracking-wider mb-3">
               <Sparkles className="w-3.5 h-3.5" />
@@ -679,8 +685,15 @@ export const Dashboard = () => {
 
         {/* STATE 3: Empty State (No Patients in System) */}
         {!loading && !error && patients.length === 0 && (
-          <div className="bg-surface dark:bg-ink-soft/20 border border-border/80 dark:border-ink-soft/40 rounded-card p-8 sm:p-12 text-center space-y-3">
-            <div className="flex flex-col items-center space-y-3">
+          <div className="relative overflow-hidden bg-surface dark:bg-ink-soft/20 border border-border/80 dark:border-ink-soft/40 rounded-card p-8 sm:p-12 text-center space-y-3">
+            <CardLineArt
+              variant="workers"
+              position="right"
+              className="max-w-[32%] sm:max-w-[28%]"
+              opacityLight="opacity-25"
+              opacityDark="opacity-20"
+            />
+            <div className="relative z-10 flex flex-col items-center space-y-3">
               <div className="w-12 h-12 rounded-full bg-terracotta/10 border border-terracotta/20 flex items-center justify-center text-terracotta mx-auto">
                 <UserPlus className="w-6 h-6" />
               </div>
