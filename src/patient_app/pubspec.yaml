@@ -25,6 +25,7 @@ dependencies:
 
   tflite_flutter: ^0.12.1
   url_launcher: ^6.3.2
+  mobile_scanner: ^7.4.2
 
 dev_dependencies:
   flutter_test:

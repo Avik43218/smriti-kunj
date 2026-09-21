@@ -3,6 +3,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import '../services/session_service.dart';
 import '../theme/theme.dart';
 import 'home_screen.dart';
+import 'qr_scanner_screen.dart';
 
 class PairingScreen extends StatefulWidget {
   const PairingScreen({super.key});
@@ -24,21 +25,45 @@ class _PairingScreenState extends State<PairingScreen> {
     super.dispose();
   }
 
+  Future<void> _openQrScanner() async {
+    setState(() {
+      _errorMessage = null;
+    });
+
+    final scannedCode = await Navigator.of(context).push<String>(
+      MaterialPageRoute(builder: (context) => const QrScannerScreen()),
+    );
+
+    if (!mounted || scannedCode == null || scannedCode.trim().isEmpty) return;
+
+    await _pairWithCode(scannedCode);
+  }
+
   Future<void> _handleConfirm() async {
     final code = _codeController.text.trim();
+    await _pairWithCode(code);
+  }
 
-    if (code.isEmpty) {
+  Future<void> _pairWithCode(String code) async {
+    final cleanCode = code.trim();
+
+    if (cleanCode.isEmpty) {
       setState(() {
         _errorMessage = 'Please enter the pairing code from your caregiver.';
       });
       return;
     }
 
-    if (code.length < 4) {
+    if (cleanCode.length < 4) {
       setState(() {
         _errorMessage = 'Please check the code and try again.';
       });
       return;
+    }
+
+    // Populate controller so user sees which code was scanned/submitted
+    if (_codeController.text != cleanCode) {
+      _codeController.text = cleanCode;
     }
 
     setState(() {
@@ -47,7 +72,7 @@ class _PairingScreenState extends State<PairingScreen> {
     });
 
     try {
-      final success = await SessionService.instance.pairDevice(code);
+      final success = await SessionService.instance.pairDevice(cleanCode);
 
       if (!mounted) return;
 
@@ -120,16 +145,73 @@ class _PairingScreenState extends State<PairingScreen> {
                   const SizedBox(height: 12),
 
                   Text(
-                    'Enter the code given by your caregiver to get started.',
+                    'Scan the caregiver QR code or enter your 6-digit code below.',
                     textAlign: TextAlign.center,
                     style: textTheme.bodyLarge?.copyWith(
                       color: AppColors.inkSoft,
                       height: 1.4,
                     ),
                   ),
-                  const SizedBox(height: 36),
+                  const SizedBox(height: 32),
 
-                  // Surface Card containing the single input field and inline error
+                  // PRIMARY OPTION: Instant QR Scanner Button (88dp touch target)
+                  ElevatedButton(
+                    key: const Key('scan_qr_button'),
+                    onPressed: _isLoading ? null : _openQrScanner,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.terracotta,
+                      foregroundColor: Colors.white,
+                      minimumSize: const Size(double.infinity, 88),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      elevation: 3,
+                    ),
+                    child: const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.qr_code_scanner_rounded,
+                          size: 32,
+                          color: Colors.white,
+                        ),
+                        SizedBox(width: 14),
+                        Text(
+                          'Scan QR Code',
+                          style: TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 28),
+
+                  // Calming, accessible separator
+                  Row(
+                    children: [
+                      const Expanded(child: Divider(color: AppColors.border, thickness: 1.5)),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                        child: Text(
+                          'OR ENTER MANUALLY',
+                          style: textTheme.bodyMedium?.copyWith(
+                            color: AppColors.inkSoft,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: 1.2,
+                          ),
+                        ),
+                      ),
+                      const Expanded(child: Divider(color: AppColors.border, thickness: 1.5)),
+                    ],
+                  ),
+
+                  const SizedBox(height: 28),
+
+                  // Surface Card containing the manual input field and inline error
                   Container(
                     padding: const EdgeInsets.all(24.0),
                     decoration: BoxDecoration(
@@ -158,9 +240,10 @@ class _PairingScreenState extends State<PairingScreen> {
 
                         // Single input field
                         TextField(
+                          key: const Key('pairing_code_textfield'),
                           controller: _codeController,
                           focusNode: _focusNode,
-                          autofocus: true,
+                          autofocus: false,
                           keyboardType: TextInputType.text,
                           textCapitalization: TextCapitalization.characters,
                           textAlign: TextAlign.center,
@@ -238,10 +321,11 @@ class _PairingScreenState extends State<PairingScreen> {
                     ),
                   ),
 
-                  const SizedBox(height: 36),
+                  const SizedBox(height: 28),
 
-                  // Single Primary Action: Confirm Button (88dp min height, icon + word label)
+                  // Manual Confirm Button (88dp min height, icon + word label)
                   ElevatedButton(
+                    key: const Key('manual_confirm_button'),
                     onPressed: _isLoading ? null : _handleConfirm,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.terracotta,
