@@ -5,6 +5,7 @@ import '../services/activity_database_service.dart';
 import '../services/api_service.dart';
 import '../services/session_service.dart';
 import '../theme/theme.dart';
+import '../widgets/app_background.dart';
 
 class MemoryGalleryScreen extends StatefulWidget {
   const MemoryGalleryScreen({super.key});
@@ -74,10 +75,11 @@ class _MemoryGalleryScreenState extends State<MemoryGalleryScreen> {
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
 
-    return Scaffold(
-      backgroundColor: AppColors.cream,
-      appBar: AppBar(
-        backgroundColor: AppColors.cream,
+    return AppBackground(
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        appBar: AppBar(
+          backgroundColor: Colors.transparent,
         elevation: 0,
         scrolledUnderElevation: 0,
         leading: IconButton(
@@ -180,7 +182,8 @@ class _MemoryGalleryScreenState extends State<MemoryGalleryScreen> {
                     ),
         ),
       ),
-    );
+    ),
+  );
   }
 }
 
@@ -411,10 +414,11 @@ class _MemoryDetailScreenState extends State<MemoryDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.cream,
-      appBar: AppBar(
-        backgroundColor: AppColors.cream,
+    return AppBackground(
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        appBar: AppBar(
+          backgroundColor: Colors.transparent,
         elevation: 0,
         scrolledUnderElevation: 0,
         leading: IconButton(
@@ -447,7 +451,8 @@ class _MemoryDetailScreenState extends State<MemoryDetailScreen> {
           },
         ),
       ),
-    );
+    ),
+  );
   }
 
   Widget _buildPhotoDetail(MemoryItem item) {

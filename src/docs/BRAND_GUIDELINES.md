@@ -122,6 +122,23 @@ Reference set: **Gamosa** (Assam, everyday/hospitality symbol), **Meitei geometr
 Still governed by existing rules: no motif inside buttons, none behind body text, no dense weave reproduction.
 ---
 
+## 5.1 Regional Background Scenery (Patient App)
+
+To provide an emotionally grounding, calm, familiar ambiance without causing cognitive distraction or perceptual glare for elders with dementia, the patient app supports a translucent regional scenery background (`AppBackground`).
+
+- **Asset token:** `kSceneryAssetPath` (`AppColors.sceneryAssetPath` = `'assets/images/backgrounds/scenery.webp'`)
+- **Default opacity:** `kSceneryOpacity` (`AppColors.sceneryDefaultOpacity` = `0.40`, allowed range `0.30`–`0.50`)
+- **Layer order:**
+  1. Base: Solid brand background color (`AppColors.cream`, `#FBF5EA`).
+  2. Scenery layer: Translucent WebP scenery image wrapped in `RepaintBoundary` and `ExcludeSemantics` directly blending with base cream.
+  3. Foreground: Screen content (cards, text, buttons).
+- **Accessibility & Contrast Rule:**
+  If OS high-contrast mode is enabled (`MediaQuery.highContrastOf(context) == true`), the scenery layer is automatically suppressed, reverting to solid `AppColors.cream`.
+- **Game Screen Exclusion:**
+  Active game screens (*Market Trip, Pair Matching, Tap Target*), camera/QR scanners, and SOS emergency confirmation screens must **never** show the scenery background. They must strictly maintain a solid `AppColors.cream` (or black for scanner) background to prevent any visual noise during cognitive tasks.
+
+---
+
 ## 6. Two apps, one brand
 
 | | Shared | Allowed to differ |
@@ -170,6 +187,7 @@ This project has one canonical design system: /docs/BRAND_GUIDELINES.md
 - [ ] No motif/pattern placed inside a button or behind body text
 - [ ] Screen tested with at least one non-Latin string (Assamese/Bengali/Bodo sample text) to confirm no clipping or overflow
 - [ ] No new timers/countdowns added to patient-facing flows
+- [ ] Scenery background disabled on game screens, QR scanner, and high-contrast mode
 
 ---
 
@@ -183,3 +201,4 @@ Token or rule changes are made **here first**, in the same PR as the correspondi
 
 - **v0.1 — Aug 27, 2026:** Initial design system — colors, type, spacing, components, cultural motif governance, AI agent rules.
 - **v0.2 — Sep 3, 2026:** Added caregiver-only status tokens (status-urgent, status-info) and Risa/Meitei structural treatments for cards and focus states.
+- **v0.3 — Sep 22, 2026:** Added regional scenery background specifications (kSceneryAssetPath, kSceneryOpacity = 0.20, AppBackground layer structure, cognitive game screen exception, high-contrast auto-disable).

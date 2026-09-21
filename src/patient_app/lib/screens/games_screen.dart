@@ -9,6 +9,7 @@ import '../services/game_personalization_service.dart';
 import '../services/locale_service.dart';
 import '../services/session_service.dart';
 import '../theme/theme.dart';
+import '../widgets/app_background.dart';
 import '../games/market_trip/screens/market_trip_game.dart';
 import '../games/market_trip/services/item_bank_service.dart';
 import '../games/market_trip/models/game_session_result.dart';
@@ -476,10 +477,11 @@ class _GamesScreenState extends State<GamesScreen> {
     final s = AppStrings(locale.lang);
     final textTheme = Theme.of(context).textTheme;
 
-    return Scaffold(
-      backgroundColor: AppColors.cream,
-      appBar: AppBar(
-        backgroundColor: AppColors.cream,
+    return AppBackground(
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        appBar: AppBar(
+          backgroundColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_rounded, size: 32, color: AppColors.ink),
@@ -622,7 +624,8 @@ class _GamesScreenState extends State<GamesScreen> {
           ],
         ),
       ),
-    );
+    ),
+  );
   }
 }
 
