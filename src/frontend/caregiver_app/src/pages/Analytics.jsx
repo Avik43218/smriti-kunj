@@ -29,6 +29,7 @@ import { useTheme } from '../context/ThemeContext';
 import { fetchPatients, getPatientById } from '../services/patientService';
 import { fetchPatientRiskOverview } from '../services/riskService';
 import { PatientReportCardModal } from '../components/PatientReportCardModal';
+import { CardLineArt } from '../components/CardLineArt';
 import {
   getGameSessions,
   DOMAINS,
@@ -431,8 +432,13 @@ export const Analytics = () => {
   return (
     <div className="space-y-6">
       {/* PAGE HEADER & COGNITIVE SUMMARY */}
-      <div className="bg-surface dark:bg-ink-soft/20 border border-border dark:border-ink-soft/40 rounded-card p-6 sm:p-8 shadow-sm transition-colors">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+      <div className="relative overflow-hidden bg-surface dark:bg-ink-soft/20 border border-border dark:border-ink-soft/40 rounded-card p-6 sm:p-8 shadow-sm transition-colors">
+        <CardLineArt
+          variant="rivers"
+          position="right"
+          className="opacity-35 sm:opacity-45"
+        />
+        <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
           <div>
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-terracotta/10 text-terracotta border border-terracotta/20 text-xs font-bold uppercase tracking-wider mb-3">
               <Activity className="w-3.5 h-3.5" />

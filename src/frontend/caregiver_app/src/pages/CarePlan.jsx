@@ -43,6 +43,7 @@ import { SoundClipCard } from '../components/SoundClipCard';
 import { ConfirmDeleteModal } from '../components/ConfirmDeleteModal';
 import { AlarmOffModal } from '../components/AlarmOffModal';
 import { fetchPatients, getPatientById } from '../services/patientService';
+import { CardLineArt } from '../components/CardLineArt';
 
 export const CarePlan = () => {
   const { id: routePatientId } = useParams();
@@ -723,9 +724,14 @@ export const CarePlan = () => {
       {/* Care Plan Header Card */}
       <section
         aria-label="Care Plan Overview"
-        className="bg-surface dark:bg-ink-soft/20 border border-border/80 dark:border-ink-soft/40 rounded-card p-6 sm:p-8 shadow-sm transition-colors"
+        className="relative overflow-hidden bg-surface dark:bg-ink-soft/20 border border-border/80 dark:border-ink-soft/40 rounded-card p-6 sm:p-8 shadow-sm transition-colors"
       >
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-5">
+        <CardLineArt
+          variant="teaGardens"
+          position="right"
+          className="opacity-35 sm:opacity-45"
+        />
+        <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-5">
           <div className="space-y-1 min-w-0">
             <div className="inline-flex items-center px-2.5 py-0.5 rounded-full bg-cream dark:bg-ink-soft/40 text-terracotta text-xs font-semibold uppercase tracking-wider mb-1">
               Personalized Protocol

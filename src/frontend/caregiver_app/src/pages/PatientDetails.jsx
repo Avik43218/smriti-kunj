@@ -43,6 +43,7 @@ import {
 } from 'lucide-react';
 import { PairingQrPanel } from '../components/PairingQrPanel';
 import { PairingQrModal } from '../components/PairingQrModal';
+import { CardLineArt } from '../components/CardLineArt';
 
 const DIAGNOSIS_OPTIONS = [
   'Mild Cognitive Impairment (MCI)',
@@ -672,9 +673,14 @@ export const PatientDetails = () => {
       {/* 1. Profile Header Card */}
       <section
         aria-label="Patient Profile Overview"
-        className="bg-surface dark:bg-ink-soft/20 border border-border/80 dark:border-ink-soft/40 rounded-card p-6 sm:p-8 shadow-sm transition-colors"
+        className="relative overflow-hidden bg-surface dark:bg-ink-soft/20 border border-border/80 dark:border-ink-soft/40 rounded-card p-6 sm:p-8 shadow-sm transition-colors"
       >
-        <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-6">
+        <CardLineArt
+          variant="workers"
+          position="right"
+          className="opacity-35 sm:opacity-45"
+        />
+        <div className="relative z-10 flex flex-col lg:flex-row lg:items-start justify-between gap-6">
           <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-5 min-w-0 flex-1">
             {/* Large Circular Photo / Avatar with Initials Fallback & Photo Upload */}
             <div className="relative shrink-0 group">
@@ -794,14 +800,14 @@ export const PatientDetails = () => {
           </div>
 
           {/* Top-Right Action Controls: Paired Device Code, Profile Synced, Delete Patient */}
-          <div className="flex flex-col sm:items-end gap-3 shrink-0 w-full sm:w-auto">
+          <div className="relative z-20 flex flex-col sm:items-end gap-3 shrink-0 w-full sm:w-auto">
             {/* 1. Paired Device Code Button / Chip (Click to open enlarged QR) */}
             <button
               type="button"
               onClick={() => setIsQrModalOpen(true)}
               aria-label={`Paired Device Code ${pairedCode}. Click to view enlarged QR code`}
               title="Click to view enlarged QR code"
-              className="w-full sm:w-auto flex items-center justify-between sm:justify-end gap-3 bg-cream/70 dark:bg-ink-soft/30 hover:bg-cream dark:hover:bg-ink-soft/50 border border-border/80 dark:border-ink-soft/40 hover:border-terracotta/40 dark:hover:border-terracotta/40 rounded-xl px-3.5 py-2 shadow-2xs transition-all cursor-pointer group text-left focus:outline-hidden focus-visible:ring-2 focus-visible:ring-terracotta print:border-none"
+              className="w-full sm:w-auto flex items-center justify-between sm:justify-end gap-3 bg-cream/40 dark:bg-ink-soft/25 hover:bg-cream/70 dark:hover:bg-ink-soft/40 border border-border/70 dark:border-ink-soft/30 hover:border-terracotta/40 dark:hover:border-terracotta/40 rounded-xl px-3.5 py-2 shadow-2xs transition-all cursor-pointer group text-left focus:outline-hidden focus-visible:ring-2 focus-visible:ring-terracotta backdrop-blur-xs print:border-none"
             >
               <div className="flex items-center gap-2.5 min-w-0">
                 <div className="w-8 h-8 rounded-lg bg-terracotta/10 dark:bg-terracotta/20 text-terracotta flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
@@ -837,14 +843,14 @@ export const PatientDetails = () => {
               <button
                 type="button"
                 onClick={openEditModal}
-                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-terracotta/10 hover:bg-terracotta/20 text-terracotta border border-terracotta/30 text-[11px] font-semibold transition-colors cursor-pointer select-none"
+                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-terracotta/15 dark:bg-terracotta/20 hover:bg-terracotta/25 dark:hover:bg-terracotta/30 text-terracotta border border-terracotta/30 dark:border-terracotta/40 text-[11px] font-semibold transition-colors cursor-pointer select-none shadow-2xs backdrop-blur-xs"
                 title="Edit Patient Details"
               >
                 <Pencil className="w-3.5 h-3.5" />
                 <span>Edit Profile</span>
               </button>
 
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-sage/15 text-sage border border-sage/30 text-[11px] font-semibold shadow-2xs">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-sage/15 dark:bg-sage/20 text-sage border border-sage/30 dark:border-sage/40 text-[11px] font-semibold shadow-2xs backdrop-blur-xs">
                 <ShieldCheck className="w-3.5 h-3.5" />
                 <span>Profile Synced</span>
               </div>
@@ -852,7 +858,7 @@ export const PatientDetails = () => {
               <button
                 type="button"
                 onClick={() => setShowDeleteModal(true)}
-                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-terracotta/10 hover:bg-terracotta/20 text-terracotta border border-terracotta/30 text-[11px] font-semibold transition-colors cursor-pointer select-none"
+                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-terracotta/15 dark:bg-terracotta/20 hover:bg-terracotta/25 dark:hover:bg-terracotta/30 text-terracotta border border-terracotta/30 dark:border-terracotta/40 text-[11px] font-semibold transition-colors cursor-pointer select-none shadow-2xs backdrop-blur-xs"
                 title="Delete Patient Profile"
               >
                 <Trash2 className="w-3.5 h-3.5" />
