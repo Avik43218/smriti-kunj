@@ -131,4 +131,9 @@ class PatientPairCompleteOut(BaseModel):
     guardian_relationship: Optional[str] = None
     diagnosis: Optional[str] = None
     status: Optional[str] = "stable"
+    alternative_emergency_contact: Optional[Dict[str, Any]] = None
+    caregiver_name: Optional[str] = None
+    caregiver_phone: Optional[str] = None
+    caregivers: Optional[List[Dict[str, Any]]] = None
+
 

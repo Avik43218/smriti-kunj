@@ -423,6 +423,32 @@ async def complete_pairing(payload: PatientPairCompleteRequest):
     guardian_name = emergency.get("name")
     guardian_relationship = emergency.get("relationship")
 
+    # Resolve caregiver display names and phone numbers
+    cg_name = None
+    cg_phone = None
+    cg_list = []
+    if patient.caregiver_id:
+        cg = await User.get(patient.caregiver_id)
+        if cg and cg.name:
+            cg_name = cg.name
+            cg_phone = getattr(cg, "phone", None)
+            cg_list.append({"name": cg.name, "phone": cg_phone, "is_primary": True})
+    if getattr(patient, "assigned_caregiver_ids", None):
+        for cid in patient.assigned_caregiver_ids:
+            if cid and cid != patient.caregiver_id:
+                acg = await User.get(cid)
+                if acg and acg.name:
+                    acg_phone = getattr(acg, "phone", None)
+                    if not cg_phone and acg_phone:
+                        cg_phone = acg_phone
+                    cg_list.append({"name": acg.name, "phone": acg_phone, "is_primary": False})
+
+    # If no caregiver account is assigned, fallback to primary contact / guardian
+    if not cg_list and (guardian_phone or guardian_name):
+        cg_name = guardian_name or "Caregiver"
+        cg_phone = guardian_phone
+        cg_list.append({"name": cg_name, "phone": cg_phone, "is_primary": True})
+
     return PatientPairCompleteOut(
         patient_id=patient.id,
         patient_code=patient.patient_code,
@@ -436,6 +462,10 @@ async def complete_pairing(payload: PatientPairCompleteRequest):
         guardian_relationship=guardian_relationship,
         diagnosis=patient.diagnosis,
         status=patient.status or "stable",
+        alternative_emergency_contact=patient.alternative_emergency_contact,
+        caregiver_name=cg_name,
+        caregiver_phone=cg_phone,
+        caregivers=cg_list,
     )
 
 
@@ -446,6 +476,31 @@ async def get_patient_me(patient: User = Depends(require_patient)):
     guardian_phone = emergency.get("phone")
     guardian_name = emergency.get("name")
     guardian_relationship = emergency.get("relationship")
+
+    cg_name = None
+    cg_phone = None
+    cg_list = []
+    if patient.caregiver_id:
+        cg = await User.get(patient.caregiver_id)
+        if cg and cg.name:
+            cg_name = cg.name
+            cg_phone = getattr(cg, "phone", None)
+            cg_list.append({"name": cg.name, "phone": cg_phone, "is_primary": True})
+    if getattr(patient, "assigned_caregiver_ids", None):
+        for cid in patient.assigned_caregiver_ids:
+            if cid and cid != patient.caregiver_id:
+                acg = await User.get(cid)
+                if acg and acg.name:
+                    acg_phone = getattr(acg, "phone", None)
+                    if not cg_phone and acg_phone:
+                        cg_phone = acg_phone
+                    cg_list.append({"name": acg.name, "phone": acg_phone, "is_primary": False})
+
+    # If no caregiver account is assigned, fallback to primary contact / guardian
+    if not cg_list and (guardian_phone or guardian_name):
+        cg_name = guardian_name or "Caregiver"
+        cg_phone = guardian_phone
+        cg_list.append({"name": cg_name, "phone": cg_phone, "is_primary": True})
 
     return PatientPairCompleteOut(
         patient_id=patient.id,
@@ -463,5 +518,10 @@ async def get_patient_me(patient: User = Depends(require_patient)):
         guardian_relationship=guardian_relationship,
         diagnosis=patient.diagnosis,
         status=patient.status or "stable",
+        alternative_emergency_contact=patient.alternative_emergency_contact,
+        caregiver_name=cg_name,
+        caregiver_phone=cg_phone,
+        caregivers=cg_list,
     )
+
 

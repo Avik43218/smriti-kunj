@@ -189,7 +189,7 @@ void main() {
   });
 
   group('Top-Right Dropdown Menu Widget Tests', () {
-    testWidgets('HomeScreen displays dropdown menu with Sound and Log Out items', (WidgetTester tester) async {
+    testWidgets('HomeScreen displays dropdown menu with Profile Status and Log Out items', (WidgetTester tester) async {
       await tester.binding.setSurfaceSize(const Size(800, 1200));
 
       final session = SessionService.instance;
@@ -217,9 +217,11 @@ void main() {
       await tester.tap(menuButtonFinder);
       await tester.pumpAndSettle();
 
-      // Verify both Sound and Log Out options are in the dropdown
-      expect(find.textContaining('Sound'), findsOneWidget);
+      // Verify Profile Status is in the dropdown and Sound is removed
+      expect(find.text('Profile Status'), findsOneWidget);
+      expect(find.textContaining('Sound'), findsNothing);
       expect(find.text('Log Out'), findsOneWidget);
+
 
       // Tap Log Out option — instantly logs out and switches to PairingScreen
       await tester.tap(find.text('Log Out'));

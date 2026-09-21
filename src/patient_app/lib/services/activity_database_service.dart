@@ -6,6 +6,7 @@ import '../models/game_recommendation.dart';
 import '../models/memory_item.dart';
 import '../models/patient_activity.dart';
 import '../models/patient_diagnosis.dart';
+import '../models/patient_profile_status.dart';
 
 /// SQLite persistence service for local patient app activity.
 ///
@@ -24,6 +25,8 @@ class ActivityDatabaseService extends ChangeNotifier {
   static const _pairingTable = 'app_pairing_code';
   static const _diagnosisTable = 'patient_diagnosis';
   static const _memoriesTable = 'patient_memories';
+  static const _profileTable = 'patient_profile_status';
+
 
   int _cachedUnsyncedCount = 0;
 
@@ -33,7 +36,7 @@ class ActivityDatabaseService extends ChangeNotifier {
   Database? _db;
 
   @visibleForTesting
-  void setDatabaseForTesting(Database db) {
+  void setDatabaseForTesting(Database? db) {
     _db = db;
   }
 
@@ -44,7 +47,7 @@ class ActivityDatabaseService extends ChangeNotifier {
 
     _db = await openDatabase(
       fullPath,
-      version: 8,
+      version: 9,
       onCreate: (db, version) async {
         await _createTables(db);
       },
@@ -66,8 +69,21 @@ class ActivityDatabaseService extends ChangeNotifier {
             await db.execute('ALTER TABLE $_pairingTable ADD COLUMN guardian_relationship TEXT;');
           } catch (_) {}
         }
-        if (oldVersion < 8) {
-          await _createTables(db);
+        if (oldVersion < 9) {
+          try {
+            await db.execute('''
+              CREATE TABLE IF NOT EXISTS patient_sos_events (
+                id           INTEGER PRIMARY KEY AUTOINCREMENT,
+                patient_id   TEXT,
+                pairing_code TEXT,
+                target_name  TEXT,
+                target_phone TEXT,
+                status       TEXT,
+                created_at   TEXT NOT NULL,
+                is_synced    INTEGER NOT NULL DEFAULT 0
+              );
+            ''');
+          } catch (_) {}
         }
       },
     );
@@ -164,7 +180,33 @@ class ActivityDatabaseService extends ChangeNotifier {
         created_at   TEXT NOT NULL
       )
     ''');
+
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS $_profileTable (
+        id              INTEGER PRIMARY KEY AUTOINCREMENT,
+        patient_id      TEXT,
+        pairing_code    TEXT,
+        patient_name    TEXT,
+        caregivers_json TEXT,
+        contacts_json   TEXT,
+        last_updated    TEXT
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS patient_sos_events (
+        id           INTEGER PRIMARY KEY AUTOINCREMENT,
+        patient_id   TEXT,
+        pairing_code TEXT,
+        target_name  TEXT,
+        target_phone TEXT,
+        status       TEXT,
+        created_at   TEXT NOT NULL,
+        is_synced    INTEGER NOT NULL DEFAULT 0
+      )
+    ''');
   }
+
 
 
   // ── Pairing Code Persistence & Auto-Login ───────────────────────────────────
@@ -365,12 +407,91 @@ class ActivityDatabaseService extends ChangeNotifier {
       await db.delete(_pairingTable);
       await db.delete(_diagnosisTable);
       await db.delete(_memoriesTable);
-      debugPrint('[ActivityDatabaseService] Cleared pairing code, diagnosis, and memories from SQLite.');
+      try {
+        await db.delete(_profileTable);
+      } catch (_) {}
+      debugPrint('[ActivityDatabaseService] Cleared pairing code, diagnosis, memories, and profile status from SQLite.');
       notifyListeners();
     } catch (e) {
       debugPrint('[ActivityDatabaseService] Error clearing pairing code: $e');
     }
   }
+
+  // ── Patient Profile Status Persistence ──────────────────────────────────────
+
+  /// Saves or updates patient profile status in local SQLite table.
+  Future<void> saveProfileStatus(
+    PatientProfileStatus status, {
+    String? patientId,
+    String? pairingCode,
+  }) async {
+    try {
+      final db = await database;
+      final pId = patientId ?? await getActivePatientId();
+      final pCode = pairingCode ?? await getActivePairingCode();
+
+      final data = {
+        'patient_id': pId,
+        'pairing_code': pCode,
+        'patient_name': status.patientName,
+        'caregivers_json': jsonEncode(status.caregivers.map((c) => c.toJson()).toList()),
+        'contacts_json': jsonEncode(status.emergencyContacts.map((c) => c.toJson()).toList()),
+        'last_updated': (status.lastUpdated ?? DateTime.now()).toIso8601String(),
+      };
+
+      await db.delete(_profileTable);
+      await db.insert(_profileTable, data);
+      debugPrint('[ActivityDatabaseService] Cached profile status in SQLite for patient: ${status.patientName}');
+      notifyListeners();
+    } catch (e) {
+      debugPrint('[ActivityDatabaseService] Error saving profile status: $e');
+    }
+  }
+
+  /// Records an SOS trigger event in SQLite for offline tracking and sync.
+  Future<void> recordSosEvent({
+    String? targetName,
+    String? targetPhone,
+    String? status,
+  }) async {
+    try {
+      final db = await database;
+      final pId = await getActivePatientId();
+      final pCode = await getActivePairingCode();
+      await db.insert('patient_sos_events', {
+        'patient_id': pId,
+        'pairing_code': pCode,
+        'target_name': targetName,
+        'target_phone': targetPhone,
+        'status': status ?? 'dialer_launched',
+        'created_at': DateTime.now().toIso8601String(),
+        'is_synced': 0,
+      });
+      debugPrint('[ActivityDatabaseService] Recorded local SOS activation event for target: $targetName');
+    } catch (e) {
+      debugPrint('[ActivityDatabaseService] Error recording SOS event: $e');
+    }
+  }
+
+  /// Retrieves cached patient profile status from local SQLite table.
+  Future<PatientProfileStatus?> getProfileStatus({String? patientId, String? pairingCode}) async {
+    try {
+      final db = await database;
+      final rows = await db.query(
+        _profileTable,
+        orderBy: 'id DESC',
+        limit: 1,
+      );
+
+      if (rows.isNotEmpty) {
+        return PatientProfileStatus.fromMap(rows.first);
+      }
+    } catch (e) {
+      debugPrint('[ActivityDatabaseService] Error fetching cached profile status: $e');
+    }
+    return null;
+  }
+
 
   // ── Patient Memories Caching & Persistence ──────────────────────────────────
 

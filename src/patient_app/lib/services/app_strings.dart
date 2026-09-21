@@ -1,10 +1,23 @@
+import 'package:flutter/widgets.dart';
+import 'package:provider/provider.dart';
 import 'locale_service.dart';
+import 'session_service.dart';
 
 /// All UI strings for the patient app, keyed by [AppLang].
-/// Usage: final s = AppStrings(context.watch<LocaleService>().lang);
+/// Usage: final s = AppStrings.of(context) or AppStrings(locale.lang);
 class AppStrings {
   final AppLang lang;
   const AppStrings(this.lang);
+
+  static AppStrings of(BuildContext context) {
+    try {
+      final loc = Provider.of<LocaleService>(context, listen: false);
+      return AppStrings(loc.lang);
+    } catch (_) {
+      final regCode = SessionService.instance.regionLanguage;
+      return AppStrings(AppLangExt.fromCode(regCode));
+    }
+  }
 
   bool get _as => lang == AppLang.assamese;
   bool get _bn => lang == AppLang.bengali;
@@ -51,12 +64,12 @@ class AppStrings {
   // ── Coming-soon game titles / subtitles ───────────────────────────────────
   String get pairMatchTitle     => _t("Pair Matching",                           "যোৰ মিলোৱা",                           "জোড়া মেলানো",                              "जोर मिलायनाय");
   String get pairMatchSubtitle  => _t("Flip cards to find matching pairs",       "মিলন যোৰ বিচাৰিবলৈ কাৰ্ড ওলোটাওক",   "মিলানো জোড়া খুঁজতে কার্ড উলটান",         "मिलायनाय जोर बिलाइ काड उन्दैखो");
-  String get episodicMemory     => _t("Episodic Memory",                         "ঘটনাৰ স্মৃতি",                         "ঘটনার স্মৃতি",                              "हाबाफারिनि सोमो");
+  String get episodicMemory     => _t("Episodic Memory",                         "ঘটনাৰ স্মৃতি",                         "ঘটনার স্মৃতি",                              "हाबाफারिनि সোमो");
   String get familyFinderTitle  => _t("Family & Village Finder",                 "পৰিয়াল আৰু গাঁৱৰ বস্তু",             "পরিবার ও গ্রামের বস্তু",                   "गावनि मानुस आरो बस्तु");
   String get familyFinderSub    => _t("Recognise family members & objects",      "পৰিয়ালৰ সদস্য আৰু বস্তু চিনি পাওক", "পরিবারের সদস্য ও বস্তু চিনুন",            "गावनि मानुस आरो बस्तु बुजो");
   String get semanticMemory     => _t("Semantic Memory",                         "অৰ্থ স্মৃতি",                          "অর্থ স্মৃতি",                               "अर्थनि सोमो");
-  String get tapTargetTitle     => _t("Tap the Target",                          "লক্ষ্যত টেপ কৰক",                     "লক্ষ্যে ট্যাপ করুন",                       "लक्ष्यो टेप खालामो");
-  String get tapTargetSubtitle  => _t("Tap the right item as it appears",        "সঠিক বস্তু দেখা গ'লে টেপ কৰক",       "সঠিক বস্তু দেখলে ট্যাপ করুন",             "सोलोंथाव बस्तु बोखायो हांखो टेप खालामो");
+  String get tapTargetTitle     => _t("Tap the Target",                          "লক্ষ্যত টেপ কৰক",                     "লক্ষ্যে ট্যাপ করুন",                       "लक्ष्यो टेপ खालामो");
+  String get tapTargetSubtitle  => _t("Tap the right item as it appears",        "সঠিক বস্তু দেখা গ'লে টেপ কৰক",       "সঠিক বস্তু দেখলে ট্যাপ করুন",             "सोलोंथाव बस्तु बोखायो हांखो টেপ खालामो");
   String get attention          => _t("Attention",                               "মনোযোগ",                               "মনোযোগ",                                   "मनोयोग");
 
   // ── Personalization strings ───────────────────────────────────────────────
@@ -72,10 +85,10 @@ class AppStrings {
 
   // ── Sync strings ──────────────────────────────────────────────────────────
   String get syncButton         => _t('Sync',                                    'সিংক',                                 'সিঙ্ক',                                     'सिंक');
-  String get helpButton         => _t('Help',                                    'সহায়',                                 'সাহায্য',                                   'नाथाय');
+  String get helpButton         => _t('Help',                                    'সহায়',                                 'সাহায্য',                                   'अनसुंथाय');
   String get voiceButton        => _t('Voice',                                   'কণ্ঠ',                                  'ভয়েস',                                     'आवाज');
   String get syncActivities     => _t('Sync Activity',                           'তথ্য যোগ কৰক',                         'কার্যক্রম সিঙ্ক করুন',                      'खামानि सिंक');
-  String get syncSubtitle       => _t('Send game progress to caregiver',         'অভিভাৱকৰ সৈতে খেলৰ তথ্য প্ৰেৰণ কৰক',  'পরিচর্যাকারীকে গেমের অগ্রগতি পাঠান',      'थालाय लानायখोনি दाहाय थाখো पाठায');
+  String get syncSubtitle       => _t('Send game progress to caregiver',         'পৰিচর্যাকাৰীৰ সৈতে খেলৰ তথ্য প্ৰেৰণ কৰক', 'পরিচর্যাকারীকে গেমের অগ্রগতি পাঠান',      'थालाय लानायখोনি दाहाय थाখো पाठায');
   String get syncing            => _t('Syncing activity...',                     'তথ্য সংমিশ্ৰণ হৈ আছে...',             'কার্যক্রম সিঙ্ক হচ্ছে...',                  'খামানি সিংক হৈ আছে...');
   String get syncSuccess        => _t('Activity synced with caregiver!',         "তথ্য সফলতাৰে প্ৰেৰণ হ'ল!",            'পরিচর্যাকারীর সাথে সিঙ্ক সম্পন্ন!',       'থালাই লানায়খো পাঠাই জাদোঁ!');
   String get syncCleaned        => _t('Local storage wiped clean',               "স্থানীয় সংৰক্ষণ খালী কৰা হ'ল",       'স্থানীয় সঞ্চয় পরিষ্কার করা হয়েছে',      'स्थानीय संग्रह साफ जादों');
@@ -125,4 +138,60 @@ class AppStrings {
 
   String get playAgain             => _t('Play Again',                           'পুনৰ খেলক',                           'আবার খেলুন',                       'नैथे खेलो');
   String get done                  => _t("Done",                                 "সম্পূৰ্ণ হ'ল",                        "সম্পন্ন",                          "जादों");
+
+  // ── Profile Status strings ────────────────────────────────────────────────
+  String get profileStatus         => _t('Profile Status',                       'প্ৰফাইলৰ স্থিতি',                     'প্রোফাইল স্ট্যাটাস',              'प्रफाइल थाखो');
+  String get profileAboutMe        => _t('About me',                             'মোৰ বিষয়ে',                          'আমার সম্পর্কে',                   'आंनि सोमोन्दै');
+  String get profileMyCaregiver    => _t('My caregiver',                         'মোৰ পৰিচর্যাকাৰী',                   'আমার পরিচর্যাকারী',                'आंनि जोथोनगिरि');
+  String get profileCaregiverNone  => _t('Not available yet',                    'এতিয়ালৈকে উপলব্ধ নহয়',               'এখনও উপলব্ধ নয়',                 'दानो मोननो हायाखै');
+  String get profileEmergencyTitle => _t('Emergency contacts',                   'জৰুৰীকালীন যোগাযোগ',                  'জরুরী যোগাযোগ',                    'गोनांथार फन');
+  String get profilePrimaryBadge   => _t('Primary',                              'প্ৰাথমিক',                            'প্রাথমিক',                         'गुबै');
+  String get profileAlternativeBadge => _t('Alternative',                        'বিকল্প',                              'বিকল্প',                           'गुबुन');
+  String get profileTapToDial      => _t('Tap to open dial pad',                 'ডায়াল পেড খুলিবলৈ টেপ কৰক',           'ডায়াল প্যাড খুলতে ট্যাপ করুন',     'दायाल पेद खुलिनो टेप खालाम');
+  String get profileAskCaregiver   => _t('To change these details, ask your caregiver.',
+                                         'এই তথ্যবোৰ সলনি কৰিবলৈ, আপোনাৰ পৰিচর্যাকাৰীক সোধক।',
+                                         'এই তথ্য পরিবর্তন করতে, আপনার পরিচর্যাকারীকে বলুন।',
+                                         'बेखौ सोलायनो नोंनि जोथोनगिरिनो बुं।');
+  String get profileNoDialSupport  => _t("This tablet can't make calls. Please use a phone to call",
+                                         'এই টেবলেটৰ পৰা কল কৰিব নোৱাৰি। অনুগ্ৰহ কৰি ফন ব্যৱহাৰ কৰি কল কৰক',
+                                         'এই ট্যাবলেট থেকে কল করা যায় না। অনুগ্রহ করে ফোন ব্যবহার করে কল করুন',
+                                         'बे तेबलेटजों कल खालामनो हाया। अननानै फनजों कल खालाम');
+  String get profileCopyNumber     => _t('Copy number',                          'নম্বৰ কপি কৰক',                       'নম্বর কপি করুন',                   'नम्बर कपि खालाम');
+  String get profileNumberCopied   => _t('Number copied',                        'নম্বৰ কপি কৰা হ’ল',                   'নম্বর কপি করা হয়েছে',             'नम्बर कपि जाबाय');
+  String get profileEmptyState     => _t('Your details will appear after your caregiver connects this tablet',
+                                         'আপোনাৰ পৰিচর্যাকাৰীয়ে এই টেবলেটটো সংযোগ কৰাৰ পিছত আপোনাৰ তথ্য প্ৰদৰ্শিত হ’ব',
+                                         'আপনার পরিচর্যাকারী এই ট্যাবলেটটি সংযোগ করার পর আপনার তথ্য দেখতে পাবেন',
+                                         'नोंनि जोथोनगिरिया बे तेबलेटखौ फोनांजाबनायनि उनाव नोंनि फोरमानखौ नुनो मोनगोन');
+  String get profileLastUpdated    => _t('Last updated',                         'অন্তিম নবীকৰণ',                       'সর্বশেষ আপডেট',                   'गोदान खालामनाय');
+  String get profileClose          => _t('Close',                                'বন্ধ কৰক',                            'বন্ধ করুন',                        'बन्द खालाम');
+
+  // ── SOS / Emergency help strings ───────────────────────────────────────────
+  String get sosScreenTitle        => _t('Help is on the way',                   'সহায় আহি আছে',                       'সাহায্য আসছে',                     'अनसुंथाय फैगासिनो दं');
+  String get sosCallingCaregiverIntro => _t('Opening your phone dialer to reach your caregiver.',
+                                         'আপোনাৰ পৰিচর্যাকাৰীৰ সৈতে যোগাযোগ কৰিবলৈ ফোন খোলা হৈছে।',
+                                         'আপনার পরিচর্যাকারীর সাথে যোগাযোগ করতে ফোন খোলা হচ্ছে।',
+                                         'नोंनि जोथोनगिरिखौ कल खालामनो फोननि डायलर खुलिबाय।');
+  String get sosCallingEmergencyIntro => _t('Opening your phone dialer to reach your emergency contact.',
+                                         'আপোনাৰ জৰুৰীকালীন যোগাযোগৰ সৈতে সংযোগ কৰিবলৈ ফোন খোলা হৈছে।',
+                                         'আপনার জরুরি যোগাযোগের সাথে সংযোগ করতে ফোন খোলা হচ্ছে।',
+                                         'नोंनि गोनांथार सुबुंखौ कल खालामनो फोन खुलिबाय।');
+  String get sosStayCalm           => _t('Please stay calm and seated. Someone is reaching out to you.',
+                                         'অনুগ্ৰহ কৰি শান্ত হৈ বহি থাকক। কোনোবাই আপোনাৰ সৈতে যোগাযোগ কৰিছে।',
+                                         'অনুগ্রহ করে শান্ত হয়ে বসুন। কেউ আপনার সাথে যোগাযোগ করছে।',
+                                         'दया खालामना गोजोनै था। सोरबा नोंनिसिम सौहैगोन।');
+  String sosCallAction(String name) => _t('Call $name',                          '$name-লৈ কল কৰক',                    '$name-কে কল করুন',                 '$name-नो कल खालाम');
+  String get sosDismissAction      => _t('I Understand (Back to Home)',          'মই বুজি পালোঁ (ঘৰলৈ উভতি যাওক)',     'আমি বুঝতে পেরেছি (মূল পাতায় ফিরুন)', 'आं बुजिबाय (नआव थांफिन)');
+  String get sosEmptyStateTitle    => _t('No phone number saved yet',            'কোনো ফোন নম্বৰ সংৰক্ষণ কৰা হোৱা নাই', 'কোনো ফোন নম্বর সংরক্ষিত নেই',      'दासिमबो फोन नम्बर दोनथुमनाय जायाखै');
+  String get sosEmptyStateMessage  => _t('Please ask your caregiver to add a phone number.',
+                                         'অনুগ্ৰহ কৰি আপোনাৰ পৰিচর্যাকাৰীক এটা ফোন নম্বৰ যোগ কৰিবলৈ কওক।',
+                                         'অনুগ্রহ করে আপনার পরিচর্যাকারীকে একটি ফোন নম্বর যুক্ত করতে বলুন।',
+                                         'दया खालामना नोंनि जोथोनगिरिखौ फोन नम्बर फज\'नो थिन।');
+  String get sosTabletNoDialer     => _t("This device can't place direct calls. You can dial this number from a nearby phone:",
+                                         'এই ডিভাইচৰ পৰা পোনপটীয়া কল কৰিব নোৱাৰি। ওচৰৰ ফোনৰ পৰা এই নম্বৰত কল কৰক:',
+                                         'এই ডিভাইস থেকে সরাসরি কল করা যায় না। কাছের ফোন থেকে এই নম্বরে কল করুন:',
+                                         'बे डिभाइसनिफ्राय कल खालामनो हाया। खाथिनि फोननिफ्राय बे नम्बरआव कल खालाम:');
+  String get sosCopyNumber         => _t('Copy Number',                          'নম্বৰ কপি কৰক',                       'নম্বর কপি করুন',                   'नम्बर कपि खालाम');
+  String get sosNumberCopied       => _t('Phone number copied to clipboard',     'ফোন নম্বৰ ক্লিপব\'ৰ্ডত কপি কৰা হ\'ল',  'ফোন নম্বর ক্লিপবোর্ডে কপি করা হয়েছে', 'फोन नम्बर कपि जाबाय');
+  String get caregiverLabel        => _t('Caregiver',                            'পৰিচর্যাকাৰী',                       'পরিচর্যাকারী',                     'जोथोनगिरि');
 }
+

@@ -9,15 +9,20 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Body, Depends, Header, HTTPException, Query
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from jose import jwt
 from pydantic import BaseModel
 
+from app.config import settings
+from app.models.auth import RevokedToken
 from app.api.routes.caregiver import find_patient_for_caregiver
-from app.core.security import require_caregiver
+from app.core.security import require_caregiver, require_patient
 from app.models.care_plan import FamilyMember, FamiliarSound
 from app.models.reminder import PatientReminder
 from app.models.session import GameSession
 from app.models.user import DevicePairingToken, RoleEnum, User
 from app.schemas.patient import (
+    CaregiverInfoOut,
     CustomReminderCreate,
     CustomReminderOut,
     FamilyMemberCreate,
@@ -27,6 +32,8 @@ from app.schemas.patient import (
     GameSessionOut,
     MemoryItemOut,
     PatientDailyRemindersOut,
+    PatientProfileStatusOut,
+    ProfileStatusContactOut,
     RemindersOut,
 )
 
@@ -834,3 +841,147 @@ async def get_game_sessions(
         results = results[:limit]
 
     return [_session_to_out(s, norm_id) for s in results]
+
+
+# ---- Profile Status Endpoint (Read-only for patient device) --------------
+
+optional_bearer = HTTPBearer(auto_error=False)
+
+
+async def resolve_optional_patient(
+    creds: Optional[HTTPAuthorizationCredentials] = Depends(optional_bearer),
+) -> Optional[User]:
+    """Resolve patient user if valid Bearer token provided."""
+    if not creds or not creds.credentials:
+        return None
+    try:
+        payload = jwt.decode(
+            creds.credentials, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM]
+        )
+        user_id = uuid.UUID(payload["sub"])
+        if payload.get("jti") and await RevokedToken.find_one(RevokedToken.jti == payload["jti"]):
+            return None
+        user = await User.get(user_id)
+        if user and user.role == RoleEnum.patient:
+            return user
+    except Exception:
+        return None
+    return None
+
+
+async def _handle_fetch_profile_status(
+    token_patient: Optional[User],
+    pairing_code: Optional[str],
+    x_pairing_code: Optional[str],
+) -> PatientProfileStatusOut:
+    patient: Optional[User] = token_patient
+    if not patient:
+        code = (pairing_code or x_pairing_code or "").strip()
+        if code:
+            patient = await find_patient_by_pairing_code(code)
+    if not patient:
+        raise HTTPException(
+            status_code=401,
+            detail="Patient device authentication or valid pairing code is required",
+        )
+
+    # Resolve assigned caregiver names
+    caregiver_ids: List[Any] = []
+    if patient.caregiver_id:
+        caregiver_ids.append(patient.caregiver_id)
+    if getattr(patient, "assigned_caregiver_ids", None):
+        for cid in patient.assigned_caregiver_ids:
+            if cid and cid not in caregiver_ids:
+                caregiver_ids.append(cid)
+
+    caregivers_out: List[CaregiverInfoOut] = []
+    for idx, cid in enumerate(caregiver_ids):
+        cg = await User.get(cid)
+        if not cg:
+            try:
+                cg = await User.find_one(User.id == cid)
+            except Exception:
+                pass
+        if cg and cg.name:
+            caregivers_out.append(
+                CaregiverInfoOut(
+                    name=cg.name,
+                    phone=getattr(cg, "phone", None),
+                    is_primary=(idx == 0),
+                )
+            )
+
+    # If no dedicated caregiver account is assigned, treat primary contact/guardian as primary caregiver
+    if not caregivers_out:
+        if patient.emergency_contact and isinstance(patient.emergency_contact, dict):
+            ec_name = patient.emergency_contact.get("name", "").strip()
+            ec_phone = patient.emergency_contact.get("phone", "").strip()
+            if ec_name or ec_phone:
+                caregivers_out.append(
+                    CaregiverInfoOut(
+                        name=ec_name or "Caregiver",
+                        phone=ec_phone or None,
+                        is_primary=True,
+                    )
+                )
+
+    # Emergency contacts
+    contacts_out: List[ProfileStatusContactOut] = []
+    if patient.emergency_contact and isinstance(patient.emergency_contact, dict):
+        p_name = patient.emergency_contact.get("name", "").strip()
+        p_phone = patient.emergency_contact.get("phone", "").strip()
+        p_rel = patient.emergency_contact.get("relationship", "Primary Contact").strip()
+        if p_name and p_phone:
+            contacts_out.append(
+                ProfileStatusContactOut(
+                    type="primary",
+                    name=p_name,
+                    relationship=p_rel,
+                    phone=p_phone,
+                )
+            )
+
+    if (
+        getattr(patient, "alternative_emergency_contact", None)
+        and isinstance(patient.alternative_emergency_contact, dict)
+    ):
+        a_name = patient.alternative_emergency_contact.get("name", "").strip()
+        a_phone = patient.alternative_emergency_contact.get("phone", "").strip()
+        a_rel = patient.alternative_emergency_contact.get("relationship", "Alternative Contact").strip()
+        if a_name and a_phone:
+            contacts_out.append(
+                ProfileStatusContactOut(
+                    type="alternative",
+                    name=a_name,
+                    relationship=a_rel,
+                    phone=a_phone,
+                )
+            )
+
+    return PatientProfileStatusOut(
+        patient_name=patient.name,
+        caregivers=caregivers_out,
+        emergency_contacts=contacts_out,
+        last_updated=datetime.utcnow().isoformat(),
+    )
+
+
+@router.get("/profile-status", response_model=PatientProfileStatusOut)
+async def get_patient_profile_status(
+    pairing_code: Optional[str] = Query(None),
+    x_pairing_code: Optional[str] = Header(None, alias="X-Pairing-Code"),
+    token_patient: Optional[User] = Depends(resolve_optional_patient),
+):
+    """Fetch read-only profile status (patient name, assigned caregivers, emergency contacts) for patient device."""
+    return await _handle_fetch_profile_status(token_patient, pairing_code, x_pairing_code)
+
+
+@patient_alias_router.get("/profile-status", response_model=PatientProfileStatusOut)
+async def get_patient_alias_profile_status(
+    pairing_code: Optional[str] = Query(None),
+    x_pairing_code: Optional[str] = Header(None, alias="X-Pairing-Code"),
+    token_patient: Optional[User] = Depends(resolve_optional_patient),
+):
+    """Alias route for /api/patient/profile-status."""
+    return await _handle_fetch_profile_status(token_patient, pairing_code, x_pairing_code)
+

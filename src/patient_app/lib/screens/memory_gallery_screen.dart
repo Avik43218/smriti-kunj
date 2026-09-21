@@ -31,10 +31,12 @@ class _MemoryGalleryScreenState extends State<MemoryGalleryScreen> {
     });
 
     try {
-      final patientId = SessionService.instance.patientId ??
-          await ActivityDatabaseService.instance.getActivePatientId();
+      final activeId = SessionService.instance.patientId;
+      final patientId = activeId.isNotEmpty
+          ? activeId
+          : (await ActivityDatabaseService.instance.getActivePatientId() ?? '');
 
-      if (patientId == null || patientId.isEmpty) {
+      if (patientId.isEmpty) {
         final cached = await ActivityDatabaseService.instance.getPatientMemories('');
         if (mounted) {
           setState(() {
@@ -55,7 +57,7 @@ class _MemoryGalleryScreenState extends State<MemoryGalleryScreen> {
     } catch (e) {
       if (mounted) {
         final cached = await ActivityDatabaseService.instance.getPatientMemories(
-          SessionService.instance.patientId ?? '',
+          SessionService.instance.patientId,
         );
         setState(() {
           _memories = cached;
