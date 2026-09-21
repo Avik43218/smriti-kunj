@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import '../models/memory_item.dart';
 import '../models/patient_activity.dart';
 import '../models/patient_diagnosis.dart';
 import '../models/patient_session.dart';
@@ -485,6 +486,103 @@ class ApiService {
 
     throw lastError ??
         Exception('Unable to reach backend server to fetch patient diagnosis.');
+  }
+
+  /// Fetches patient memories (photos & audio clips) from the backend MongoDB database
+  /// using the patient ID as the identifier.
+  /// Calls GET /api/patients/<patientId>/memories
+  /// Caches the results in local SQLite for offline access.
+  Future<List<MemoryItem>> fetchPatientMemories(
+    String patientId, {
+    String? token,
+  }) async {
+    final cleanId = patientId.trim();
+    if (cleanId.isEmpty) {
+      throw Exception('Patient ID is required to fetch memories.');
+    }
+
+    Exception? lastError;
+    final urls = candidateBaseUrls;
+
+    final headers = {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+      if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
+      'X-Patient-Id': cleanId,
+    };
+
+    for (final base in urls) {
+      // 1. Try unified memories endpoint
+      final endpoint = Uri.parse('$base/api/patients/$cleanId/memories');
+      debugPrint('[ApiService] Fetching memories for patient $cleanId from $endpoint');
+
+      try {
+        final response = await http
+            .get(endpoint, headers: headers)
+            .timeout(const Duration(seconds: 5));
+
+        debugPrint('[ApiService] Memories response from $base: ${response.statusCode}');
+
+        if (response.statusCode == 200) {
+          _customBaseUrl = base;
+          final dynamic resData = jsonDecode(response.body);
+          if (resData is List) {
+            final memories = resData
+                .asMap()
+                .entries
+                .map((e) => MemoryItem.fromJson(
+                      e.value as Map<String, dynamic>,
+                      defaultPatientId: cleanId,
+                      index: e.key,
+                    ))
+                .toList();
+
+            // Cache in local SQLite database for offline availability
+            await ActivityDatabaseService.instance.savePatientMemories(cleanId, memories);
+            return memories;
+          }
+        }
+      } catch (e) {
+        debugPrint('[ApiService] Error fetching memories from $endpoint: $e');
+        lastError = e is Exception ? e : Exception(e.toString());
+      }
+
+      // 2. Fallback to /api/patients/$cleanId/family-members if memories endpoint was unreachable/unsupported
+      try {
+        final famEndpoint = Uri.parse('$base/api/patients/$cleanId/family-members');
+        final response = await http
+            .get(famEndpoint, headers: headers)
+            .timeout(const Duration(seconds: 5));
+
+        if (response.statusCode == 200) {
+          _customBaseUrl = base;
+          final dynamic resData = jsonDecode(response.body);
+          if (resData is List) {
+            final memories = resData
+                .asMap()
+                .entries
+                .map((e) => MemoryItem.fromJson(
+                      e.value as Map<String, dynamic>,
+                      defaultPatientId: cleanId,
+                      index: e.key,
+                    ))
+                .toList();
+
+            await ActivityDatabaseService.instance.savePatientMemories(cleanId, memories);
+            return memories;
+          }
+        }
+      } catch (_) {}
+    }
+
+    // If backend is unreachable, return cached memories from SQLite
+    final cached = await ActivityDatabaseService.instance.getPatientMemories(cleanId);
+    if (cached.isNotEmpty) {
+      debugPrint('[ApiService] Backend unreachable. Returned ${cached.length} SQLite cached memories for patient $cleanId.');
+      return cached;
+    }
+
+    return [];
   }
 }
 

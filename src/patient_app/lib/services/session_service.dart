@@ -60,6 +60,13 @@ class SessionService extends ChangeNotifier {
         _guardianRelationship = savedContact['relationship'];
       }
 
+      // Pre-load stored patient ID from local SQLite database in case offline
+      final savedPatientId = await ActivityDatabaseService.instance.getActivePatientId();
+      if (savedPatientId != null && savedPatientId.isNotEmpty) {
+        _patientId = savedPatientId;
+        _patientCode = savedPatientId;
+      }
+
       // Pre-load cached diagnosis from SQLite
       final cachedDiag = await ActivityDatabaseService.instance.getPatientDiagnosis();
       if (cachedDiag != null) {
@@ -68,7 +75,7 @@ class SessionService extends ChangeNotifier {
 
       final savedCode = await ActivityDatabaseService.instance.getActivePairingCode();
       if (savedCode != null && savedCode.trim().isNotEmpty) {
-        debugPrint('[SessionService] Found stored pairing code $savedCode in SQLite. Performing auto-login...');
+        debugPrint('[SessionService] Found stored pairing code $savedCode (Patient ID: $_patientId) in SQLite. Performing auto-login...');
         final success = await pairDevice(savedCode.trim());
         return success;
       }

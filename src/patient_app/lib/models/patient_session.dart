@@ -54,9 +54,15 @@ class PatientSession {
         json['guardianRelationship']?.toString() ??
         rawEmergency?['relationship']?.toString();
 
+    final pCode = json['patient_code']?.toString() ?? json['patientCode']?.toString() ?? 'p101';
+    final rawPId = json['patient_id']?.toString() ?? json['id']?.toString();
+    final resolvedId = (rawPId != null && rawPId.trim().isNotEmpty)
+        ? rawPId.trim()
+        : pCode;
+
     return PatientSession(
-      patientId: json['patient_id']?.toString() ?? json['id']?.toString() ?? '',
-      patientCode: json['patient_code']?.toString() ?? json['patientCode']?.toString() ?? 'p101',
+      patientId: resolvedId,
+      patientCode: pCode,
       patientName: json['patient_name']?.toString() ?? json['name']?.toString() ?? 'Patient',
       caregiverId: json['caregiver_id']?.toString() ?? json['caregiverId']?.toString(),
       token: accessToken,

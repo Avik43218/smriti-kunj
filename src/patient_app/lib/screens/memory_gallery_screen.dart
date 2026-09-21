@@ -1,34 +1,72 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import '../models/memory_item.dart';
+import '../services/activity_database_service.dart';
+import '../services/api_service.dart';
+import '../services/session_service.dart';
 import '../theme/theme.dart';
 
-enum MemoryType { photo, audio }
-
-class MemoryItem {
-  final String id;
-  final String title;
-  final String subtitle;
-  final String relationship;
-  final MemoryType type;
-  final String? audioDuration;
-  final IconData placeholderIcon;
-  final Color accentColor;
-
-  const MemoryItem({
-    required this.id,
-    required this.title,
-    required this.subtitle,
-    required this.relationship,
-    required this.type,
-    this.audioDuration,
-    required this.placeholderIcon,
-    required this.accentColor,
-  });
-}
-
-class MemoryGalleryScreen extends StatelessWidget {
+class MemoryGalleryScreen extends StatefulWidget {
   const MemoryGalleryScreen({super.key});
 
-  static const List<MemoryItem> _mockMemories = [];
+  @override
+  State<MemoryGalleryScreen> createState() => _MemoryGalleryScreenState();
+}
+
+class _MemoryGalleryScreenState extends State<MemoryGalleryScreen> {
+  List<MemoryItem> _memories = [];
+  bool _isLoading = true;
+  String? _errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadMemories();
+  }
+
+  Future<void> _loadMemories() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final patientId = SessionService.instance.patientId ??
+          await ActivityDatabaseService.instance.getActivePatientId();
+
+      if (patientId == null || patientId.isEmpty) {
+        final cached = await ActivityDatabaseService.instance.getPatientMemories('');
+        if (mounted) {
+          setState(() {
+            _memories = cached;
+            _isLoading = false;
+          });
+        }
+        return;
+      }
+
+      final items = await ApiService.instance.fetchPatientMemories(patientId);
+      if (mounted) {
+        setState(() {
+          _memories = items;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        final cached = await ActivityDatabaseService.instance.getPatientMemories(
+          SessionService.instance.patientId ?? '',
+        );
+        setState(() {
+          _memories = cached;
+          _isLoading = false;
+          if (cached.isEmpty) {
+            _errorMessage = 'Could not load memories. Pull down to retry.';
+          }
+        });
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -54,74 +92,91 @@ class MemoryGalleryScreen extends StatelessWidget {
         ),
       ),
       body: SafeArea(
-        child: _mockMemories.isEmpty
-            ? Center(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 32.0),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Container(
-                        width: 84,
-                        height: 84,
-                        decoration: BoxDecoration(
-                          color: AppColors.terracotta.withValues(alpha: 0.1),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(
-                          Icons.photo_library_outlined,
-                          size: 42,
-                          color: AppColors.terracotta,
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-                      Text(
-                        'No memories added yet',
-                        textAlign: TextAlign.center,
-                        style: textTheme.headlineSmall?.copyWith(
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.ink,
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      Text(
-                        'Your caregiver can add family photos and familiar voices from their dashboard.',
-                        textAlign: TextAlign.center,
-                        style: textTheme.bodyLarge?.copyWith(
-                          color: AppColors.inkSoft,
-                          height: 1.4,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              )
-            : GridView.builder(
-                padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  crossAxisSpacing: 16,
-                  mainAxisSpacing: 16,
-                  childAspectRatio: 0.78,
-                ),
-                itemCount: _mockMemories.length,
-                itemBuilder: (context, index) {
-                  final item = _mockMemories[index];
-                  return _MemoryThumbnailCard(
-                    item: item,
-                    onTap: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => MemoryDetailScreen(
-                            memories: _mockMemories,
-                            initialIndex: index,
+        child: RefreshIndicator(
+          color: AppColors.terracotta,
+          onRefresh: _loadMemories,
+          child: _isLoading
+              ? const Center(
+                  child: CircularProgressIndicator(color: AppColors.terracotta),
+                )
+              : _memories.isEmpty
+                  ? LayoutBuilder(
+                      builder: (context, constraints) => SingleChildScrollView(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                          child: Center(
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 32.0),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Container(
+                                    width: 84,
+                                    height: 84,
+                                    decoration: BoxDecoration(
+                                      color: AppColors.terracotta.withValues(alpha: 0.1),
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: const Icon(
+                                      Icons.photo_library_outlined,
+                                      size: 42,
+                                      color: AppColors.terracotta,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 20),
+                                  Text(
+                                    _errorMessage ?? 'No memories added yet',
+                                    textAlign: TextAlign.center,
+                                    style: textTheme.headlineSmall?.copyWith(
+                                      fontWeight: FontWeight.w700,
+                                      color: AppColors.ink,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 10),
+                                  Text(
+                                    'Your caregiver can add family photos and familiar voices from their dashboard.',
+                                    textAlign: TextAlign.center,
+                                    style: textTheme.bodyLarge?.copyWith(
+                                      color: AppColors.inkSoft,
+                                      height: 1.4,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
                           ),
                         ),
-                      );
-                    },
-                  );
-                },
-              ),
+                      ),
+                    )
+                  : GridView.builder(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 2,
+                        crossAxisSpacing: 16,
+                        mainAxisSpacing: 16,
+                        childAspectRatio: 0.78,
+                      ),
+                      itemCount: _memories.length,
+                      itemBuilder: (context, index) {
+                        final item = _memories[index];
+                        return _MemoryThumbnailCard(
+                          item: item,
+                          onTap: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => MemoryDetailScreen(
+                                  memories: _memories,
+                                  initialIndex: index,
+                                ),
+                              ),
+                            );
+                          },
+                        );
+                      },
+                    ),
+        ),
       ),
     );
   }
@@ -135,6 +190,50 @@ class _MemoryThumbnailCard extends StatelessWidget {
     required this.item,
     required this.onTap,
   });
+
+  Widget _buildThumbnailContent() {
+    if (item.type == MemoryType.photo && item.photoUrl != null && item.photoUrl!.isNotEmpty) {
+      final url = item.photoUrl!;
+      if (url.startsWith('data:image')) {
+        try {
+          final base64String = url.split(',').last;
+          final bytes = base64Decode(base64String);
+          return ClipRRect(
+            borderRadius: BorderRadius.circular(16),
+            child: Image.memory(
+              bytes,
+              fit: BoxFit.cover,
+              width: double.infinity,
+              height: double.infinity,
+              errorBuilder: (_, __, ___) => _buildFallbackContent(),
+            ),
+          );
+        } catch (_) {
+          return _buildFallbackContent();
+        }
+      } else if (url.startsWith('http://') || url.startsWith('https://')) {
+        return ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: Image.network(
+            url,
+            fit: BoxFit.cover,
+            width: double.infinity,
+            height: double.infinity,
+            errorBuilder: (_, __, ___) => _buildFallbackContent(),
+          ),
+        );
+      }
+    }
+    return _buildFallbackContent();
+  }
+
+  Widget _buildFallbackContent() {
+    return Icon(
+      item.placeholderIcon,
+      size: 52,
+      color: item.accentColor,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -179,10 +278,8 @@ class _MemoryThumbnailCard extends StatelessWidget {
                     child: Stack(
                       alignment: Alignment.center,
                       children: [
-                        Icon(
-                          item.placeholderIcon,
-                          size: 52,
-                          color: item.accentColor,
+                        Positioned.fill(
+                          child: _buildThumbnailContent(),
                         ),
                         // Badge in corner for type
                         Positioned(
@@ -191,7 +288,7 @@ class _MemoryThumbnailCard extends StatelessWidget {
                           child: Container(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                             decoration: BoxDecoration(
-                              color: AppColors.surface,
+                              color: AppColors.surface.withValues(alpha: 0.9),
                               borderRadius: BorderRadius.circular(10),
                               border: Border.all(color: AppColors.border, width: 1),
                             ),
@@ -207,7 +304,7 @@ class _MemoryThumbnailCard extends StatelessWidget {
                                 Text(
                                   isAudio ? 'Voice' : 'Photo',
                                   style: const TextStyle(
-                                    fontSize: 18,
+                                    fontSize: 14,
                                     fontWeight: FontWeight.w600,
                                     color: AppColors.inkSoft,
                                   ),
@@ -336,6 +433,73 @@ class _MemoryDetailScreenState extends State<MemoryDetailScreen> {
     );
   }
 
+  Widget _buildPhotoDetail(MemoryItem item) {
+    if (item.photoUrl != null && item.photoUrl!.isNotEmpty) {
+      final url = item.photoUrl!;
+      if (url.startsWith('data:image')) {
+        try {
+          final base64String = url.split(',').last;
+          final bytes = base64Decode(base64String);
+          return ClipRRect(
+            borderRadius: BorderRadius.circular(22),
+            child: Image.memory(
+              bytes,
+              fit: BoxFit.contain,
+              width: double.infinity,
+              height: double.infinity,
+              errorBuilder: (_, __, ___) => _buildFallbackPhotoDetail(item),
+            ),
+          );
+        } catch (_) {
+          return _buildFallbackPhotoDetail(item);
+        }
+      } else if (url.startsWith('http://') || url.startsWith('https://')) {
+        return ClipRRect(
+          borderRadius: BorderRadius.circular(22),
+          child: Image.network(
+            url,
+            fit: BoxFit.contain,
+            width: double.infinity,
+            height: double.infinity,
+            errorBuilder: (_, __, ___) => _buildFallbackPhotoDetail(item),
+          ),
+        );
+      }
+    }
+    return _buildFallbackPhotoDetail(item);
+  }
+
+  Widget _buildFallbackPhotoDetail(MemoryItem item) {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: item.accentColor.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(22),
+      ),
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              item.placeholderIcon,
+              size: 100,
+              color: item.accentColor,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Family Photograph',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: item.accentColor,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildSingleMemoryView(MemoryItem item) {
     final isAudio = item.type == MemoryType.audio;
 
@@ -363,7 +527,7 @@ class _MemoryDetailScreenState extends State<MemoryDetailScreen> {
                 ? Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      // Large Play / Pause button (no scrubber per spec)
+                      // Large Play / Pause button
                       Material(
                         color: Colors.transparent,
                         child: InkWell(
@@ -413,34 +577,7 @@ class _MemoryDetailScreenState extends State<MemoryDetailScreen> {
                       ],
                     ],
                   )
-                : Container(
-                    padding: const EdgeInsets.all(24),
-                    decoration: BoxDecoration(
-                      color: item.accentColor.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(22),
-                    ),
-                    child: Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            item.placeholderIcon,
-                            size: 100,
-                            color: item.accentColor,
-                          ),
-                          const SizedBox(height: 12),
-                          Text(
-                            'Family Photograph',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w600,
-                              color: item.accentColor,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
+                : _buildPhotoDetail(item),
           ),
           const SizedBox(height: 24),
 

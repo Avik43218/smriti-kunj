@@ -3,6 +3,7 @@
 - Health & Wellness Reminders: medication, hydration, meals, custom
 - Cognitive Game Sessions & Analytics
 """
+import re
 import uuid
 from datetime import datetime
 from typing import Any, Dict, List, Optional
@@ -12,7 +13,7 @@ from pydantic import BaseModel
 
 from app.api.routes.caregiver import find_patient_for_caregiver
 from app.core.security import require_caregiver
-from app.models.care_plan import FamilyMember
+from app.models.care_plan import FamilyMember, FamiliarSound
 from app.models.reminder import PatientReminder
 from app.models.session import GameSession
 from app.models.user import DevicePairingToken, RoleEnum, User
@@ -21,7 +22,10 @@ from app.schemas.patient import (
     CustomReminderOut,
     FamilyMemberCreate,
     FamilyMemberOut,
+    FamiliarSoundCreate,
+    FamiliarSoundOut,
     GameSessionOut,
+    MemoryItemOut,
     PatientDailyRemindersOut,
     RemindersOut,
 )
@@ -35,33 +39,100 @@ def _normalize_patient_id(patient_id: str) -> str:
     return patient_id.strip()
 
 
-async def _verify_patient_access(patient_id: str, caregiver: User) -> str:
+async def find_patient_by_identifier(patient_id: str) -> Optional[User]:
+    """Find patient user record by patient_code (e.g. p101), UUID, or case-insensitive match."""
+    clean_id = patient_id.strip()
+    if not clean_id:
+        return None
+
+    # 1. Match patient_code
+    try:
+        p = await User.find_one(User.patient_code == clean_id, User.role == RoleEnum.patient)
+        if p:
+            return p
+    except (TypeError, Exception):
+        pass
+
+    # 2. Match UUID id
+    try:
+        val_uuid = uuid.UUID(clean_id)
+        p = await User.find_one(User.id == val_uuid, User.role == RoleEnum.patient)
+        if p:
+            return p
+    except (ValueError, TypeError, Exception):
+        pass
+
+    # 3. Case-insensitive match on patient_code
+    try:
+        p = await User.find_one({
+            "role": RoleEnum.patient,
+            "patient_code": {"$regex": f"^{re.escape(clean_id)}$", "$options": "i"},
+        })
+        if p:
+            return p
+    except (TypeError, Exception):
+        pass
+
+    return None
+
+
+async def _get_candidate_patient_ids(patient_id: str) -> List[str]:
+    """Resolve all possible patient IDs (patient_code, UUID string, raw input) for querying."""
+    candidates = {patient_id.strip()}
+    patient = await find_patient_by_identifier(patient_id)
+    if patient:
+        if patient.patient_code:
+            candidates.add(patient.patient_code)
+        if patient.id:
+            candidates.add(str(patient.id))
+    return [c for c in candidates if c]
+
+
+async def _verify_patient_access(patient_id: str, caregiver: Optional[User] = None) -> str:
     """Verify caregiver has access to this patient and return normalized patient ID."""
     norm_id = _normalize_patient_id(patient_id)
-    is_admin = caregiver.role == RoleEnum.admin
-    patient = await find_patient_for_caregiver(norm_id, caregiver.id, is_admin=is_admin)
-    if not patient:
-        patient = await find_patient_for_caregiver(patient_id, caregiver.id, is_admin=is_admin)
-    if not patient:
+    if caregiver is not None:
+        is_admin = caregiver.role == RoleEnum.admin
+        patient = await find_patient_for_caregiver(norm_id, caregiver.id, is_admin=is_admin)
+        if not patient:
+            patient = await find_patient_for_caregiver(patient_id, caregiver.id, is_admin=is_admin)
+        if patient:
+            return patient.patient_code or str(patient.id)
+
+    # Fallback to direct identifier lookup
+    direct_patient = await find_patient_by_identifier(patient_id)
+    if direct_patient:
+        return direct_patient.patient_code or str(direct_patient.id)
+
+    if caregiver is not None:
         raise HTTPException(status_code=404, detail="Patient record not found")
-    return patient.patient_code or str(patient.id)
+    return norm_id
 
 
-# ---- 1. Memory Gallery (Family Members) -----------------------------------
+# ---- 1. Memory Gallery (Family Members & Familiar Sounds) ----------------
 
 @router.get("/{patientId}/family-members", response_model=List[FamilyMemberOut])
-async def get_family_members(patientId: str, caregiver: User = Depends(require_caregiver)):
+@patient_alias_router.get("/{patientId}/family-members", response_model=List[FamilyMemberOut])
+async def get_family_members(patientId: str, caregiver: Optional[User] = Depends(lambda: None)):
     """Retrieve all family member photo memory cards for a specific patient."""
     norm_id = await _verify_patient_access(patientId, caregiver)
-    members = await FamilyMember.find(FamilyMember.patient_id == norm_id).to_list()
+    candidate_ids = await _get_candidate_patient_ids(norm_id)
+    if norm_id not in candidate_ids:
+        candidate_ids.append(norm_id)
+
+    if len(candidate_ids) == 1:
+        members = await FamilyMember.find(FamilyMember.patient_id == norm_id).to_list()
+    else:
+        members = await FamilyMember.find({"patient_id": {"$in": candidate_ids}}).to_list()
 
     return [
         FamilyMemberOut(
-            id=m.id,
-            patientId=m.patient_id,
-            name=m.name,
-            relation=m.relation,
-            photoUrl=m.photo_url,
+            id=str(m.id),
+            patientId=str(m.patient_id),
+            name=str(m.name),
+            relation=str(m.relation),
+            photoUrl=str(m.photo_url),
+            audioUrl=m.audio_url if isinstance(getattr(m, "audio_url", None), str) else None,
         )
         for m in members
     ]
@@ -85,6 +156,7 @@ async def create_family_member(
         name=payload.name.strip(),
         relation=payload.relation.strip(),
         photo_url=payload.photoUrl.strip(),
+        audio_url=payload.audioUrl.strip() if payload.audioUrl else None,
     )
     await member.insert()
 
@@ -94,7 +166,139 @@ async def create_family_member(
         name=member.name,
         relation=member.relation,
         photoUrl=member.photo_url,
+        audioUrl=member.audio_url,
     )
+
+
+@router.delete("/{patientId}/family-members/{memberId}")
+@patient_alias_router.delete("/{patientId}/family-members/{memberId}")
+async def delete_family_member(patientId: str, memberId: str):
+    """Delete a family member photo memory card."""
+    candidate_ids = await _get_candidate_patient_ids(patientId)
+    member = await FamilyMember.find_one({"id": memberId, "patient_id": {"$in": candidate_ids}})
+    if member:
+        await member.delete()
+        return {"success": True, "id": memberId}
+    member = await FamilyMember.find_one(FamilyMember.id == memberId)
+    if member:
+        await member.delete()
+        return {"success": True, "id": memberId}
+    return {"success": True, "id": memberId}
+
+
+# ---- Familiar Sounds & Voices --------------------------------------------
+
+@router.get("/{patientId}/familiar-sounds", response_model=List[FamiliarSoundOut])
+@patient_alias_router.get("/{patientId}/familiar-sounds", response_model=List[FamiliarSoundOut])
+async def get_familiar_sounds(patientId: str):
+    """Retrieve all familiar sounds & voices for a specific patient."""
+    candidate_ids = await _get_candidate_patient_ids(patientId)
+    sounds = await FamiliarSound.find({"patient_id": {"$in": candidate_ids}}).to_list()
+
+    return [
+        FamiliarSoundOut(
+            id=s.id,
+            patientId=s.patient_id,
+            caption=s.caption,
+            audioUrl=s.audio_url,
+            fileName=s.file_name,
+            createdAt=s.created_at.isoformat() if hasattr(s, "created_at") and s.created_at else None,
+        )
+        for s in sounds
+    ]
+
+
+@router.post("/{patientId}/familiar-sounds", response_model=FamiliarSoundOut, status_code=201)
+@patient_alias_router.post("/{patientId}/familiar-sounds", response_model=FamiliarSoundOut, status_code=201)
+async def create_familiar_sound(patientId: str, payload: FamiliarSoundCreate):
+    """Save a new familiar sound / voice clip for a patient."""
+    patient = await find_patient_by_identifier(patientId)
+    norm_id = patient.patient_code if (patient and patient.patient_code) else patientId.strip()
+
+    if not payload.caption.strip() or not payload.audioUrl.strip():
+        raise HTTPException(status_code=400, detail="caption and audioUrl are required")
+
+    sound = FamiliarSound(
+        id=f"sound_{uuid.uuid4().hex[:8]}",
+        patient_id=norm_id,
+        caption=payload.caption.strip(),
+        audio_url=payload.audioUrl.strip(),
+        file_name=payload.fileName,
+    )
+    await sound.insert()
+
+    return FamiliarSoundOut(
+        id=sound.id,
+        patientId=sound.patient_id,
+        caption=sound.caption,
+        audioUrl=sound.audio_url,
+        fileName=sound.file_name,
+        createdAt=sound.created_at.isoformat(),
+    )
+
+
+@router.delete("/{patientId}/familiar-sounds/{soundId}")
+@patient_alias_router.delete("/{patientId}/familiar-sounds/{soundId}")
+async def delete_familiar_sound(patientId: str, soundId: str):
+    """Delete a familiar sound clip."""
+    candidate_ids = await _get_candidate_patient_ids(patientId)
+    sound = await FamiliarSound.find_one({"id": soundId, "patient_id": {"$in": candidate_ids}})
+    if sound:
+        await sound.delete()
+        return {"success": True, "id": soundId}
+    sound = await FamiliarSound.find_one(FamiliarSound.id == soundId)
+    if sound:
+        await sound.delete()
+        return {"success": True, "id": soundId}
+    return {"success": True, "id": soundId}
+
+
+# ---- Unified Patient Memories Endpoint ------------------------------------
+
+@router.get("/{patientId}/memories", response_model=List[MemoryItemOut])
+@patient_alias_router.get("/{patientId}/memories", response_model=List[MemoryItemOut])
+async def get_patient_memories(patientId: str):
+    """Fetch all memories (photos & audio clips) for a patient identified by ID or patient_code."""
+    candidate_ids = await _get_candidate_patient_ids(patientId)
+
+    members = await FamilyMember.find({"patient_id": {"$in": candidate_ids}}).to_list()
+    sounds = await FamiliarSound.find({"patient_id": {"$in": candidate_ids}}).to_list()
+
+    memories: List[MemoryItemOut] = []
+
+    for m in members:
+        memories.append(
+            MemoryItemOut(
+                id=str(m.id),
+                patientId=str(m.patient_id),
+                title=str(m.name),
+                subtitle=f"{m.relation} • Family Photograph",
+                relationship=str(m.relation),
+                type="photo",
+                photoUrl=str(m.photo_url),
+                audioUrl=m.audio_url if isinstance(getattr(m, "audio_url", None), str) else None,
+                audioDuration=None,
+                createdAt=m.created_at.isoformat() if (hasattr(m, "created_at") and hasattr(m.created_at, "isoformat")) else None,
+            )
+        )
+
+    for s in sounds:
+        memories.append(
+            MemoryItemOut(
+                id=str(s.id),
+                patientId=str(s.patient_id),
+                title=str(s.caption),
+                subtitle="Voice Note • Comforting Sound",
+                relationship="Family Voice",
+                type="audio",
+                photoUrl=None,
+                audioUrl=str(s.audio_url),
+                audioDuration=None,
+                createdAt=s.created_at.isoformat() if (hasattr(s, "created_at") and hasattr(s.created_at, "isoformat")) else None,
+            )
+        )
+
+    return memories
 
 
 # ---- 2. Health & Wellness Reminders --------------------------------------

@@ -1,5 +1,5 @@
 import re
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Literal, Optional, Union
 from pydantic import BaseModel, Field, model_validator
 
 
@@ -137,12 +137,13 @@ class PatientCreateRequest(BaseModel):
         return self
 
 
-# ---- Memory Gallery (Family Members) Schemas ----------------------------
+# ---- Memory Gallery (Family Members & Familiar Sounds) Schemas ----------
 
 class FamilyMemberCreate(BaseModel):
     name: str = Field(min_length=1, description="Full name of family member")
     relation: str = Field(min_length=1, description="Relationship to patient")
     photoUrl: str = Field(min_length=1, description="Photo data URI or URL")
+    audioUrl: Optional[str] = Field(default=None, description="Optional audio message or voice clip URL")
 
 
 class FamilyMemberOut(BaseModel):
@@ -151,6 +152,35 @@ class FamilyMemberOut(BaseModel):
     name: str
     relation: str
     photoUrl: str
+    audioUrl: Optional[str] = None
+
+
+class FamiliarSoundCreate(BaseModel):
+    caption: str = Field(min_length=1, description="Title or description of voice clip or familiar sound")
+    audioUrl: str = Field(min_length=1, description="Audio data URI or URL")
+    fileName: Optional[str] = Field(default=None, description="Original uploaded audio file name")
+
+
+class FamiliarSoundOut(BaseModel):
+    id: str
+    patientId: str
+    caption: str
+    audioUrl: str
+    fileName: Optional[str] = None
+    createdAt: Optional[str] = None
+
+
+class MemoryItemOut(BaseModel):
+    id: str
+    patientId: str
+    title: str
+    subtitle: Optional[str] = None
+    relationship: str
+    type: Literal["photo", "audio"]
+    photoUrl: Optional[str] = None
+    audioUrl: Optional[str] = None
+    audioDuration: Optional[str] = None
+    createdAt: Optional[str] = None
 
 
 # ---- Health & Wellness Reminders Schemas ---------------------------------

@@ -27,7 +27,15 @@ import {
   Volume2,
   Music,
 } from 'lucide-react';
-import { fetchFamilyMembers, addFamilyMember, saveCarePlan } from '../services/carePlanService';
+import {
+  fetchFamilyMembers,
+  addFamilyMember,
+  deleteFamilyMember,
+  fetchFamiliarSounds,
+  addFamiliarSound,
+  deleteFamiliarSound,
+  saveCarePlan,
+} from '../services/carePlanService';
 import { fetchReminders, updateCategoryReminders, addCustomReminder, getPatientComplianceDetails } from '../services/reminderService';
 import { TimePicker } from '../components/TimePicker';
 import { StyledSelect } from '../components/StyledSelect';
@@ -229,12 +237,19 @@ export const CarePlan = () => {
       setReminderError('');
 
       try {
-        const [membersData, remindersData, complianceData] = await Promise.all([
+        const [membersData, soundsData, remindersData, complianceData] = await Promise.all([
           fetchFamilyMembers(targetId, {
             onUpdate: (freshMembers) => {
               if (isMounted && freshMembers) {
                 setFamilyMembers(freshMembers || []);
                 setIsLoadingMemories(false);
+              }
+            },
+          }),
+          fetchFamiliarSounds(targetId, {
+            onUpdate: (freshSounds) => {
+              if (isMounted && freshSounds) {
+                setFamiliarSounds(freshSounds || []);
               }
             },
           }),
@@ -264,6 +279,7 @@ export const CarePlan = () => {
 
         if (isMounted) {
           setFamilyMembers(membersData || []);
+          setFamiliarSounds(soundsData || []);
           setReminders({
             medication: [],
             meals: [],
@@ -405,8 +421,13 @@ export const CarePlan = () => {
   };
 
   // Delete Family Member Memory
-  const handleDeleteMemory = (memberId) => {
+  const handleDeleteMemory = async (memberId) => {
     setFamilyMembers((prev) => prev.filter((m) => m.id !== memberId));
+    try {
+      await deleteFamilyMember(patientId, memberId);
+    } catch (err) {
+      console.warn('Failed to sync deleted memory:', err);
+    }
   };
 
   // Delete Custom Reminder
@@ -491,7 +512,7 @@ export const CarePlan = () => {
   };
 
   // Submit Familiar Sound
-  const handleAddSoundSubmit = (e) => {
+  const handleAddSoundSubmit = async (e) => {
     e.preventDefault();
     setSoundFormError('');
 
@@ -506,29 +527,34 @@ export const CarePlan = () => {
 
     setIsSubmittingSound(true);
     try {
-      const newSound = {
-        id: `sound_${Date.now()}`,
+      const savedSound = await addFamiliarSound({
+        patientId,
         caption: soundCaption.trim(),
         audioUrl: soundAudioUrl,
         fileName: soundFileName,
-      };
+      });
 
-      setFamiliarSounds((prev) => [...prev, newSound]);
+      setFamiliarSounds((prev) => [...prev, savedSound]);
       setIsSoundModalOpen(false);
       setSoundCaption('');
       setSoundAudioUrl('');
       setSoundFileName('');
       setSoundFormError('');
     } catch (err) {
-      setSoundFormError('Failed to save sound clip.');
+      setSoundFormError(err.message || 'Failed to save sound clip.');
     } finally {
       setIsSubmittingSound(false);
     }
   };
 
   // Delete Familiar Sound
-  const handleDeleteSound = (soundId) => {
+  const handleDeleteSound = async (soundId) => {
     setFamiliarSounds((prev) => prev.filter((s) => s.id !== soundId));
+    try {
+      await deleteFamiliarSound(patientId, soundId);
+    } catch (err) {
+      console.warn('Failed to sync deleted sound:', err);
+    }
   };
 
   // Open Edit Modal for a Category (Medication, Hydration, Meals)

@@ -18,7 +18,7 @@ from fastapi import HTTPException
 from beanie import init_beanie
 
 from app.api.routes import auth, caregiver, patients
-from app.models.care_plan import FamilyMember
+from app.models.care_plan import FamilyMember, FamiliarSound
 from app.models.reminder import PatientReminder
 from app.models.session import GameSession
 from app.models.user import DevicePairingToken, RoleEnum, User
@@ -26,6 +26,7 @@ from app.schemas.auth import PatientPairCompleteRequest
 from app.schemas.patient import (
     CustomReminderCreate,
     FamilyMemberCreate,
+    FamiliarSoundCreate,
     PatientCreateRequest,
     PatientDetailOut,
     PatientSummaryOut,
@@ -46,7 +47,7 @@ class TestCaregiverAndPatientEndpoints(unittest.IsolatedAsyncioTestCase):
         db.__getitem__.return_value = mock_coll
         await init_beanie(
             database=db,
-            document_models=[User, FamilyMember, PatientReminder, GameSession, DevicePairingToken],
+            document_models=[User, FamilyMember, FamiliarSound, PatientReminder, GameSession, DevicePairingToken],
         )
 
         self.caregiver_id = uuid.uuid4()
@@ -231,6 +232,83 @@ class TestCaregiverAndPatientEndpoints(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(created.relation, "Granddaughter")
                 self.assertEqual(created.patientId, "p101")
                 self.assertTrue(created.id.startswith("fam_"))
+
+    async def test_get_patient_memories_unified(self):
+        with patch("app.api.routes.patients._get_candidate_patient_ids", new_callable=AsyncMock) as mock_cands, \
+             patch("app.api.routes.patients.FamilyMember.find") as mock_fam_find, \
+             patch("app.api.routes.patients.FamiliarSound.find") as mock_sound_find:
+            mock_cands.return_value = ["p101"]
+
+            mock_fam = MagicMock()
+            mock_fam.id = "fam_101"
+            mock_fam.patient_id = "p101"
+            mock_fam.name = "Aarav Sharma"
+            mock_fam.relation = "Son"
+            mock_fam.photo_url = "data:image/png;base64,mock"
+            mock_fam.audio_url = None
+            mock_fam.created_at = None
+
+            mock_sound = MagicMock()
+            mock_sound.id = "sound_202"
+            mock_sound.patient_id = "p101"
+            mock_sound.caption = "Good Morning Dad"
+            mock_sound.audio_url = "data:audio/mp3;base64,mock"
+            mock_sound.file_name = "greeting.mp3"
+            mock_sound.created_at = None
+
+            q_fam = MagicMock()
+            q_fam.to_list = AsyncMock(return_value=[mock_fam])
+            mock_fam_find.return_value = q_fam
+
+            q_sound = MagicMock()
+            q_sound.to_list = AsyncMock(return_value=[mock_sound])
+            mock_sound_find.return_value = q_sound
+
+            memories = await patients.get_patient_memories("p101")
+            self.assertEqual(len(memories), 2)
+            self.assertEqual(memories[0].type, "photo")
+            self.assertEqual(memories[0].title, "Aarav Sharma")
+            self.assertEqual(memories[0].photoUrl, "data:image/png;base64,mock")
+            self.assertEqual(memories[1].type, "audio")
+            self.assertEqual(memories[1].title, "Good Morning Dad")
+            self.assertEqual(memories[1].audioUrl, "data:audio/mp3;base64,mock")
+
+    async def test_create_and_get_familiar_sounds(self):
+        with patch("app.api.routes.patients.find_patient_by_identifier", new_callable=AsyncMock) as mock_find_p, \
+             patch("app.api.routes.patients.FamiliarSound.insert", new_callable=AsyncMock):
+            mock_p = MagicMock()
+            mock_p.patient_code = "p101"
+            mock_find_p.return_value = mock_p
+
+            payload = FamiliarSoundCreate(
+                caption="Temple Bell Morning",
+                audioUrl="data:audio/mp3;base64,bell",
+                fileName="bell.mp3",
+            )
+            created = await patients.create_familiar_sound("p101", payload)
+            self.assertEqual(created.caption, "Temple Bell Morning")
+            self.assertEqual(created.patientId, "p101")
+            self.assertTrue(created.id.startswith("sound_"))
+
+        with patch("app.api.routes.patients._get_candidate_patient_ids", new_callable=AsyncMock) as mock_cands, \
+             patch("app.api.routes.patients.FamiliarSound.find") as mock_sound_find:
+            mock_cands.return_value = ["p101"]
+
+            mock_s = MagicMock()
+            mock_s.id = "sound_1"
+            mock_s.patient_id = "p101"
+            mock_s.caption = "Temple Bell"
+            mock_s.audio_url = "data:audio/mp3;base64,bell"
+            mock_s.file_name = "bell.mp3"
+            mock_s.created_at = None
+
+            q = MagicMock()
+            q.to_list = AsyncMock(return_value=[mock_s])
+            mock_sound_find.return_value = q
+
+            sounds = await patients.get_familiar_sounds("p101")
+            self.assertEqual(len(sounds), 1)
+            self.assertEqual(sounds[0].caption, "Temple Bell")
 
     # ---- Health & Wellness Reminders Endpoints -----------------------------
 
