@@ -3,10 +3,12 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { fetchPatients } from '../services/patientService';
-import emptyStateBg from '../assets/regional/image4.avif';
+import { fetchPatientRiskOverview } from '../services/riskService';
+
 import { getGameSessions, DOMAINS } from '../services/gameSessionService';
 import { PatientCard } from '../components/PatientCard';
 import { PatientRiskOverviewTable } from '../components/PatientRiskOverviewTable';
+import { CardLineArt } from '../components/CardLineArt';
 import {
   ResponsiveContainer,
   BarChart,
@@ -69,6 +71,8 @@ export const Dashboard = () => {
   const [selectedParam, setSelectedParam] = useState('memory'); // 'memory' | 'attention'
   const [patientScores, setPatientScores] = useState({});
   const [loadingScores, setLoadingScores] = useState(false);
+  // ML risk grade map: { [patient_id]: 0 | 1 | 2 }
+  const [riskGradeMap, setRiskGradeMap] = useState({});
 
   const loadPatients = async () => {
     try {
@@ -92,6 +96,37 @@ export const Dashboard = () => {
 
   useEffect(() => {
     loadPatients();
+  }, []);
+
+  // Fetch ML risk grades and build patient_id → risk_grade map
+  useEffect(() => {
+    let isMounted = true;
+    const loadRiskGrades = async () => {
+      try {
+        const result = await fetchPatientRiskOverview({
+          onUpdate: (freshResult) => {
+            if (isMounted && freshResult?.patients) {
+              const map = {};
+              freshResult.patients.forEach((p) => {
+                if (p.patient_id != null) map[String(p.patient_id)] = p.risk_grade ?? null;
+              });
+              setRiskGradeMap(map);
+            }
+          },
+        });
+        if (isMounted && result?.patients) {
+          const map = {};
+          result.patients.forEach((p) => {
+            if (p.patient_id != null) map[String(p.patient_id)] = p.risk_grade ?? null;
+          });
+          setRiskGradeMap(map);
+        }
+      } catch (err) {
+        console.warn('[Dashboard] Risk grade fetch failed:', err.message);
+      }
+    };
+    loadRiskGrades();
+    return () => { isMounted = false; };
   }, []);
 
   // Fetch session data for all patients to compute real average domain scores
@@ -284,9 +319,14 @@ export const Dashboard = () => {
       {/* 2. Welcome Card */}
       <section
         aria-label="Welcome Overview"
-        className="bg-surface dark:bg-ink-soft/20 border border-border/80 dark:border-ink-soft/40 rounded-card p-6 sm:p-8 shadow-sm transition-colors"
+        className="relative overflow-hidden bg-surface dark:bg-ink-soft/20 border border-border/80 dark:border-ink-soft/40 rounded-card p-6 sm:p-8 shadow-sm transition-colors"
       >
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <CardLineArt
+          variant="mountains"
+          position="right"
+          className="opacity-35 sm:opacity-50"
+        />
+        <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-cream dark:bg-ink-soft/40 text-terracotta text-xs font-semibold uppercase tracking-wider mb-3">
               <Sparkles className="w-3.5 h-3.5" />
@@ -521,7 +561,7 @@ export const Dashboard = () => {
           </div>
 
           {/* Filter Pills */}
-          <div className="flex items-center gap-1.5 overflow-x-auto py-0.5 select-none">
+          <div className="flex items-center gap-1.5 overflow-x-auto custom-scrollbar py-0.5 select-none">
             <button
               type="button"
               onClick={() => setStatusFilter('all')}
@@ -643,21 +683,24 @@ export const Dashboard = () => {
           </div>
         )}
 
-        {/* STATE 3: Empty State (No Patients in System) — regional image4 */}
+        {/* STATE 3: Empty State (No Patients in System) */}
         {!loading && !error && patients.length === 0 && (
-          <div
-            className="relative overflow-hidden border border-border/80 dark:border-ink-soft/40 rounded-card p-8 sm:p-12 text-center space-y-3"
-            style={{ backgroundImage: `url(${emptyStateBg})`, backgroundSize: 'cover', backgroundPosition: 'center' }}
-          >
-            <div className="absolute inset-0 bg-ink/60" />
+          <div className="relative overflow-hidden bg-surface dark:bg-ink-soft/20 border border-border/80 dark:border-ink-soft/40 rounded-card p-8 sm:p-12 text-center space-y-3">
+            <CardLineArt
+              variant="workers"
+              position="right"
+              className="max-w-[32%] sm:max-w-[28%]"
+              opacityLight="opacity-25"
+              opacityDark="opacity-20"
+            />
             <div className="relative z-10 flex flex-col items-center space-y-3">
-              <div className="w-12 h-12 rounded-full bg-ink/40 border border-ink-soft/30 flex items-center justify-center text-cream/80 mx-auto">
+              <div className="w-12 h-12 rounded-full bg-terracotta/10 border border-terracotta/20 flex items-center justify-center text-terracotta mx-auto">
                 <UserPlus className="w-6 h-6" />
               </div>
-              <h3 className="text-base font-bold text-cream">
+              <h3 className="text-base font-bold text-ink dark:text-cream">
                 No Patients Assigned
               </h3>
-              <p className="text-xs sm:text-sm text-cream/70 max-w-sm mx-auto leading-relaxed">
+              <p className="text-xs sm:text-sm text-ink-soft dark:text-cream/70 max-w-sm mx-auto leading-relaxed">
                 Pair a patient device via device pairing to begin monitoring care metrics and cognitive routines.
               </p>
             </div>
@@ -687,7 +730,11 @@ export const Dashboard = () => {
         {!loading && !error && filteredPatients.length > 0 && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
             {filteredPatients.map((patient) => (
-              <PatientCard key={patient.id} patient={patient} />
+              <PatientCard
+                key={patient.id}
+                patient={patient}
+                riskGrade={riskGradeMap[String(patient.id)] ?? null}
+              />
             ))}
           </div>
         )}

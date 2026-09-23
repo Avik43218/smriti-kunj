@@ -105,7 +105,7 @@ class TestAuthRolesAndOtp(unittest.IsolatedAsyncioTestCase):
             self.assertIn("admin@smritikunj.org", output)
             mock_otp_insert.assert_called_once()
 
-    async def test_login_role_mismatch_raises_403(self):
+    async def test_login_role_mismatch_raises_401(self):
         with patch.object(User, "find_one", new_callable=AsyncMock) as mock_user_find:
             mock_user_find.return_value = self.caregiver_user
 
@@ -116,8 +116,8 @@ class TestAuthRolesAndOtp(unittest.IsolatedAsyncioTestCase):
             )
             with self.assertRaises(HTTPException) as ctx:
                 await auth.login(req)
-            self.assertEqual(ctx.exception.status_code, 403)
-            self.assertIn("registered as a caregiver", ctx.exception.detail)
+            self.assertEqual(ctx.exception.status_code, 401)
+            self.assertIn("Incorrect email or password", ctx.exception.detail)
 
     async def test_login_wrong_password_raises_401(self):
         with patch.object(User, "find_one", new_callable=AsyncMock) as mock_user_find:

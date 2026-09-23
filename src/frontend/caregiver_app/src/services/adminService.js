@@ -86,6 +86,46 @@ export const reassignPatient = async (patientId, newCaregiverId) => {
   }
 };
 
+export const assignPatientCaregivers = async (patientId, caregiverIds) => {
+  try {
+    const data = await apiClient(`/api/admin/patients/${patientId}/caregivers`, {
+      method: 'PUT',
+      body: JSON.stringify({ caregiver_ids: caregiverIds }),
+    });
+    return data;
+  } catch (err) {
+    console.warn(`apiClient PUT /api/admin/patients/${patientId}/caregivers notice:`, err.message);
+    throw err;
+  }
+};
+
+export const resetCaregiverPassword = async (caregiverId, newPassword = null) => {
+  try {
+    const payload = newPassword ? { new_password: newPassword } : {};
+    const data = await apiClient(`/api/admin/caregivers/${caregiverId}/reset-password`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    return data;
+  } catch (err) {
+    console.warn(`apiClient POST /api/admin/caregivers/${caregiverId}/reset-password notice:`, err.message);
+    throw err;
+  }
+};
+
+export const getAdminAuditLogs = async (limit = 100) => {
+  try {
+    const data = await apiClient(`/api/admin/audit-logs?limit=${limit}`);
+    if (Array.isArray(data)) {
+      return data;
+    }
+    return [];
+  } catch (err) {
+    console.warn('apiClient /api/admin/audit-logs notice:', err.message);
+    return [];
+  }
+};
+
 export default {
   getCaregivers,
   createCaregiver,
@@ -93,4 +133,7 @@ export default {
   deleteCaregiver,
   getAllPatients,
   reassignPatient,
+  assignPatientCaregivers,
+  resetCaregiverPassword,
+  getAdminAuditLogs,
 };

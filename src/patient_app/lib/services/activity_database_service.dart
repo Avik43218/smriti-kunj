@@ -3,8 +3,10 @@ import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 import 'package:sqflite/sqflite.dart';
 import '../models/game_recommendation.dart';
+import '../models/memory_item.dart';
 import '../models/patient_activity.dart';
 import '../models/patient_diagnosis.dart';
+import '../models/patient_profile_status.dart';
 
 /// SQLite persistence service for local patient app activity.
 ///
@@ -22,6 +24,9 @@ class ActivityDatabaseService extends ChangeNotifier {
   static const _table = 'patient_activities';
   static const _pairingTable = 'app_pairing_code';
   static const _diagnosisTable = 'patient_diagnosis';
+  static const _memoriesTable = 'patient_memories';
+  static const _profileTable = 'patient_profile_status';
+
 
   int _cachedUnsyncedCount = 0;
 
@@ -31,7 +36,7 @@ class ActivityDatabaseService extends ChangeNotifier {
   Database? _db;
 
   @visibleForTesting
-  void setDatabaseForTesting(Database db) {
+  void setDatabaseForTesting(Database? db) {
     _db = db;
   }
 
@@ -42,7 +47,7 @@ class ActivityDatabaseService extends ChangeNotifier {
 
     _db = await openDatabase(
       fullPath,
-      version: 7,
+      version: 9,
       onCreate: (db, version) async {
         await _createTables(db);
       },
@@ -64,8 +69,21 @@ class ActivityDatabaseService extends ChangeNotifier {
             await db.execute('ALTER TABLE $_pairingTable ADD COLUMN guardian_relationship TEXT;');
           } catch (_) {}
         }
-        if (oldVersion < 7) {
-          await _createTables(db);
+        if (oldVersion < 9) {
+          try {
+            await db.execute('''
+              CREATE TABLE IF NOT EXISTS patient_sos_events (
+                id           INTEGER PRIMARY KEY AUTOINCREMENT,
+                patient_id   TEXT,
+                pairing_code TEXT,
+                target_name  TEXT,
+                target_phone TEXT,
+                status       TEXT,
+                created_at   TEXT NOT NULL,
+                is_synced    INTEGER NOT NULL DEFAULT 0
+              );
+            ''');
+          } catch (_) {}
         }
       },
     );
@@ -147,7 +165,48 @@ class ActivityDatabaseService extends ChangeNotifier {
         payload      TEXT    NOT NULL
       )
     ''');
+
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS $_memoriesTable (
+        id           TEXT PRIMARY KEY,
+        patient_id   TEXT NOT NULL,
+        title        TEXT NOT NULL,
+        subtitle     TEXT,
+        relationship TEXT NOT NULL,
+        type         TEXT NOT NULL,
+        photo_url    TEXT,
+        audio_url    TEXT,
+        duration     TEXT,
+        created_at   TEXT NOT NULL
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS $_profileTable (
+        id              INTEGER PRIMARY KEY AUTOINCREMENT,
+        patient_id      TEXT,
+        pairing_code    TEXT,
+        patient_name    TEXT,
+        caregivers_json TEXT,
+        contacts_json   TEXT,
+        last_updated    TEXT
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS patient_sos_events (
+        id           INTEGER PRIMARY KEY AUTOINCREMENT,
+        patient_id   TEXT,
+        pairing_code TEXT,
+        target_name  TEXT,
+        target_phone TEXT,
+        status       TEXT,
+        created_at   TEXT NOT NULL,
+        is_synced    INTEGER NOT NULL DEFAULT 0
+      )
+    ''');
   }
+
 
 
   // ── Pairing Code Persistence & Auto-Login ───────────────────────────────────
@@ -300,16 +359,211 @@ class ActivityDatabaseService extends ChangeNotifier {
     }
   }
 
+  /// Retrieves the stored active patient ID from SQLite.
+  Future<String?> getActivePatientId() async {
+    try {
+      final db = await database;
+      final rows = await db.query(
+        _pairingTable,
+        columns: ['patient_id'],
+        where: 'is_active = 1',
+        orderBy: 'id DESC',
+        limit: 1,
+      );
+      if (rows.isNotEmpty) {
+        final pid = rows.first['patient_id'] as String?;
+        if (pid != null && pid.trim().isNotEmpty) {
+          return pid.trim();
+        }
+      }
+    } catch (e) {
+      debugPrint('[ActivityDatabaseService] Error fetching active patient id: $e');
+    }
+    return null;
+  }
+
+  /// Updates or saves the patient ID in SQLite.
+  Future<void> savePatientId(String patientId) async {
+    final clean = patientId.trim();
+    if (clean.isEmpty) return;
+    try {
+      final db = await database;
+      await db.update(
+        _pairingTable,
+        {'patient_id': clean},
+        where: 'is_active = 1',
+      );
+      debugPrint('[ActivityDatabaseService] Updated patient ID in SQLite: $clean');
+      notifyListeners();
+    } catch (e) {
+      debugPrint('[ActivityDatabaseService] Error saving patient ID: $e');
+    }
+  }
+
   /// Clears stored pairing code from SQLite database on unpair/logout.
   Future<void> clearSavedPairingCode() async {
     try {
       final db = await database;
       await db.delete(_pairingTable);
       await db.delete(_diagnosisTable);
-      debugPrint('[ActivityDatabaseService] Cleared pairing code and diagnosis from SQLite.');
+      await db.delete(_memoriesTable);
+      try {
+        await db.delete(_profileTable);
+      } catch (_) {}
+      debugPrint('[ActivityDatabaseService] Cleared pairing code, diagnosis, memories, and profile status from SQLite.');
       notifyListeners();
     } catch (e) {
       debugPrint('[ActivityDatabaseService] Error clearing pairing code: $e');
+    }
+  }
+
+  // ── Patient Profile Status Persistence ──────────────────────────────────────
+
+  /// Saves or updates patient profile status in local SQLite table.
+  Future<void> saveProfileStatus(
+    PatientProfileStatus status, {
+    String? patientId,
+    String? pairingCode,
+  }) async {
+    try {
+      final db = await database;
+      final pId = patientId ?? await getActivePatientId();
+      final pCode = pairingCode ?? await getActivePairingCode();
+
+      final data = {
+        'patient_id': pId,
+        'pairing_code': pCode,
+        'patient_name': status.patientName,
+        'caregivers_json': jsonEncode(status.caregivers.map((c) => c.toJson()).toList()),
+        'contacts_json': jsonEncode(status.emergencyContacts.map((c) => c.toJson()).toList()),
+        'last_updated': (status.lastUpdated ?? DateTime.now()).toIso8601String(),
+      };
+
+      await db.delete(_profileTable);
+      await db.insert(_profileTable, data);
+      debugPrint('[ActivityDatabaseService] Cached profile status in SQLite for patient: ${status.patientName}');
+      notifyListeners();
+    } catch (e) {
+      debugPrint('[ActivityDatabaseService] Error saving profile status: $e');
+    }
+  }
+
+  /// Records an SOS trigger event in SQLite for offline tracking and sync.
+  Future<void> recordSosEvent({
+    String? targetName,
+    String? targetPhone,
+    String? status,
+  }) async {
+    try {
+      final db = await database;
+      final pId = await getActivePatientId();
+      final pCode = await getActivePairingCode();
+      await db.insert('patient_sos_events', {
+        'patient_id': pId,
+        'pairing_code': pCode,
+        'target_name': targetName,
+        'target_phone': targetPhone,
+        'status': status ?? 'dialer_launched',
+        'created_at': DateTime.now().toIso8601String(),
+        'is_synced': 0,
+      });
+      debugPrint('[ActivityDatabaseService] Recorded local SOS activation event for target: $targetName');
+    } catch (e) {
+      debugPrint('[ActivityDatabaseService] Error recording SOS event: $e');
+    }
+  }
+
+  /// Retrieves cached patient profile status from local SQLite table.
+  Future<PatientProfileStatus?> getProfileStatus({String? patientId, String? pairingCode}) async {
+    try {
+      final db = await database;
+      final rows = await db.query(
+        _profileTable,
+        orderBy: 'id DESC',
+        limit: 1,
+      );
+
+      if (rows.isNotEmpty) {
+        return PatientProfileStatus.fromMap(rows.first);
+      }
+    } catch (e) {
+      debugPrint('[ActivityDatabaseService] Error fetching cached profile status: $e');
+    }
+    return null;
+  }
+
+
+  // ── Patient Memories Caching & Persistence ──────────────────────────────────
+
+  /// Saves or updates patient memories (photos & audio clips) in local SQLite table.
+  Future<void> savePatientMemories(String patientId, List<MemoryItem> memories) async {
+    final cleanId = patientId.trim();
+    if (cleanId.isEmpty) return;
+    try {
+      final db = await database;
+      final batch = db.batch();
+
+      // Clear existing cached memories for this patient before replacing
+      batch.delete(_memoriesTable, where: 'patient_id = ?', whereArgs: [cleanId]);
+
+      for (final mem in memories) {
+        batch.insert(
+          _memoriesTable,
+          mem.toMap(),
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      }
+      await batch.commit(noResult: true);
+      debugPrint('[ActivityDatabaseService] Cached ${memories.length} memories in SQLite for patient: $cleanId');
+      notifyListeners();
+    } catch (e) {
+      debugPrint('[ActivityDatabaseService] Error saving memories: $e');
+    }
+  }
+
+  /// Retrieves cached patient memories from local SQLite table.
+  Future<List<MemoryItem>> getPatientMemories(String patientId) async {
+    final cleanId = patientId.trim();
+    if (cleanId.isEmpty) return [];
+    try {
+      final db = await database;
+      final rows = await db.query(
+        _memoriesTable,
+        where: 'patient_id = ?',
+        whereArgs: [cleanId],
+        orderBy: 'created_at DESC, id DESC',
+      );
+
+      if (rows.isNotEmpty) {
+        return rows.asMap().entries.map((e) => MemoryItem.fromMap(e.value, index: e.key)).toList();
+      }
+
+      // If no memories found with exact patientId, check if any cached memories exist
+      final allRows = await db.query(
+        _memoriesTable,
+        orderBy: 'created_at DESC, id DESC',
+        limit: 50,
+      );
+      return allRows.asMap().entries.map((e) => MemoryItem.fromMap(e.value, index: e.key)).toList();
+    } catch (e) {
+      debugPrint('[ActivityDatabaseService] Error fetching cached memories: $e');
+    }
+    return [];
+  }
+
+  /// Clears cached patient memories.
+  Future<void> clearPatientMemories({String? patientId}) async {
+    try {
+      final db = await database;
+      if (patientId != null && patientId.trim().isNotEmpty) {
+        await db.delete(_memoriesTable, where: 'patient_id = ?', whereArgs: [patientId.trim()]);
+      } else {
+        await db.delete(_memoriesTable);
+      }
+      debugPrint('[ActivityDatabaseService] Cleared cached memories from SQLite.');
+      notifyListeners();
+    } catch (e) {
+      debugPrint('[ActivityDatabaseService] Error clearing cached memories: $e');
     }
   }
 

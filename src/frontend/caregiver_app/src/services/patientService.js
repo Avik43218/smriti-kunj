@@ -189,7 +189,9 @@ export const getPatientById = async (id, options = {}) => {
         return {
           ...cachedPatient,
           ...data,
-          weight: data.weight || cachedPatient?.weight,
+          weight: data.weight || data.body_weight || data.bodyWeight || cachedPatient?.weight || cachedPatient?.body_weight,
+          body_weight: data.body_weight || data.weight || data.bodyWeight || cachedPatient?.body_weight || cachedPatient?.weight,
+          bodyWeight: data.bodyWeight || data.weight || data.body_weight || cachedPatient?.bodyWeight || cachedPatient?.weight,
           diabetic: data.diabetic || cachedPatient?.diabetic,
           nutritionDiet: data.nutritionDiet || cachedPatient?.nutritionDiet,
           alcoholLevel: data.alcoholLevel || cachedPatient?.alcoholLevel,

@@ -17,7 +17,8 @@ void main() async {
   // Local development: 'http://fedora:8000'
   const String backendUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'https://smriti-kunj.onrender.com', // REPLACE: 'https://<YOUR_RENDER_BACKEND_URL>.onrender.com'
+    defaultValue:
+        'https://smriti-kunj.onrender.com', // REPLACE: 'https://<YOUR_RENDER_BACKEND_URL>.onrender.com'
   );
   ApiService.instance.baseUrl = backendUrl;
   DynamicDifficultyService.instance.init();
@@ -35,7 +36,8 @@ class SmritiKunjApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider(create: (_) => SessionService.instance),
         ChangeNotifierProvider(create: (_) => LocaleService.instance),
-        ChangeNotifierProvider(create: (_) => SpeechRecognitionService.instance),
+        ChangeNotifierProvider(
+            create: (_) => SpeechRecognitionService.instance),
       ],
       child: MaterialApp(
         navigatorKey: VoiceNavigationCoordinator.navigatorKey,
@@ -52,7 +54,9 @@ class SmritiKunjApp extends StatelessWidget {
                 ),
               );
             }
-            return session.isPaired ? const HomeScreen() : const PairingScreen();
+            return session.isPaired
+                ? const HomeScreen()
+                : const PairingScreen();
           },
         ),
       ),

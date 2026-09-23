@@ -1,9 +1,17 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.CAMERA"/>
     <uses-permission android:name="android.permission.INTERNET"/>
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
     <uses-permission android:name="android.permission.RECORD_AUDIO"/>
-    <uses-permission android:name="com.android.alarm.permission.SET_ALARM"/>
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"/>
+    <uses-permission android:name="android.permission.VIBRATE"/>
+    <uses-permission android:name="android.permission.WAKE_LOCK"/>
+
+    <uses-feature android:name="android.hardware.camera" android:required="false"/>
+    <uses-feature android:name="android.hardware.camera.autofocus" android:required="false"/>
+
     <application
         android:label="Smriti Kunj"
         android:name="${applicationName}"
@@ -30,12 +38,36 @@
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="smritikunj" android:host="pair"/>
+            </intent-filter>
         </activity>
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+
+        <!-- BroadcastReceiver for scheduled reminder alarms -->
+        <receiver
+            android:name=".MainActivity$AlarmReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.smritikunj.patient_app.ALARM_TRIGGER" />
+            </intent-filter>
+        </receiver>
+
+        <!-- BroadcastReceiver for heads-up notification 'Done' action button -->
+        <receiver
+            android:name=".MainActivity$ReminderActionReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.smritikunj.patient_app.ACTION_REMINDER_DONE" />
+            </intent-filter>
+        </receiver>
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and
@@ -51,10 +83,11 @@
             <action android:name="android.speech.RecognitionService"/>
         </intent>
         <intent>
-            <action android:name="android.intent.action.SET_ALARM"/>
+            <action android:name="android.intent.action.DIAL"/>
+            <data android:scheme="tel"/>
         </intent>
         <intent>
-            <action android:name="android.intent.action.DIAL"/>
+            <action android:name="android.intent.action.VIEW"/>
             <data android:scheme="tel"/>
         </intent>
         <package android:name="com.google.android.googlequicksearchbox"/>

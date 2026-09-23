@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useLocation, Link } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { LanguageSelector } from '../components/LanguageSelector';
@@ -15,8 +15,17 @@ import {
   User,
   Eye,
   EyeOff,
+  Lock,
+  KeyRound,
+  CheckCircle2,
 } from 'lucide-react';
 import { OtpInput } from '../components/OtpInput';
+import { PasswordStrengthIndicator } from '../components/PasswordStrengthIndicator';
+import {
+  changePassword as apiChangePassword,
+  forgotPassword as apiForgotPassword,
+  resetPassword as apiResetPassword,
+} from '../services/authService';
 import loginBg from '../assets/regional/image1a.avif';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -24,11 +33,13 @@ const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 export const Login = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { login, requestOtp, verifyOtp, isAuthenticated, loading, role, isAdmin } = useAuth();
+  const { login, requestOtp, verifyOtp, logout, updateUserData, setSession, caregiver, isAuthenticated, loading, role, isAdmin } = useAuth();
   const { theme, toggleTheme } = useTheme();
 
-  // Multi-step authentication state: 'credentials' | 'otp'
-  const [step, setStep] = useState('credentials');
+  // Multi-step authentication state: 'credentials' | 'otp' | 'force_password_change' | 'forgot_email' | 'forgot_reset'
+  const [step, setStep] = useState(() => {
+    return location.state?.forcePasswordChange ? 'force_password_change' : 'credentials';
+  });
 
   // ROLE TRACKER: 'caregiver' | 'admin'
   const [loginRole, setLoginRole] = useState('caregiver');
@@ -38,20 +49,32 @@ export const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [otp, setOtp] = useState('');
 
+  // Password rotation state (for temporary passwords and forgot password)
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showNewPassword, setShowNewPassword] = useState(false);
+
   const [errors, setErrors] = useState({});
   const [submitError, setSubmitError] = useState('');
   const [resendNotice, setResendNotice] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isResending, setIsResending] = useState(false);
 
-  // Redirect if already authenticated
+  // Handle location-based forcePasswordChange
   useEffect(() => {
-    if (isAuthenticated) {
+    if (location.state?.forcePasswordChange) {
+      setStep('force_password_change');
+    }
+  }, [location.state]);
+
+  // Redirect if already authenticated and not in forced password change
+  useEffect(() => {
+    if (isAuthenticated && step !== 'force_password_change' && !caregiver?.must_change_password) {
       const defaultDest = isAdmin || role === 'admin' ? '/admin/dashboard' : '/dashboard';
       const origin = location.state?.from?.pathname || defaultDest;
       navigate(origin, { replace: true });
     }
-  }, [isAuthenticated, navigate, location, role, isAdmin]);
+  }, [isAuthenticated, step, caregiver, navigate, location, role, isAdmin]);
 
   const validateCredentials = () => {
     const nextErrors = {};
@@ -81,9 +104,14 @@ export const Login = () => {
 
     setIsSubmitting(true);
     try {
-      await login(email.trim(), password, loginRole);
+      const loginRes = await login(email.trim(), password, loginRole);
       setStep('otp');
-      setOtp('');
+      if (loginRes?.debug_otp) {
+        setOtp(loginRes.debug_otp);
+        setResendNotice(`Testing code: ${loginRes.debug_otp}`);
+      } else {
+        setOtp('');
+      }
     } catch (err) {
       setSubmitError(err.message || 'Unable to sign in. Please check your credentials and try again.');
     } finally {
@@ -104,6 +132,20 @@ export const Login = () => {
     setIsSubmitting(true);
     try {
       const response = await verifyOtp(email.trim(), otp);
+      const mustChange = Boolean(
+        response?.must_change_password ||
+        response?.caregiver?.must_change_password ||
+        response?.user?.must_change_password
+      );
+
+      if (mustChange) {
+        setStep('force_password_change');
+        setNewPassword('');
+        setConfirmPassword('');
+        setErrors({});
+        return;
+      }
+
       const userRole = response?.user?.role || response?.caregiver?.role || loginRole;
       if (userRole === 'admin') {
         const fromPath = location.state?.from?.pathname;
@@ -121,13 +163,137 @@ export const Login = () => {
     }
   };
 
+  const handlePasswordChangeSubmit = async (e) => {
+    e.preventDefault();
+    setSubmitError('');
+    const nextErrors = {};
+
+    if (!newPassword || newPassword.length < 8) {
+      nextErrors.newPassword = 'New password must be at least 8 characters long';
+    }
+    if (newPassword !== confirmPassword) {
+      nextErrors.confirmPassword = 'Passwords do not match';
+    }
+
+    if (Object.keys(nextErrors).length > 0) {
+      setErrors(nextErrors);
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const res = await apiChangePassword(password, newPassword);
+      if (updateUserData) {
+        updateUserData({ must_change_password: false });
+      }
+      if (res?.token && setSession) {
+        setSession(res.token, { ...(caregiver || {}), must_change_password: false });
+      }
+      const userRole = role || loginRole;
+      if (userRole === 'admin' || isAdmin) {
+        navigate('/admin/dashboard', { replace: true });
+      } else {
+        navigate('/dashboard', { replace: true });
+      }
+    } catch (err) {
+      setSubmitError(err.message || 'Failed to update password. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleForgotEmailSubmit = async (e) => {
+    e.preventDefault();
+    setSubmitError('');
+    setResendNotice('');
+
+    if (!email.trim()) {
+      setErrors({ email: 'Email is required' });
+      return;
+    }
+    if (!EMAIL_REGEX.test(email.trim())) {
+      setErrors({ email: 'Please enter a valid email address' });
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const res = await apiForgotPassword(email.trim());
+      setStep('forgot_reset');
+      if (res?.debug_otp) {
+        setOtp(res.debug_otp);
+        setResendNotice(`Testing code: ${res.debug_otp}`);
+      } else {
+        setOtp('');
+        setResendNotice('If that email is registered, a 6-digit code has been sent.');
+      }
+    } catch (err) {
+      setSubmitError(err.message || 'Failed to request reset code.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleForgotResetSubmit = async (e) => {
+    e.preventDefault();
+    setSubmitError('');
+    setResendNotice('');
+    const nextErrors = {};
+
+    if (!otp || otp.length !== 6) {
+      nextErrors.otp = 'Please enter all 6 digits of the code';
+    }
+    if (!newPassword || newPassword.length < 8) {
+      nextErrors.newPassword = 'New password must be at least 8 characters long';
+    }
+    if (newPassword !== confirmPassword) {
+      nextErrors.confirmPassword = 'Passwords do not match';
+    }
+
+    if (Object.keys(nextErrors).length > 0) {
+      setErrors(nextErrors);
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      await apiResetPassword(email.trim(), otp, newPassword);
+      setStep('credentials');
+      setPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+      setOtp('');
+      setResendNotice('Password has been successfully reset! Please sign in with your new password.');
+    } catch (err) {
+      setSubmitError(err.message || 'Failed to reset password. Please check your verification code.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleCancelPasswordChange = async () => {
+    await logout();
+    setStep('credentials');
+    setPassword('');
+    setNewPassword('');
+    setConfirmPassword('');
+    setOtp('');
+    setSubmitError('');
+    setErrors({});
+  };
+
   const handleResendOtp = async () => {
     setSubmitError('');
     setResendNotice('');
     setIsResending(true);
     try {
-      await requestOtp(email.trim());
-      setResendNotice('A fresh verification code has been sent to your email.');
+      const res = await requestOtp(email.trim());
+      if (res?.debug_otp) {
+        setOtp(res.debug_otp);
+        setResendNotice(`Testing code: ${res.debug_otp}`);
+      } else {
+        setResendNotice('A fresh verification code has been sent to your email.');
+      }
     } catch (err) {
       setSubmitError(err.message || 'Failed to resend code. Please try again.');
     } finally {
@@ -256,17 +422,33 @@ export const Login = () => {
                   <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-ink dark:text-cream">
                     {step === 'credentials'
                       ? (loginRole === 'admin' ? 'Sign In to Admin Center' : 'Sign In to Portal')
+                      : step === 'force_password_change'
+                      ? 'Permanent Password Setup'
+                      : step === 'forgot_email'
+                      ? 'Forgot Password'
+                      : step === 'forgot_reset'
+                      ? 'Reset Your Password'
                       : 'Two-Factor Verification'}
                   </h2>
                   <div className="w-8 h-8 rounded-card bg-terracotta/10 dark:bg-terracotta/20 flex items-center justify-center">
-                    {step === 'credentials'
-                      ? <LogIn className="w-4 h-4 text-terracotta" />
-                      : <ShieldCheck className="w-4 h-4 text-terracotta" />}
+                    {step === 'credentials' ? (
+                      <LogIn className="w-4 h-4 text-terracotta" />
+                    ) : step === 'force_password_change' || step === 'forgot_reset' ? (
+                      <KeyRound className="w-4 h-4 text-terracotta" />
+                    ) : (
+                      <ShieldCheck className="w-4 h-4 text-terracotta" />
+                    )}
                   </div>
                 </div>
                 <p className="text-xs sm:text-sm text-ink-soft dark:text-cream/70 mt-1">
                   {step === 'credentials'
                     ? `Enter your credentials to access the ${loginRole === 'admin' ? 'administrative console' : 'caregiver console'}`
+                    : step === 'force_password_change'
+                    ? 'You are logging in with a temporary password. Choose a new secure password.'
+                    : step === 'forgot_email'
+                    ? 'Enter your registered email to receive a 6-digit verification code'
+                    : step === 'forgot_reset'
+                    ? 'Enter the 6-digit code sent to your email and set your new password'
                     : 'Enter the 6-digit security code sent to your email'}
                 </p>
               </div>
@@ -350,9 +532,23 @@ export const Login = () => {
 
                   {/* Password */}
                   <div>
-                    <label htmlFor="password" className="block text-xs font-semibold uppercase tracking-wider text-ink-soft dark:text-cream/70 mb-1.5">
-                      Password
-                    </label>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label htmlFor="password" className="block text-xs font-semibold uppercase tracking-wider text-ink-soft dark:text-cream/70">
+                        Password
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setStep('forgot_email');
+                          setSubmitError('');
+                          setResendNotice('');
+                          setErrors({});
+                        }}
+                        className="text-xs text-terracotta hover:underline font-medium focus:outline-none"
+                      >
+                        Forgot password?
+                      </button>
+                    </div>
                     <div className="relative">
                       <input
                         id="password"
@@ -409,25 +605,214 @@ export const Login = () => {
                     </button>
                   </div>
 
-                  {/* Register link */}
+                  {/* Managed accounts notice */}
                   <div className="text-center pt-3 mt-1 border-t border-border/60 dark:border-ink-soft/30">
-                    <p className="text-xs text-ink-soft dark:text-cream/70">
-                      {loginRole === 'admin' ? (
-                        <>
-                          Need an administrative account?{' '}
-                          <Link to="/admin/register" className="text-terracotta hover:text-terracotta-dark font-semibold transition-colors focus:outline-none focus:underline">
-                            Register Admin
-                          </Link>
-                        </>
-                      ) : (
-                        <>
-                          Don't have an account?{' '}
-                          <Link to="/register" className="text-terracotta hover:text-terracotta-dark font-semibold transition-colors focus:outline-none focus:underline">
-                            Register
-                          </Link>
-                        </>
+                    <p className="text-xs text-ink-soft dark:text-cream/70 leading-relaxed">
+                      Caregiver and admin accounts are managed by facility administrators.
+                      {loginRole === 'admin' && (
+                        <span className="block mt-1 font-mono text-[11px] text-terracotta dark:text-gold/90 font-medium">
+                          Demo Admin: admin@smritikunj.org &bull; admin123
+                        </span>
                       )}
                     </p>
+                  </div>
+                </form>
+              )}
+
+              {/* STEP: Forgot Password - Request Email */}
+              {step === 'forgot_email' && (
+                <form onSubmit={handleForgotEmailSubmit} noValidate className="space-y-4">
+                  <div>
+                    <label htmlFor="forgot-email" className="block text-xs font-semibold uppercase tracking-wider text-ink-soft dark:text-cream/70 mb-1.5">
+                      Account Email
+                    </label>
+                    <input
+                      id="forgot-email"
+                      type="email"
+                      value={email}
+                      onChange={(e) => {
+                        setEmail(e.target.value);
+                        if (errors.email) setErrors((prev) => ({ ...prev, email: undefined }));
+                      }}
+                      placeholder="caregiver@smritikunj.org"
+                      className={`w-full px-3.5 py-2.5 bg-cream/70 dark:bg-ink-soft/20 border rounded-lg text-sm text-ink dark:text-cream placeholder:text-ink-soft/60 focus:outline-none focus:ring-1 focus:ring-terracotta transition-colors ${
+                        errors.email ? 'border-status-urgent' : 'border-border/80 dark:border-ink-soft/40 focus:border-terracotta'
+                      }`}
+                      disabled={isSubmitting}
+                    />
+                    {errors.email && (
+                      <p className="text-xs text-status-urgent dark:text-gold font-medium mt-1.5 flex items-center gap-1">
+                        <AlertCircle className="w-3.5 h-3.5" />
+                        {errors.email}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="pt-2 space-y-2">
+                    <button
+                      type="submit"
+                      disabled={isSubmitting || !email.trim()}
+                      className="w-full py-3 px-4 bg-terracotta hover:bg-terracotta-dark text-surface font-medium text-sm rounded-lg transition-colors flex items-center justify-center gap-2 focus:outline-none focus:ring-2 focus:ring-terracotta/40 disabled:opacity-60 disabled:cursor-not-allowed shadow-card"
+                    >
+                      {isSubmitting ? (
+                        <>
+                          <div className="w-4 h-4 border-2 border-surface border-t-transparent rounded-full animate-spin" />
+                          <span>Sending code...</span>
+                        </>
+                      ) : (
+                        <span>Send Verification Code</span>
+                      )}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setStep('credentials');
+                        setSubmitError('');
+                        setResendNotice('');
+                        setErrors({});
+                      }}
+                      className="w-full py-2.5 text-xs text-ink-soft dark:text-cream/70 hover:text-ink dark:hover:text-cream font-medium transition-colors focus:outline-none flex items-center justify-center gap-1"
+                    >
+                      <ArrowLeft className="w-3.5 h-3.5" />
+                      <span>Back to Sign In</span>
+                    </button>
+                  </div>
+                </form>
+              )}
+
+              {/* STEP: Forgot Password - Verify OTP & Set New Password */}
+              {step === 'forgot_reset' && (
+                <form onSubmit={handleForgotResetSubmit} noValidate className="space-y-4">
+                  <div className="text-center">
+                    <p className="text-xs sm:text-sm text-ink dark:text-cream leading-relaxed">
+                      Enter the 6-digit security code sent to
+                    </p>
+                    <p className="text-xs sm:text-sm font-semibold text-ink dark:text-cream truncate mt-0.5">
+                      {email}
+                    </p>
+                  </div>
+
+                  <div className="py-1">
+                    <OtpInput
+                      value={otp}
+                      onChange={(val) => {
+                        setOtp(val);
+                        if (errors.otp) setErrors((prev) => ({ ...prev, otp: undefined }));
+                      }}
+                      onComplete={() => { }}
+                      disabled={isSubmitting}
+                      hasError={Boolean(errors.otp)}
+                    />
+                    {errors.otp && (
+                      <p className="text-xs text-status-urgent dark:text-gold font-medium mt-1 flex items-center justify-center gap-1">
+                        <AlertCircle className="w-3.5 h-3.5" />
+                        {errors.otp}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* New Password */}
+                  <div>
+                    <label htmlFor="forgot-new-password" className="block text-xs font-semibold uppercase tracking-wider text-ink-soft dark:text-cream/70 mb-1">
+                      New Password (min 8 characters)
+                    </label>
+                    <div className="relative">
+                      <input
+                        id="forgot-new-password"
+                        type={showNewPassword ? 'text' : 'password'}
+                        value={newPassword}
+                        onChange={(e) => {
+                          setNewPassword(e.target.value);
+                          if (errors.newPassword) setErrors((prev) => ({ ...prev, newPassword: undefined }));
+                        }}
+                        placeholder="••••••••••••"
+                        className={`w-full px-3.5 py-2.5 pr-10 bg-cream/70 dark:bg-ink-soft/20 border rounded-lg text-sm text-ink dark:text-cream placeholder:text-ink-soft/60 focus:outline-none focus:ring-1 focus:ring-terracotta transition-colors ${
+                          errors.newPassword ? 'border-status-urgent' : 'border-border/80 dark:border-ink-soft/40 focus:border-terracotta'
+                        }`}
+                        disabled={isSubmitting}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowNewPassword((prev) => !prev)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-soft dark:text-cream/60 hover:text-ink dark:hover:text-cream focus:outline-none"
+                      >
+                        {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                    {errors.newPassword && (
+                      <p className="text-xs text-status-urgent dark:text-gold font-medium mt-1 flex items-center gap-1">
+                        <AlertCircle className="w-3.5 h-3.5" />
+                        {errors.newPassword}
+                      </p>
+                    )}
+                    <PasswordStrengthIndicator password={newPassword} />
+                  </div>
+
+                  {/* Confirm Password */}
+                  <div>
+                    <label htmlFor="forgot-confirm-password" className="block text-xs font-semibold uppercase tracking-wider text-ink-soft dark:text-cream/70 mb-1">
+                      Confirm New Password
+                    </label>
+                    <input
+                      id="forgot-confirm-password"
+                      type={showNewPassword ? 'text' : 'password'}
+                      value={confirmPassword}
+                      onChange={(e) => {
+                        setConfirmPassword(e.target.value);
+                        if (errors.confirmPassword) setErrors((prev) => ({ ...prev, confirmPassword: undefined }));
+                      }}
+                      placeholder="••••••••••••"
+                      className={`w-full px-3.5 py-2.5 bg-cream/70 dark:bg-ink-soft/20 border rounded-lg text-sm text-ink dark:text-cream placeholder:text-ink-soft/60 focus:outline-none focus:ring-1 focus:ring-terracotta transition-colors ${
+                        errors.confirmPassword ? 'border-status-urgent' : 'border-border/80 dark:border-ink-soft/40 focus:border-terracotta'
+                      }`}
+                      disabled={isSubmitting}
+                    />
+                    {errors.confirmPassword && (
+                      <p className="text-xs text-status-urgent dark:text-gold font-medium mt-1 flex items-center gap-1">
+                        <AlertCircle className="w-3.5 h-3.5" />
+                        {errors.confirmPassword}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="pt-2 space-y-2">
+                    <button
+                      type="submit"
+                      disabled={isSubmitting || otp.length !== 6 || !newPassword || !confirmPassword}
+                      className="w-full py-3 px-4 bg-terracotta hover:bg-terracotta-dark text-surface font-medium text-sm rounded-lg transition-colors flex items-center justify-center gap-2 focus:outline-none focus:ring-2 focus:ring-terracotta/40 disabled:opacity-60 disabled:cursor-not-allowed shadow-card"
+                    >
+                      {isSubmitting ? (
+                        <>
+                          <div className="w-4 h-4 border-2 border-surface border-t-transparent rounded-full animate-spin" />
+                          <span>Resetting password...</span>
+                        </>
+                      ) : (
+                        <span>Reset Password &amp; Sign In</span>
+                      )}
+                    </button>
+                    <div className="flex items-center justify-between text-xs pt-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setStep('forgot_email');
+                          setSubmitError('');
+                          setResendNotice('');
+                          setErrors({});
+                        }}
+                        className="text-ink-soft dark:text-cream/70 hover:text-ink dark:hover:text-cream font-medium transition-colors focus:outline-none flex items-center gap-1"
+                      >
+                        <ArrowLeft className="w-3 h-3" />
+                        <span>Change email</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleForgotEmailSubmit}
+                        disabled={isSubmitting}
+                        className="text-terracotta hover:text-terracotta-dark font-medium transition-colors focus:outline-none"
+                      >
+                        Resend code
+                      </button>
+                    </div>
                   </div>
                 </form>
               )}
@@ -500,6 +885,119 @@ export const Login = () => {
                       className="text-terracotta hover:text-terracotta-dark font-medium transition-colors disabled:opacity-50 focus:outline-none"
                     >
                       {isResending ? 'Sending...' : 'Resend code'}
+                    </button>
+                  </div>
+                </form>
+              )}
+
+              {/* STEP 3: Forced Password Change on Temporary Password */}
+              {step === 'force_password_change' && (
+                <form onSubmit={handlePasswordChangeSubmit} noValidate className="space-y-4">
+                  <div className="text-center pb-1">
+                    <div className="w-10 h-10 rounded-full bg-gold/15 text-gold border border-gold/30 flex items-center justify-center mx-auto mb-2">
+                      <KeyRound className="w-5 h-5" />
+                    </div>
+                    <h3 className="text-base font-bold text-ink dark:text-cream">
+                      Create Permanent Password
+                    </h3>
+                    <p className="text-xs text-ink-soft dark:text-cream/70 mt-1 leading-relaxed">
+                      You are logging in with a temporary password. Please choose a new secure password to activate your account.
+                    </p>
+                  </div>
+
+                  {/* New Password */}
+                  <div>
+                    <label htmlFor="newPassword" className="block text-xs font-semibold uppercase tracking-wider text-ink-soft dark:text-cream/70 mb-1.5">
+                      New Password (min 8 characters)
+                    </label>
+                    <div className="relative">
+                      <input
+                        id="newPassword"
+                        type={showNewPassword ? 'text' : 'password'}
+                        value={newPassword}
+                        onChange={(e) => {
+                          setNewPassword(e.target.value);
+                          if (errors.newPassword) setErrors((prev) => ({ ...prev, newPassword: undefined }));
+                        }}
+                        placeholder="••••••••••••"
+                        className={`w-full px-3.5 py-2.5 pr-10 bg-cream/70 dark:bg-ink-soft/20 border rounded-lg text-sm text-ink dark:text-cream placeholder:text-ink-soft/60 focus:outline-none focus:ring-1 focus:ring-terracotta transition-colors ${
+                          errors.newPassword ? 'border-status-urgent' : 'border-border/80 dark:border-ink-soft/40 focus:border-terracotta'
+                        }`}
+                        disabled={isSubmitting}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowNewPassword((prev) => !prev)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-soft dark:text-cream/60 hover:text-ink dark:hover:text-cream focus:outline-none"
+                      >
+                        {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                    {errors.newPassword && (
+                      <p className="text-xs text-status-urgent dark:text-gold font-medium mt-1.5 flex items-center gap-1">
+                        <AlertCircle className="w-3.5 h-3.5" />
+                        {errors.newPassword}
+                      </p>
+                    )}
+                    <PasswordStrengthIndicator password={newPassword} />
+                  </div>
+
+                  {/* Confirm Password */}
+                  <div>
+                    <label htmlFor="confirmPassword" className="block text-xs font-semibold uppercase tracking-wider text-ink-soft dark:text-cream/70 mb-1.5">
+                      Confirm New Password
+                    </label>
+                    <input
+                      id="confirmPassword"
+                      type={showNewPassword ? 'text' : 'password'}
+                      value={confirmPassword}
+                      onChange={(e) => {
+                        setConfirmPassword(e.target.value);
+                        if (errors.confirmPassword) setErrors((prev) => ({ ...prev, confirmPassword: undefined }));
+                      }}
+                      placeholder="••••••••••••"
+                      className={`w-full px-3.5 py-2.5 bg-cream/70 dark:bg-ink-soft/20 border rounded-lg text-sm text-ink dark:text-cream placeholder:text-ink-soft/60 focus:outline-none focus:ring-1 focus:ring-terracotta transition-colors ${
+                        errors.confirmPassword ? 'border-status-urgent' : 'border-border/80 dark:border-ink-soft/40 focus:border-terracotta'
+                      }`}
+                      disabled={isSubmitting}
+                    />
+                    {errors.confirmPassword && (
+                      <p className="text-xs text-status-urgent dark:text-gold font-medium mt-1.5 flex items-center gap-1">
+                        <AlertCircle className="w-3.5 h-3.5" />
+                        {errors.confirmPassword}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Submit Button */}
+                  <div className="pt-2">
+                    <button
+                      type="submit"
+                      disabled={isSubmitting || !newPassword || !confirmPassword}
+                      className="w-full py-3 px-4 bg-terracotta hover:bg-terracotta-dark text-surface font-medium text-sm rounded-lg transition-colors flex items-center justify-center gap-2 focus:outline-none focus:ring-2 focus:ring-terracotta/40 disabled:opacity-60 disabled:cursor-not-allowed shadow-card"
+                    >
+                      {isSubmitting ? (
+                        <>
+                          <div className="w-4 h-4 border-2 border-surface border-t-transparent rounded-full animate-spin" />
+                          <span>Updating password...</span>
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle2 className="w-4 h-4" />
+                          <span>Save Password &amp; Continue</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+
+                  <div className="text-center pt-2">
+                    <button
+                      type="button"
+                      onClick={handleCancelPasswordChange}
+                      disabled={isSubmitting}
+                      className="text-xs text-ink-soft dark:text-cream/70 hover:text-ink dark:hover:text-cream font-medium transition-colors focus:outline-none"
+                    >
+                      Cancel and sign out
                     </button>
                   </div>
                 </form>

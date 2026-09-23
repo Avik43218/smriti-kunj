@@ -12,6 +12,7 @@ class PatientRiskInput(BaseModel):
     name: Optional[str] = Field("Unknown Patient", description="Full patient name")
     age: int = Field(65, ge=0, le=125, description="Patient age in years")
     gender: Optional[str] = Field("Not Specified", description="Patient gender")
+    diagnosis: Optional[str] = Field("Mild Cognitive Impairment (MCI)", description="Primary cognitive diagnosis")
     accuracy_rate_pct: float = Field(
         ...,
         ge=0.0,
@@ -43,6 +44,7 @@ class PatientRiskOutput(BaseModel):
     name: str
     age: int
     gender: str
+    diagnosis: Optional[str] = "Mild Cognitive Impairment (MCI)"
     active_alerts_count: int
     risk_grade: int
     grade_label: str

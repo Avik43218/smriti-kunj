@@ -37,7 +37,7 @@ export const AuthProvider = ({ children }) => {
   // ===== DEV BYPASS — REMOVE/COMMENT BEFORE BACKEND INTEGRATION =====
   //  Uncomment this block to skip login during frontend-only development.
   //  Comment it out (or delete) once the real backend login flow is being tested.
-  
+
   // useEffect(() => {
   //   if (!token) {
   //     const fakeToken = 'dev-bypass-token';
@@ -46,7 +46,7 @@ export const AuthProvider = ({ children }) => {
   //     setCaregiver(fakeCaregiver);
   //   }
   // }, []);
-  
+
   //  ===== END DEV BYPASS =====
 
   // Validate session against /api/auth/me on mount if token is present
@@ -132,20 +132,52 @@ export const AuthProvider = ({ children }) => {
     }
   }, []);
 
+  const updateUserData = useCallback((partialData) => {
+    setCaregiver((prev) => {
+      if (!prev) return prev;
+      const updated = { ...prev, ...partialData };
+      try {
+        localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(updated));
+      } catch (err) {
+        console.error('Failed to update user data in storage:', err);
+      }
+      return updated;
+    });
+  }, []);
+
+  const setSession = useCallback((newToken, newUser) => {
+    if (newToken) {
+      setToken(newToken);
+      try {
+        localStorage.setItem(STORAGE_KEYS.TOKEN, newToken);
+      } catch (e) { }
+    }
+    if (newUser) {
+      setCaregiver(newUser);
+      try {
+        localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(newUser));
+      } catch (e) { }
+    }
+  }, []);
+
   const isAuthenticated = Boolean(token && caregiver);
   const role = caregiver?.role || 'caregiver';
   const isAdmin = role === 'admin';
+  const mustChangePassword = Boolean(caregiver?.must_change_password);
 
   const value = {
     user: caregiver,
     caregiver,
     role,
     isAdmin,
+    mustChangePassword,
     token,
     login,
     requestOtp,
     verifyOtp,
     logout,
+    updateUserData,
+    setSession,
     isAuthenticated,
     loading,
   };

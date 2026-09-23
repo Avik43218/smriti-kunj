@@ -10,11 +10,13 @@ import '../services/background_music_service.dart';
 import '../services/locale_service.dart';
 import '../services/session_service.dart';
 import '../theme/theme.dart';
+import '../widgets/app_background.dart';
 import '../widgets/sos_button.dart';
 import '../widgets/voice_nav_button.dart';
 import 'games_screen.dart';
 import 'memory_gallery_screen.dart';
 import 'pairing_screen.dart';
+import 'profile_status_screen.dart';
 import 'reminders_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -44,111 +46,113 @@ class _HomeScreenState extends State<HomeScreen> {
     final s = AppStrings(locale.lang);
     final textTheme = Theme.of(context).textTheme;
 
-    return Scaffold(
-      backgroundColor: AppColors.cream,
-      bottomNavigationBar: _PatientBottomNavBar(session: session, strings: s),
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20.0, 16.0, 20.0, 8.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // 1. Top Brand row: Logo + App Name (Full width)
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  SvgPicture.asset(
-                    'assets/images/logo.svg',
-                    width: 44,
-                    height: 44,
-                    semanticsLabel: 'Smriti Kunj logo',
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      s.appName,
-                      style: textTheme.displayLarge?.copyWith(
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.ink,
-                        height: 1.25,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 10),
-
-              // 2. Sub-header row: Today's Activities text + Language dropdown & options menu
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Expanded(
-                    child: Text(
-                      s.todayActivity,
-                      style: textTheme.bodyMedium?.copyWith(
-                        fontSize: 22,
-                        color: AppColors.inkSoft,
-                        fontWeight: FontWeight.w600,
-                        height: 1.25,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      _LanguageDropdown(locale: locale),
-                      const SizedBox(width: 8),
-                      _HeaderMenuDropdown(session: session),
-                    ],
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-
-              // Main action tiles (Proportionally distributed)
-              Expanded(
-                child: Column(
+    return AppBackground(
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        bottomNavigationBar: _PatientBottomNavBar(session: session, strings: s),
+        body: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20.0, 16.0, 20.0, 8.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // 1. Top Brand row: Logo + App Name (Full width)
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    // 1. Brain Games
-                    Expanded(
-                      child: _HomeActionTile(
-                        icon: Icons.extension_rounded,
-                        iconBgColor: AppColors.terracotta,
-                        title: s.brainGames,
-                        subtitle: s.brainGamesSubtitle,
-                        onTap: () => _navigateTo(const GamesScreen()),
-                      ),
+                    SvgPicture.asset(
+                      'assets/images/logo.svg',
+                      width: 44,
+                      height: 44,
+                      semanticsLabel: 'Smriti Kunj logo',
                     ),
-                    const SizedBox(height: 12),
-
-                    // 2. Daily Reminders
+                    const SizedBox(width: 12),
                     Expanded(
-                      child: _HomeActionTile(
-                        icon: Icons.notifications_active_rounded,
-                        iconBgColor: AppColors.sageGreen,
-                        title: s.reminders,
-                        subtitle: s.remindersSubtitle,
-                        onTap: () => _navigateTo(const RemindersScreen()),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-
-                    // 3. Memory Gallery
-                    Expanded(
-                      child: _HomeActionTile(
-                        icon: Icons.photo_library_rounded,
-                        iconBgColor: AppColors.mugaGold,
-                        title: s.memoryGallery,
-                        subtitle: s.memoryGallerySubtitle,
-                        onTap: () => _navigateTo(const MemoryGalleryScreen()),
+                      child: Text(
+                        s.appName,
+                        style: textTheme.displayLarge?.copyWith(
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.ink,
+                          height: 1.25,
+                        ),
                       ),
                     ),
                   ],
                 ),
-              ),
-            ],
+                const SizedBox(height: 10),
+
+                // 2. Sub-header row: Today's Activities text + Language dropdown & options menu
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        s.todayActivity,
+                        style: textTheme.bodyMedium?.copyWith(
+                          fontSize: 22,
+                          color: AppColors.inkSoft,
+                          fontWeight: FontWeight.w600,
+                          height: 1.25,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _LanguageDropdown(locale: locale),
+                        const SizedBox(width: 8),
+                        _HeaderMenuDropdown(session: session),
+                      ],
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+
+                // Main action tiles (Proportionally distributed)
+                Expanded(
+                  child: Column(
+                    children: [
+                      // 1. Brain Games
+                      Expanded(
+                        child: _HomeActionTile(
+                          icon: Icons.extension_rounded,
+                          iconBgColor: AppColors.terracotta,
+                          title: s.brainGames,
+                          subtitle: s.brainGamesSubtitle,
+                          onTap: () => _navigateTo(const GamesScreen()),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+
+                      // 2. Daily Reminders
+                      Expanded(
+                        child: _HomeActionTile(
+                          icon: Icons.notifications_active_rounded,
+                          iconBgColor: AppColors.sageGreen,
+                          title: s.reminders,
+                          subtitle: s.remindersSubtitle,
+                          onTap: () => _navigateTo(const RemindersScreen()),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+
+                      // 3. Memory Gallery
+                      Expanded(
+                        child: _HomeActionTile(
+                          icon: Icons.photo_library_rounded,
+                          iconBgColor: AppColors.mugaGold,
+                          title: s.memoryGallery,
+                          subtitle: s.memoryGallerySubtitle,
+                          onTap: () => _navigateTo(const MemoryGalleryScreen()),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -246,82 +250,83 @@ class _HeaderMenuDropdown extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListenableBuilder(
-      listenable: BackgroundMusicService.instance,
-      builder: (context, _) {
-        final isMuted = BackgroundMusicService.instance.isMuted;
+    final strings = AppStrings(context.watch<LocaleService>().lang);
 
-        return Theme(
-          data: Theme.of(context).copyWith(
-            popupMenuTheme: PopupMenuThemeData(
-              color: AppColors.surface,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(18),
-                side: const BorderSide(color: AppColors.border, width: 1.5),
-              ),
-              elevation: 6,
+    return Theme(
+      data: Theme.of(context).copyWith(
+        popupMenuTheme: PopupMenuThemeData(
+          color: AppColors.surface,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
+            side: const BorderSide(color: AppColors.border, width: 1.5),
+          ),
+          elevation: 6,
+        ),
+      ),
+      child: PopupMenuButton<String>(
+        tooltip: 'Options',
+        offset: const Offset(0, 50),
+        onSelected: (value) async {
+          if (value == 'profile_status') {
+            Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const ProfileStatusScreen()),
+            );
+          } else if (value == 'logout') {
+            await _handleLogout(context);
+          }
+        },
+        itemBuilder: (context) => [
+          PopupMenuItem<String>(
+            value: 'profile_status',
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.verified_user_rounded,
+                  color: AppColors.terracotta,
+                  size: 24,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    strings.profileStatus,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.ink,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
-          child: PopupMenuButton<String>(
-            tooltip: 'Options',
-            offset: const Offset(0, 50),
-            onSelected: (value) async {
-              if (value == 'sound') {
-                BackgroundMusicService.instance.toggleMute();
-              } else if (value == 'logout') {
-                await _handleLogout(context);
-              }
-            },
-            itemBuilder: (context) => [
-              PopupMenuItem<String>(
-                value: 'sound',
-                child: Row(
-                  children: [
-                    Icon(
-                      isMuted ? Icons.volume_off_rounded : Icons.volume_up_rounded,
-                      color: isMuted ? AppColors.inkSoft : AppColors.terracotta,
-                      size: 24,
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        isMuted ? 'Sound (Off)' : 'Sound (On)',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w600,
-                          color: isMuted ? AppColors.inkSoft : AppColors.ink,
-                        ),
-                      ),
-                    ),
-                  ],
+          const PopupMenuDivider(),
+          const PopupMenuItem<String>(
+            value: 'logout',
+            child: Row(
+              children: [
+                Icon(
+                  Icons.logout_rounded,
+                  color: AppColors.terracottaDark,
+                  size: 24,
                 ),
-              ),
-              const PopupMenuDivider(),
-              const PopupMenuItem<String>(
-                value: 'logout',
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.logout_rounded,
+                SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'Log Out',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
                       color: AppColors.terracottaDark,
-                      size: 24,
                     ),
-                    SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        'Log Out',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.terracottaDark,
-                        ),
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
-              ),
-            ],
-            child: Container(
+              ],
+            ),
+          ),
+
+        ],
+        child: Container(
+
               height: 48,
               padding: const EdgeInsets.symmetric(horizontal: 12),
               decoration: BoxDecoration(
@@ -342,8 +347,6 @@ class _HeaderMenuDropdown extends StatelessWidget {
             ),
           ),
         );
-      },
-    );
   }
 }
 

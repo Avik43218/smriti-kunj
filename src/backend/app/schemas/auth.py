@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, List
 
 from pydantic import BaseModel, EmailStr, Field
 
@@ -16,6 +16,7 @@ class UserOut(BaseModel):
     pairing_token: Optional[str] = None
     emergency_contact: Optional[Dict[str, Any]] = None
     device_id: Optional[str] = None
+    must_change_password: Optional[bool] = False
 
     class Config:
         from_attributes = True
@@ -25,9 +26,11 @@ class CaregiverOut(BaseModel):
     id: uuid.UUID
     name: str
     email: EmailStr
+    phone: Optional[str] = None
     region_language: Optional[str] = "bn"
     role: str = "caregiver"
     status: Optional[str] = "active"
+    must_change_password: Optional[bool] = False
 
     class Config:
         from_attributes = True
@@ -42,7 +45,7 @@ class TokenOut(BaseModel):
 class CaregiverRegisterRequest(BaseModel):
     name: str
     email: EmailStr
-    password: str = Field(min_length=8)
+    password: str = Field(min_length=10)
     region_language: str = "bn"
 
 
@@ -64,6 +67,7 @@ class OtpVerifyRequest(BaseModel):
 class OtpRequestResponse(BaseModel):
     message: str
     email: EmailStr
+    debug_otp: Optional[str] = None
 
 
 class OtpVerifyResponse(BaseModel):
@@ -73,6 +77,28 @@ class OtpVerifyResponse(BaseModel):
     token: str
     caregiver: CaregiverOut
     user: Optional[UserOut] = None
+    must_change_password: Optional[bool] = False
+
+
+class ChangePasswordRequest(BaseModel):
+    current_password: Optional[str] = None
+    new_password: str = Field(min_length=10)
+
+
+class ChangePasswordResponse(BaseModel):
+    message: str = "Password changed successfully"
+    must_change_password: bool = False
+    token: Optional[str] = None
+
+
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+
+class ResetPasswordRequest(BaseModel):
+    email: EmailStr
+    otp: str = Field(min_length=4, max_length=8)
+    new_password: str = Field(min_length=10)
 
 
 class LogoutResponse(BaseModel):
@@ -105,4 +131,9 @@ class PatientPairCompleteOut(BaseModel):
     guardian_relationship: Optional[str] = None
     diagnosis: Optional[str] = None
     status: Optional[str] = "stable"
+    alternative_emergency_contact: Optional[Dict[str, Any]] = None
+    caregiver_name: Optional[str] = None
+    caregiver_phone: Optional[str] = None
+    caregivers: Optional[List[Dict[str, Any]]] = None
+
 

@@ -38,6 +38,9 @@ from app.models.user import DevicePairingToken, RoleEnum, User
 from app.schemas.auth import (
     CaregiverOut,
     CaregiverRegisterRequest,
+    ChangePasswordRequest,
+    ChangePasswordResponse,
+    ForgotPasswordRequest,
     LoginRequest,
     LogoutResponse,
     OtpRequestRequest,
@@ -47,6 +50,7 @@ from app.schemas.auth import (
     PatientPairCompleteOut,
     PatientPairCompleteRequest,
     PatientPairStartOut,
+    ResetPasswordRequest,
     TokenOut,
     UserOut,
 )
@@ -54,7 +58,7 @@ from app.schemas.auth import (
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 
-async def _issue_otp(email: str) -> None:
+async def _issue_otp(email: str) -> str:
     """Invalidate any outstanding code for this email, store a fresh one,
     and dispatch an email via Brevo while logging to terminal as fallback."""
     await OtpCode.find(OtpCode.email == email).delete()
@@ -75,23 +79,15 @@ async def _issue_otp(email: str) -> None:
 
     # Asynchronously dispatch transactional email via Brevo
     await send_otp_email(email=email, otp=code, expire_minutes=settings.OTP_EXPIRE_MINUTES)
+    return code
 
 
 @router.post("/register", response_model=CaregiverOut, status_code=201)
 async def register(payload: CaregiverRegisterRequest):
-    if await User.find_one(User.email == payload.email):
-        raise HTTPException(status_code=409, detail="An account with that email already exists")
-
-    user = User(
-        role=RoleEnum.caregiver,
-        name=payload.name,
-        email=payload.email,
-        hashed_password=hash_password(payload.password),
-        region_language=payload.region_language,
-        status="active",
+    raise HTTPException(
+        status_code=404,
+        detail="Public registration is disabled. Caregiver accounts must be created by an administrator.",
     )
-    await user.insert()
-    return user
 
 
 @router.post("/login", response_model=OtpRequestResponse)
@@ -104,27 +100,34 @@ async def login(payload: LoginRequest):
 
     user_role_str = user.role.value if hasattr(user.role, "value") else str(user.role)
     if payload.role and user_role_str != payload.role:
-        raise HTTPException(
-            status_code=403,
-            detail=f"This account is registered as a {user_role_str}. Please switch to the {user_role_str.capitalize()} tab to sign in.",
-        )
+        raise HTTPException(status_code=401, detail="Incorrect email or password")
 
     if getattr(user, "status", None) == "disabled":
         raise HTTPException(status_code=403, detail="Account is disabled")
 
-    await _issue_otp(user.email)
-    return OtpRequestResponse(message="A one-time code has been sent to your email.", email=user.email)
+    code = await _issue_otp(user.email)
+    debug_otp = code if not (settings.BREVO_API_KEY and settings.BREVO_API_KEY.strip()) else None
+    return OtpRequestResponse(
+        message="A one-time code has been sent to your email.",
+        email=user.email,
+        debug_otp=debug_otp,
+    )
 
 
 @router.post("/request-otp", response_model=OtpRequestResponse)
 async def request_otp(payload: OtpRequestRequest):
-    """Resend path ('Didn't get a code?'). Always returns the same generic
-    message whether or not the email has an account, to avoid leaking
-    which emails are registered."""
+    """Re-issue an OTP without re-submitting the password."""
     user = await User.find_one(User.email == payload.email)
+    debug_otp = None
     if user and user.role != RoleEnum.patient and getattr(user, "status", None) != "disabled":
-        await _issue_otp(user.email)
-    return OtpRequestResponse(message="If that email has an account, a code has been sent.", email=payload.email)
+        code = await _issue_otp(user.email)
+        if not (settings.BREVO_API_KEY and settings.BREVO_API_KEY.strip()):
+            debug_otp = code
+    return OtpRequestResponse(
+        message="If that email has an account, a code has been sent.",
+        email=payload.email,
+        debug_otp=debug_otp,
+    )
 
 
 @router.post("/verify-otp", response_model=OtpVerifyResponse)
@@ -154,19 +157,24 @@ async def verify_otp(payload: OtpVerifyRequest):
     await otp_record.delete()
 
     user_role_str = user.role.value if hasattr(user.role, "value") else str(user.role)
+    must_change = bool(getattr(user, "must_change_password", False))
     token = _create_token(
         user.id,
         user.role,
         timedelta(minutes=settings.CAREGIVER_TOKEN_EXPIRE_MINUTES),
+        must_change_password=must_change,
+        token_version=getattr(user, "token_version", 1) or 1,
     )
 
     caregiver_out = CaregiverOut(
         id=user.id,
         name=user.name,
         email=user.email,
+        phone=getattr(user, "phone", None),
         region_language=user.region_language or "bn",
         role=user_role_str,
         status=getattr(user, "status", "active") or "active",
+        must_change_password=must_change,
     )
     user_out = UserOut(
         id=user.id,
@@ -179,12 +187,102 @@ async def verify_otp(payload: OtpVerifyRequest):
         pairing_token=user.pairing_token,
         emergency_contact=user.emergency_contact,
         device_id=user.device_id,
+        must_change_password=must_change,
     )
 
     return OtpVerifyResponse(
         token=token,
         caregiver=caregiver_out,
         user=user_out,
+        must_change_password=must_change,
+    )
+
+
+@router.post("/change-password", response_model=ChangePasswordResponse)
+async def change_password(
+    payload: ChangePasswordRequest,
+    user: User = Depends(get_current_user),
+):
+    if payload.current_password is not None and payload.current_password != "":
+        if not user.hashed_password or not verify_password(payload.current_password, user.hashed_password):
+            raise HTTPException(status_code=400, detail="Current password is incorrect")
+
+    if user.hashed_password and verify_password(payload.new_password, user.hashed_password):
+        raise HTTPException(status_code=400, detail="New password cannot be the same as your current password")
+
+    user.hashed_password = hash_password(payload.new_password)
+    user.must_change_password = False
+    user.token_version = (getattr(user, "token_version", 1) or 1) + 1
+    await user.save()
+
+    # Issue a brand new token stamped with the new token_version and must_change_password=False
+    fresh_token = _create_token(
+        user.id,
+        user.role,
+        timedelta(minutes=settings.CAREGIVER_TOKEN_EXPIRE_MINUTES),
+        must_change_password=False,
+        token_version=user.token_version,
+    )
+
+    return ChangePasswordResponse(
+        message="Password changed successfully",
+        must_change_password=False,
+        token=fresh_token,
+    )
+
+
+@router.post("/forgot-password", response_model=OtpRequestResponse)
+async def forgot_password(payload: ForgotPasswordRequest):
+    """Initiate a password reset by sending a 6-digit OTP to the registered email."""
+    user = await User.find_one(User.email == payload.email)
+    debug_otp = None
+    if user and user.role != RoleEnum.patient and getattr(user, "status", None) != "disabled":
+        code = await _issue_otp(user.email)
+        if not (settings.BREVO_API_KEY and settings.BREVO_API_KEY.strip()):
+            debug_otp = code
+
+    return OtpRequestResponse(
+        message="If that email is registered, a verification code has been sent.",
+        email=payload.email,
+        debug_otp=debug_otp,
+    )
+
+
+@router.post("/reset-password", response_model=ChangePasswordResponse)
+async def reset_password(payload: ResetPasswordRequest):
+    """Verify OTP and set a new password, invalidating any previous active sessions."""
+    user = await User.find_one(User.email == payload.email)
+    otp_record = await OtpCode.find_one(OtpCode.email == payload.email)
+
+    if not user or not otp_record or user.role == RoleEnum.patient:
+        raise HTTPException(status_code=400, detail="Invalid or expired code")
+
+    if getattr(user, "status", None) == "disabled":
+        raise HTTPException(status_code=403, detail="Account is disabled")
+
+    if otp_record.expires_at < datetime.utcnow():
+        await otp_record.delete()
+        raise HTTPException(status_code=400, detail="Invalid or expired code")
+
+    if otp_record.attempts >= settings.OTP_MAX_ATTEMPTS:
+        await otp_record.delete()
+        raise HTTPException(status_code=429, detail="Too many attempts — request a new code")
+
+    if not verify_otp_code(payload.otp, otp_record.otp_hash):
+        otp_record.attempts += 1
+        await otp_record.save()
+        raise HTTPException(status_code=400, detail="Invalid or expired code")
+
+    await otp_record.delete()
+
+    user.hashed_password = hash_password(payload.new_password)
+    user.must_change_password = False
+    user.token_version = (getattr(user, "token_version", 1) or 1) + 1
+    await user.save()
+
+    return ChangePasswordResponse(
+        message="Password has been reset successfully. Please sign in with your new password.",
+        must_change_password=False,
     )
 
 
@@ -325,6 +423,32 @@ async def complete_pairing(payload: PatientPairCompleteRequest):
     guardian_name = emergency.get("name")
     guardian_relationship = emergency.get("relationship")
 
+    # Resolve caregiver display names and phone numbers
+    cg_name = None
+    cg_phone = None
+    cg_list = []
+    if patient.caregiver_id:
+        cg = await User.get(patient.caregiver_id)
+        if cg and cg.name:
+            cg_name = cg.name
+            cg_phone = getattr(cg, "phone", None)
+            cg_list.append({"name": cg.name, "phone": cg_phone, "is_primary": True})
+    if getattr(patient, "assigned_caregiver_ids", None):
+        for cid in patient.assigned_caregiver_ids:
+            if cid and cid != patient.caregiver_id:
+                acg = await User.get(cid)
+                if acg and acg.name:
+                    acg_phone = getattr(acg, "phone", None)
+                    if not cg_phone and acg_phone:
+                        cg_phone = acg_phone
+                    cg_list.append({"name": acg.name, "phone": acg_phone, "is_primary": False})
+
+    # If no caregiver account is assigned, fallback to primary contact / guardian
+    if not cg_list and (guardian_phone or guardian_name):
+        cg_name = guardian_name or "Caregiver"
+        cg_phone = guardian_phone
+        cg_list.append({"name": cg_name, "phone": cg_phone, "is_primary": True})
+
     return PatientPairCompleteOut(
         patient_id=patient.id,
         patient_code=patient.patient_code,
@@ -338,6 +462,10 @@ async def complete_pairing(payload: PatientPairCompleteRequest):
         guardian_relationship=guardian_relationship,
         diagnosis=patient.diagnosis,
         status=patient.status or "stable",
+        alternative_emergency_contact=patient.alternative_emergency_contact,
+        caregiver_name=cg_name,
+        caregiver_phone=cg_phone,
+        caregivers=cg_list,
     )
 
 
@@ -348,6 +476,31 @@ async def get_patient_me(patient: User = Depends(require_patient)):
     guardian_phone = emergency.get("phone")
     guardian_name = emergency.get("name")
     guardian_relationship = emergency.get("relationship")
+
+    cg_name = None
+    cg_phone = None
+    cg_list = []
+    if patient.caregiver_id:
+        cg = await User.get(patient.caregiver_id)
+        if cg and cg.name:
+            cg_name = cg.name
+            cg_phone = getattr(cg, "phone", None)
+            cg_list.append({"name": cg.name, "phone": cg_phone, "is_primary": True})
+    if getattr(patient, "assigned_caregiver_ids", None):
+        for cid in patient.assigned_caregiver_ids:
+            if cid and cid != patient.caregiver_id:
+                acg = await User.get(cid)
+                if acg and acg.name:
+                    acg_phone = getattr(acg, "phone", None)
+                    if not cg_phone and acg_phone:
+                        cg_phone = acg_phone
+                    cg_list.append({"name": acg.name, "phone": acg_phone, "is_primary": False})
+
+    # If no caregiver account is assigned, fallback to primary contact / guardian
+    if not cg_list and (guardian_phone or guardian_name):
+        cg_name = guardian_name or "Caregiver"
+        cg_phone = guardian_phone
+        cg_list.append({"name": cg_name, "phone": cg_phone, "is_primary": True})
 
     return PatientPairCompleteOut(
         patient_id=patient.id,
@@ -365,5 +518,10 @@ async def get_patient_me(patient: User = Depends(require_patient)):
         guardian_relationship=guardian_relationship,
         diagnosis=patient.diagnosis,
         status=patient.status or "stable",
+        alternative_emergency_contact=patient.alternative_emergency_contact,
+        caregiver_name=cg_name,
+        caregiver_phone=cg_phone,
+        caregivers=cg_list,
     )
+
 

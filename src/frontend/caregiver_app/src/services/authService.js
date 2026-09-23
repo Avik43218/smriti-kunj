@@ -61,6 +61,60 @@ export const logout = async () => {
   return { success: true };
 };
 
+// Changes password for currently authenticated user
+export const changePassword = async (arg1, arg2) => {
+  const payload = {};
+  if (arg2 !== undefined) {
+    if (arg1) payload.current_password = arg1;
+    payload.new_password = arg2;
+  } else {
+    payload.new_password = arg1;
+  }
+
+  const data = await apiClient('/api/auth/change-password', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+
+  if (data?.token) {
+    localStorage.setItem('token', data.token);
+  }
+
+  // Update cached user data if present
+  try {
+    const cached = localStorage.getItem('caregiver_user_data');
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      parsed.must_change_password = false;
+      localStorage.setItem('caregiver_user_data', JSON.stringify(parsed));
+    }
+  } catch (e) {
+    // Ignore cache parsing errors
+  }
+
+  return data;
+};
+
+// Requests an OTP challenge for forgot-password
+export const forgotPassword = async (email) => {
+  return await apiClient('/api/auth/forgot-password', {
+    method: 'POST',
+    body: JSON.stringify({ email }),
+  });
+};
+
+// Resets password using OTP challenge
+export const resetPassword = async (email, otp, newPassword) => {
+  return await apiClient('/api/auth/reset-password', {
+    method: 'POST',
+    body: JSON.stringify({
+      email,
+      otp,
+      new_password: newPassword,
+    }),
+  });
+};
+
 export default {
   register,
   registerAdmin,
@@ -68,4 +122,8 @@ export default {
   verifyOtp,
   login,
   logout,
+  changePassword,
+  forgotPassword,
+  resetPassword,
 };
+

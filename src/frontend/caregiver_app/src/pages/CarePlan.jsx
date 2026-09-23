@@ -27,7 +27,15 @@ import {
   Volume2,
   Music,
 } from 'lucide-react';
-import { fetchFamilyMembers, addFamilyMember, saveCarePlan } from '../services/carePlanService';
+import {
+  fetchFamilyMembers,
+  addFamilyMember,
+  deleteFamilyMember,
+  fetchFamiliarSounds,
+  addFamiliarSound,
+  deleteFamiliarSound,
+  saveCarePlan,
+} from '../services/carePlanService';
 import { fetchReminders, updateCategoryReminders, addCustomReminder, getPatientComplianceDetails } from '../services/reminderService';
 import { TimePicker } from '../components/TimePicker';
 import { StyledSelect } from '../components/StyledSelect';
@@ -35,6 +43,7 @@ import { SoundClipCard } from '../components/SoundClipCard';
 import { ConfirmDeleteModal } from '../components/ConfirmDeleteModal';
 import { AlarmOffModal } from '../components/AlarmOffModal';
 import { fetchPatients, getPatientById } from '../services/patientService';
+import { CardLineArt } from '../components/CardLineArt';
 
 export const CarePlan = () => {
   const { id: routePatientId } = useParams();
@@ -213,27 +222,65 @@ export const CarePlan = () => {
 
       // Fetch real patient name
       try {
-        const p = await getPatientById(targetId);
+        const p = await getPatientById(targetId, {
+          onUpdate: (freshP) => {
+            if (isMounted && freshP && freshP.name) {
+              setPatientName(freshP.name);
+            }
+          },
+        });
         if (isMounted && p && p.name) {
           setPatientName(p.name);
         }
       } catch (_) {}
 
-      setIsLoadingMemories(true);
-      setIsLoadingReminders(true);
       setMemoryError('');
       setReminderError('');
-      setIsLoadingCompliance(true);
 
       try {
-        const [membersData, remindersData, complianceData] = await Promise.all([
-          fetchFamilyMembers(targetId),
-          fetchReminders(targetId),
+        const [membersData, soundsData, remindersData, complianceData] = await Promise.all([
+          fetchFamilyMembers(targetId, {
+            onUpdate: (freshMembers) => {
+              if (isMounted && freshMembers) {
+                setFamilyMembers(freshMembers || []);
+                setIsLoadingMemories(false);
+              }
+            },
+          }),
+          fetchFamiliarSounds(targetId, {
+            onUpdate: (freshSounds) => {
+              if (isMounted && freshSounds) {
+                setFamiliarSounds(freshSounds || []);
+              }
+            },
+          }),
+          fetchReminders(targetId, {
+            onUpdate: (freshReminders) => {
+              if (isMounted && freshReminders) {
+                setReminders({
+                  medication: [],
+                  meals: [],
+                  custom: [],
+                  ...(freshReminders || {}),
+                  hydration: {
+                    label: '',
+                    schedule: '',
+                    status: '',
+                    active: false,
+                    frequency: '',
+                    ...(freshReminders?.hydration || {}),
+                  },
+                });
+                setIsLoadingReminders(false);
+              }
+            },
+          }),
           getPatientComplianceDetails(targetId),
         ]);
 
         if (isMounted) {
           setFamilyMembers(membersData || []);
+          setFamiliarSounds(soundsData || []);
           setReminders({
             medication: [],
             meals: [],
@@ -249,6 +296,14 @@ export const CarePlan = () => {
             },
           });
           setCompliance(complianceData);
+
+          if (membersData !== undefined) {
+            setIsLoadingMemories(false);
+          }
+          if (remindersData !== undefined) {
+            setIsLoadingReminders(false);
+          }
+          setIsLoadingCompliance(false);
         }
       } catch (err) {
         if (isMounted) {
@@ -367,8 +422,13 @@ export const CarePlan = () => {
   };
 
   // Delete Family Member Memory
-  const handleDeleteMemory = (memberId) => {
+  const handleDeleteMemory = async (memberId) => {
     setFamilyMembers((prev) => prev.filter((m) => m.id !== memberId));
+    try {
+      await deleteFamilyMember(patientId, memberId);
+    } catch (err) {
+      console.warn('Failed to sync deleted memory:', err);
+    }
   };
 
   // Delete Custom Reminder
@@ -453,7 +513,7 @@ export const CarePlan = () => {
   };
 
   // Submit Familiar Sound
-  const handleAddSoundSubmit = (e) => {
+  const handleAddSoundSubmit = async (e) => {
     e.preventDefault();
     setSoundFormError('');
 
@@ -468,29 +528,34 @@ export const CarePlan = () => {
 
     setIsSubmittingSound(true);
     try {
-      const newSound = {
-        id: `sound_${Date.now()}`,
+      const savedSound = await addFamiliarSound({
+        patientId,
         caption: soundCaption.trim(),
         audioUrl: soundAudioUrl,
         fileName: soundFileName,
-      };
+      });
 
-      setFamiliarSounds((prev) => [...prev, newSound]);
+      setFamiliarSounds((prev) => [...prev, savedSound]);
       setIsSoundModalOpen(false);
       setSoundCaption('');
       setSoundAudioUrl('');
       setSoundFileName('');
       setSoundFormError('');
     } catch (err) {
-      setSoundFormError('Failed to save sound clip.');
+      setSoundFormError(err.message || 'Failed to save sound clip.');
     } finally {
       setIsSubmittingSound(false);
     }
   };
 
   // Delete Familiar Sound
-  const handleDeleteSound = (soundId) => {
+  const handleDeleteSound = async (soundId) => {
     setFamiliarSounds((prev) => prev.filter((s) => s.id !== soundId));
+    try {
+      await deleteFamiliarSound(patientId, soundId);
+    } catch (err) {
+      console.warn('Failed to sync deleted sound:', err);
+    }
   };
 
   // Open Edit Modal for a Category (Medication, Hydration, Meals)
@@ -659,9 +724,14 @@ export const CarePlan = () => {
       {/* Care Plan Header Card */}
       <section
         aria-label="Care Plan Overview"
-        className="bg-surface dark:bg-ink-soft/20 border border-border/80 dark:border-ink-soft/40 rounded-card p-6 sm:p-8 shadow-sm transition-colors"
+        className="relative overflow-hidden bg-surface dark:bg-ink-soft/20 border border-border/80 dark:border-ink-soft/40 rounded-card p-6 sm:p-8 shadow-sm transition-colors"
       >
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-5">
+        <CardLineArt
+          variant="teaGardens"
+          position="right"
+          className="opacity-35 sm:opacity-45"
+        />
+        <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-5">
           <div className="space-y-1 min-w-0">
             <div className="inline-flex items-center px-2.5 py-0.5 rounded-full bg-cream dark:bg-ink-soft/40 text-terracotta text-xs font-semibold uppercase tracking-wider mb-1">
               Personalized Protocol

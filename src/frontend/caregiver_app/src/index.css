@@ -55,6 +55,114 @@ html.dark .motif-bg-pattern {
   opacity: 0.12;
 }
 
+/* ==========================================================================
+   Global Theme Scrollbars ("Sliders")
+   Matches the warm terracotta pill scrollbar from CarePlan Health & Wellness
+   ========================================================================== */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(181, 86, 47, 0.35);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(181, 86, 47, 0.65);
+}
+
+html.dark ::-webkit-scrollbar-thumb {
+  background: rgba(181, 86, 47, 0.45);
+}
+
+html.dark ::-webkit-scrollbar-thumb:hover {
+  background: rgba(181, 86, 47, 0.75);
+}
+
+/* Firefox standard scrollbar */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(181, 86, 47, 0.35) transparent;
+}
+
+html.dark * {
+  scrollbar-color: rgba(181, 86, 47, 0.45) transparent;
+}
+
+/* Dedicated custom scrollbar utility classes (4px thin pill slider) */
+.custom-scrollbar::-webkit-scrollbar,
+.careplan-scrollbar::-webkit-scrollbar,
+.modal-scrollbar::-webkit-scrollbar,
+.ss-scrollbar::-webkit-scrollbar,
+.tp-scrollbar::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track,
+.careplan-scrollbar::-webkit-scrollbar-track,
+.modal-scrollbar::-webkit-scrollbar-track,
+.ss-scrollbar::-webkit-scrollbar-track,
+.tp-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb,
+.careplan-scrollbar::-webkit-scrollbar-thumb,
+.modal-scrollbar::-webkit-scrollbar-thumb,
+.ss-scrollbar::-webkit-scrollbar-thumb,
+.tp-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(181, 86, 47, 0.35);
+  border-radius: 9999px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover,
+.careplan-scrollbar::-webkit-scrollbar-thumb:hover,
+.modal-scrollbar::-webkit-scrollbar-thumb:hover,
+.ss-scrollbar::-webkit-scrollbar-thumb:hover,
+.tp-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(181, 86, 47, 0.65);
+}
+
+html.dark .custom-scrollbar::-webkit-scrollbar-thumb,
+html.dark .careplan-scrollbar::-webkit-scrollbar-thumb,
+html.dark .modal-scrollbar::-webkit-scrollbar-thumb,
+html.dark .ss-scrollbar::-webkit-scrollbar-thumb,
+html.dark .tp-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(181, 86, 47, 0.45);
+}
+
+html.dark .custom-scrollbar::-webkit-scrollbar-thumb:hover,
+html.dark .careplan-scrollbar::-webkit-scrollbar-thumb:hover,
+html.dark .modal-scrollbar::-webkit-scrollbar-thumb:hover,
+html.dark .ss-scrollbar::-webkit-scrollbar-thumb:hover,
+html.dark .tp-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(181, 86, 47, 0.75);
+}
+
+.custom-scrollbar,
+.careplan-scrollbar,
+.modal-scrollbar,
+.ss-scrollbar,
+.tp-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(181, 86, 47, 0.35) transparent;
+}
+
+html.dark .custom-scrollbar,
+html.dark .careplan-scrollbar,
+html.dark .modal-scrollbar,
+html.dark .ss-scrollbar,
+html.dark .tp-scrollbar {
+  scrollbar-color: rgba(181, 86, 47, 0.45) transparent;
+}
+
 *,
 *::before,
 *::after {
@@ -91,27 +199,13 @@ textarea {
     display: none !important;
   }
 
-  #clinical-report-card {
-    position: absolute !important;
-    left: 0 !important;
-    top: 0 !important;
-    width: 100% !important;
-    max-width: 100% !important;
-    margin: 0 !important;
-    padding: 16px 20px !important;
-    background: #FFFFFF !important;
-    color: #1A1815 !important;
-    box-shadow: none !important;
-    border: none !important;
-  }
-
-  #clinical-report-card * {
+  * {
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
 
   @page {
     size: A4 portrait;
-    margin: 12mm 15mm;
+    margin: 10mm 12mm;
   }
 }

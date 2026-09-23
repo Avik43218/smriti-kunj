@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 import 'package:sqflite/sqflite.dart';
 import '../models/reminder_item.dart';
+import 'device_alarm_service.dart';
 
 /// SQLite persistence service for local patient app Daily Reminders.
 ///
@@ -35,7 +36,7 @@ class ReminderDatabaseService {
 
     _db = await openDatabase(
       fullPath,
-      version: 7,
+      version: 8,
       onCreate: (db, version) async {
         await createTableIfNotExists(db);
       },
@@ -57,14 +58,19 @@ class ReminderDatabaseService {
         category     TEXT NOT NULL,
         dosage       TEXT,
         is_completed INTEGER NOT NULL DEFAULT 0,
+        status       TEXT NOT NULL DEFAULT 'upcoming',
         pairing_code TEXT,
         created_at   TEXT NOT NULL
       )
     ''');
+    // Ensure 'status' column exists in case created with older schema
+    try {
+      await db.execute("ALTER TABLE $table ADD COLUMN status TEXT NOT NULL DEFAULT 'upcoming'");
+    } catch (_) {}
   }
 
   /// Persists a batch of [ReminderItem]s into local SQLite.
-  /// Preserves already completed state locally if the backend item is not completed.
+  /// Preserves already completed or missed state locally if the backend item is not completed.
   Future<void> saveReminders(List<ReminderItem> items, {String? pairingCode}) async {
     if (items.isEmpty) return;
     final db = await database;
@@ -73,7 +79,7 @@ class ReminderDatabaseService {
       for (final item in items) {
         final code = pairingCode ?? item.pairingCode;
 
-        // Check if item already exists locally to preserve user completion status
+        // Check if item already exists locally to preserve user completion / missed status
         final existing = await txn.query(
           table,
           where: 'id = ?',
@@ -82,15 +88,22 @@ class ReminderDatabaseService {
         );
 
         int isCompletedInt = item.isCompleted ? 1 : 0;
+        String statusStr = item.status;
+
         if (existing.isNotEmpty && !item.isCompleted) {
           final localCompleted = existing.first['is_completed'] as int?;
-          if (localCompleted == 1) {
+          final localStatus = existing.first['status'] as String?;
+          if (localCompleted == 1 || localStatus == 'done') {
             isCompletedInt = 1;
+            statusStr = 'done';
+          } else if (localStatus == 'missed') {
+            statusStr = 'missed';
           }
         }
 
         final map = item.toMap();
         map['is_completed'] = isCompletedInt;
+        map['status'] = statusStr;
         if (code != null && code.isNotEmpty) {
           map['pairing_code'] = code.toUpperCase();
         }
@@ -128,24 +141,58 @@ class ReminderDatabaseService {
     return rows.map((r) => ReminderItem.fromMap(r)).toList();
   }
 
-  /// Marks a specific reminder as completed or pending in SQLite.
-  Future<void> toggleReminderCompleted(String id, bool isCompleted) async {
+  /// Updates the status of a reminder (e.g. 'done', 'upcoming', 'missed').
+  Future<void> updateReminderStatus(String id, String status) async {
     final db = await database;
+    final isDone = status == 'done';
     await db.update(
       table,
-      {'is_completed': isCompleted ? 1 : 0},
+      {
+        'status': status,
+        'is_completed': isDone ? 1 : 0,
+      },
       where: 'id = ?',
       whereArgs: [id],
     );
-    debugPrint('[ReminderDatabaseService] Toggled reminder $id completed: $isCompleted');
+    debugPrint('[ReminderDatabaseService] Updated reminder $id status to: $status');
+  }
+
+  /// Marks a specific reminder as completed or pending in SQLite.
+  Future<void> toggleReminderCompleted(String id, bool isCompleted) async {
+    await updateReminderStatus(id, isCompleted ? 'done' : 'upcoming');
   }
 
   /// Flushes the local SQLite table containing those reminders.
   /// If [pairingCode] is provided, removes reminders for that pairing code;
   /// otherwise wipes the entire [patient_reminders] table.
+  /// Cancels corresponding device alarms before removing records.
   Future<int> clearReminders({String? pairingCode}) async {
     final db = await database;
     int deletedCount = 0;
+
+    // Fetch existing reminders to cancel their device alarms first
+    final List<Map<String, dynamic>> existingRows;
+    if (pairingCode != null && pairingCode.trim().isNotEmpty) {
+      final clean = pairingCode.trim().toUpperCase();
+      existingRows = await db.query(
+        table,
+        where: 'pairing_code = ? OR pairing_code IS NULL',
+        whereArgs: [clean],
+      );
+    } else {
+      existingRows = await db.query(table);
+    }
+
+    for (final row in existingRows) {
+      final id = row['id'] as String?;
+      if (id != null && id.isNotEmpty) {
+        try {
+          await DeviceAlarmService.instance.deleteAlarm(id);
+        } catch (e) {
+          debugPrint('[ReminderDatabaseService] Failed to cancel device alarm for $id: $e');
+        }
+      }
+    }
 
     if (pairingCode != null && pairingCode.trim().isNotEmpty) {
       final clean = pairingCode.trim().toUpperCase();
@@ -160,6 +207,43 @@ class ReminderDatabaseService {
 
     debugPrint('[ReminderDatabaseService] Flushed $deletedCount reminders from SQLite.');
     return deletedCount;
+  }
+
+  /// Deletes a single reminder by [id], cancelling its device alarm first.
+  Future<int> deleteReminder(String id) async {
+    final db = await database;
+    try {
+      await DeviceAlarmService.instance.deleteAlarm(id);
+    } catch (e) {
+      debugPrint('[ReminderDatabaseService] Failed to cancel device alarm for $id: $e');
+    }
+    final count = await db.delete(
+      table,
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+    debugPrint('[ReminderDatabaseService] Deleted reminder $id from SQLite (count=$count).');
+    return count;
+  }
+
+  /// Cancels a reminder alarm on device for a single date.
+  Future<bool> cancelReminderOnce(String id, dynamic date) async {
+    try {
+      return await DeviceAlarmService.instance.cancelOnce(id, date);
+    } catch (e) {
+      debugPrint('[ReminderDatabaseService] Failed to cancelOnce for $id on $date: $e');
+      return false;
+    }
+  }
+
+  /// Cancels recurring device alarm schedule for a reminder.
+  Future<bool> cancelReminderRecurring(String id) async {
+    try {
+      return await DeviceAlarmService.instance.cancelRecurring(id);
+    } catch (e) {
+      debugPrint('[ReminderDatabaseService] Failed to cancelRecurring for $id: $e');
+      return false;
+    }
   }
 
   /// Returns total count of reminders stored in SQLite.

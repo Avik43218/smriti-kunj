@@ -32,6 +32,7 @@ DEMO_PATIENTS: List[Dict[str, Any]] = [
         "name": "Ananya Roy",
         "age": 74,
         "gender": "Female",
+        "diagnosis": "Mild Cognitive Impairment (MCI)",
         "accuracy_rate_pct": 52.4,
         "reaction_time_ms": 6250.0,
         "drift_slope_7d": -0.048,
@@ -42,6 +43,7 @@ DEMO_PATIENTS: List[Dict[str, Any]] = [
         "name": "Bimal Sen",
         "age": 68,
         "gender": "Male",
+        "diagnosis": "Early Stage Alzheimer's",
         "accuracy_rate_pct": 71.0,
         "reaction_time_ms": 4890.0,
         "drift_slope_7d": -0.018,
@@ -52,6 +54,7 @@ DEMO_PATIENTS: List[Dict[str, Any]] = [
         "name": "Chitra Das",
         "age": 63,
         "gender": "Female",
+        "diagnosis": "Mild Cognitive Impairment (MCI)",
         "accuracy_rate_pct": 89.2,
         "reaction_time_ms": 2980.0,
         "drift_slope_7d": 0.005,
@@ -62,6 +65,7 @@ DEMO_PATIENTS: List[Dict[str, Any]] = [
         "name": "Debabrata Ghosh",
         "age": 79,
         "gender": "Male",
+        "diagnosis": "Vascular Dementia",
         "accuracy_rate_pct": 46.8,
         "reaction_time_ms": 6850.0,
         "drift_slope_7d": -0.062,
@@ -72,6 +76,7 @@ DEMO_PATIENTS: List[Dict[str, Any]] = [
         "name": "Farida Begum",
         "age": 67,
         "gender": "Female",
+        "diagnosis": "Lewy Body Dementia",
         "accuracy_rate_pct": 74.5,
         "reaction_time_ms": 4720.0,
         "drift_slope_7d": -0.011,
@@ -82,6 +87,7 @@ DEMO_PATIENTS: List[Dict[str, Any]] = [
         "name": "Gopal Mukherjee",
         "age": 61,
         "gender": "Male",
+        "diagnosis": "Mild Cognitive Impairment (MCI)",
         "accuracy_rate_pct": 92.6,
         "reaction_time_ms": 2650.0,
         "drift_slope_7d": 0.008,
@@ -92,6 +98,7 @@ DEMO_PATIENTS: List[Dict[str, Any]] = [
         "name": "Haimanti Ray",
         "age": 71,
         "gender": "Female",
+        "diagnosis": "Early Stage Alzheimer's",
         "accuracy_rate_pct": 68.2,
         "reaction_time_ms": 5150.0,
         "drift_slope_7d": -0.022,
@@ -102,6 +109,7 @@ DEMO_PATIENTS: List[Dict[str, Any]] = [
         "name": "Indrajit Banerjee",
         "age": 66,
         "gender": "Male",
+        "diagnosis": "Frontotemporal Dementia",
         "accuracy_rate_pct": 86.5,
         "reaction_time_ms": 3100.0,
         "drift_slope_7d": 0.001,
@@ -138,10 +146,18 @@ async def get_caregiver_patient_risk_overview(caregiver: User = Depends(require_
     to perform real-time batch inference through xgboost_patient_risk_model.pkl.
     """
     try:
-        patients = await User.find(
-            User.caregiver_id == caregiver.id,
-            User.role == RoleEnum.patient,
-        ).to_list()
+        if caregiver.role == RoleEnum.admin or getattr(caregiver.role, "value", None) == "admin":
+            patients = await User.find(User.role == RoleEnum.patient).to_list()
+        else:
+            patients = await User.find(
+                {
+                    "role": RoleEnum.patient,
+                    "$or": [
+                        {"caregiver_id": caregiver.id},
+                        {"assigned_caregiver_ids": caregiver.id},
+                    ],
+                }
+            ).to_list()
     except Exception:
         patients = []
 
@@ -196,6 +212,7 @@ async def get_caregiver_patient_risk_overview(caregiver: User = Depends(require_
             "name": p.name or f"Patient {idx + 1}",
             "age": p.age or 65,
             "gender": p.gender or "Not Specified",
+            "diagnosis": p.diagnosis or "Mild Cognitive Impairment (MCI)",
             "accuracy_rate_pct": accuracy_pct,
             "reaction_time_ms": reaction_time,
             "drift_slope_7d": drift_slope_7d,

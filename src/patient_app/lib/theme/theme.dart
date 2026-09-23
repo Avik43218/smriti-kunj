@@ -11,7 +11,15 @@ class AppColors {
   static const sageGreen      = Color(0xFF6E8C6A);
   static const alertRed       = Color(0xFFC1272D); // SOS only — do not reuse elsewhere
   static const border         = Color(0xFFE4D9C4);
+
+  // ── Regional Scenery Background ─────────────────────────────────────────────
+  static const String sceneryAssetPath = 'assets/images/backgrounds/scenery.webp';
+  static const double sceneryDefaultOpacity = 0.40;
 }
+
+/// Top-level aliases for easy global access
+const String kSceneryAssetPath = AppColors.sceneryAssetPath;
+const double kSceneryOpacity = AppColors.sceneryDefaultOpacity;
 
 final ThemeData patientTheme = ThemeData(
   useMaterial3: true,

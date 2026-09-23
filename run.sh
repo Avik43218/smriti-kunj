@@ -58,6 +58,9 @@ fi
 # 3. Launch FastAPI server with Uvicorn
 if [ -d "src/backend" ]; then
   printf "${C_SYS}%-9s${C_RESET} │ Starting FastAPI server...\n" "[SYSTEM]"
+  if [ -d ".venv" ] && [ -z "$VIRTUAL_ENV" ]; then
+    source .venv/bin/activate
+  fi
   uvicorn app.main:app --host 0.0.0.0 --port 8000 --app-dir src/backend --reload 2>&1 \
     | tag_stream "[API]" "$C_API" &
 fi
