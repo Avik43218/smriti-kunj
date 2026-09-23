@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { getAllPatients, getCaregivers, reassignPatient } from '../../services/adminService';
+import { getAllPatients, getCaregivers, assignPatientCaregivers, reassignPatient } from '../../services/adminService';
 import { StyledSelect } from '../../components/StyledSelect';
 import {
   HeartHandshake,
@@ -14,6 +14,8 @@ import {
   ArrowLeft,
   Smartphone,
   User,
+  Users,
+  Check,
 } from 'lucide-react';
 
 export const AllPatients = () => {
@@ -26,9 +28,9 @@ export const AllPatients = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [caregiverFilter, setCaregiverFilter] = useState('all');
 
-  // Reassignment Modal state
+  // Assignment Modal state (supports multi-caregiver assignment)
   const [reassignTarget, setReassignTarget] = useState(null);
-  const [selectedCaregiverId, setSelectedCaregiverId] = useState('');
+  const [selectedCaregiverIds, setSelectedCaregiverIds] = useState([]);
   const [reassignSubmitting, setReassignSubmitting] = useState(false);
   const [reassignError, setReassignError] = useState(null);
 
@@ -55,9 +57,12 @@ export const AllPatients = () => {
 
   const filteredPatients = useMemo(() => {
     return patients.filter((patient) => {
-      // Caregiver filter
+      // Caregiver filter (checks assigned_caregiver_ids or caregiver_id)
       if (caregiverFilter !== 'all') {
-        if (String(patient.caregiver_id) !== String(caregiverFilter)) {
+        const assigned = (patient.assigned_caregiver_ids || []).map(String);
+        const matchesDirect = String(patient.caregiver_id) === String(caregiverFilter);
+        const matchesAssigned = assigned.includes(String(caregiverFilter));
+        if (!matchesDirect && !matchesAssigned) {
           return false;
         }
       }
@@ -68,7 +73,8 @@ export const AllPatients = () => {
         const matchesName = patient.name?.toLowerCase().includes(q);
         const matchesCode = patient.patient_code?.toLowerCase().includes(q) || patient.id?.toLowerCase().includes(q);
         const matchesDiagnosis = patient.diagnosis?.toLowerCase().includes(q);
-        const matchesCg = patient.caregiver_name?.toLowerCase().includes(q);
+        const matchesCg = patient.caregiver_name?.toLowerCase().includes(q) ||
+          (patient.assigned_caregivers || []).some((c) => c.name?.toLowerCase().includes(q));
         return matchesName || matchesCode || matchesDiagnosis || matchesCg;
       }
 
@@ -78,26 +84,38 @@ export const AllPatients = () => {
 
   const handleOpenReassignModal = (patient) => {
     setReassignTarget(patient);
-    setSelectedCaregiverId(patient.caregiver_id ? String(patient.caregiver_id) : '');
+    const initialIds = patient.assigned_caregiver_ids && patient.assigned_caregiver_ids.length > 0
+      ? patient.assigned_caregiver_ids.map(String)
+      : (patient.caregiver_id ? [String(patient.caregiver_id)] : []);
+    setSelectedCaregiverIds(initialIds);
     setReassignError(null);
+  };
+
+  const toggleCaregiverSelection = (cid) => {
+    const strId = String(cid);
+    setSelectedCaregiverIds((prev) =>
+      prev.includes(strId) ? prev.filter((id) => id !== strId) : [...prev, strId]
+    );
   };
 
   const handleReassignSubmit = async (e) => {
     e.preventDefault();
-    if (!reassignTarget || !selectedCaregiverId) return;
+    if (!reassignTarget) return;
 
     setReassignSubmitting(true);
     setReassignError(null);
     try {
-      await reassignPatient(reassignTarget.id || reassignTarget.uuid_id, selectedCaregiverId);
-      const targetCg = caregivers.find((c) => String(c.id) === String(selectedCaregiverId));
+      await assignPatientCaregivers(
+        reassignTarget.id || reassignTarget.uuid_id,
+        selectedCaregiverIds
+      );
       setSuccessMessage(
-        `Patient "${reassignTarget.name}" successfully reassigned to ${targetCg?.name || 'new caregiver'}.`
+        `Caregiver assignments updated for "${reassignTarget.name}".`
       );
       setReassignTarget(null);
       await loadData();
     } catch (err) {
-      setReassignError(err?.message || 'Failed to reassign patient.');
+      setReassignError(err?.message || 'Failed to update patient assignments.');
     } finally {
       setReassignSubmitting(false);
     }
@@ -207,7 +225,7 @@ export const AllPatients = () => {
 
       {/* Patients Table Card */}
       <div className="rounded-card bg-surface dark:bg-ink-soft/20 border border-border/80 dark:border-ink-soft/40 shadow-sm overflow-hidden transition-colors">
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto custom-scrollbar">
           <table className="w-full text-left text-xs sm:text-sm">
             <thead className="bg-cream/40 dark:bg-ink-soft/30 border-b border-border/80 dark:border-ink-soft/40 text-ink-soft dark:text-cream/70 text-xs font-semibold">
               <tr>
@@ -241,9 +259,25 @@ export const AllPatients = () => {
                   </td>
 
                   <td className="py-3.5 px-4">
-                    <div className="flex items-center gap-1.5 font-medium">
-                      <User className="w-3.5 h-3.5 text-terracotta" />
-                      <span>{patient.caregiver_name || 'Unassigned Caregiver'}</span>
+                    <div className="space-y-1">
+                      {patient.assigned_caregivers && patient.assigned_caregivers.length > 0 ? (
+                        <div className="flex flex-wrap gap-1">
+                          {patient.assigned_caregivers.map((cg) => (
+                            <span
+                              key={cg.id}
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-cream/70 dark:bg-ink-soft/30 border border-border/80 dark:border-ink-soft/40 text-ink dark:text-cream"
+                            >
+                              <User className="w-3 h-3 text-terracotta" />
+                              <span>{cg.name}</span>
+                            </span>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-1.5 font-medium text-xs text-ink-soft dark:text-cream/60">
+                          <User className="w-3.5 h-3.5 text-terracotta" />
+                          <span>{patient.caregiver_name || 'Unassigned Caregiver'}</span>
+                        </div>
+                      )}
                     </div>
                   </td>
 
@@ -274,8 +308,8 @@ export const AllPatients = () => {
                       onClick={() => handleOpenReassignModal(patient)}
                       className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-cream dark:bg-ink-soft/30 hover:bg-terracotta hover:text-cream text-ink dark:text-cream border border-border/80 dark:border-ink-soft/40 transition-colors font-medium text-xs shadow-xs"
                     >
-                      <ArrowRightLeft className="w-3 h-3" />
-                      <span>Reassign</span>
+                      <Users className="w-3 h-3" />
+                      <span>Assign Caregivers</span>
                     </button>
                   </td>
                 </tr>
@@ -292,14 +326,14 @@ export const AllPatients = () => {
         </div>
       </div>
 
-      {/* Reassignment Modal */}
+      {/* Multi-Caregiver Assignment Modal */}
       {reassignTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-ink/60 backdrop-blur-xs animate-in fade-in duration-150">
-          <div className="w-full max-w-md bg-surface dark:bg-ink-soft/20 backdrop-blur-2xl border border-border/80 dark:border-ink-soft/40 rounded-card shadow-card p-6 sm:p-7 space-y-4">
+          <div className="w-full max-w-lg bg-surface dark:bg-ink-soft/20 backdrop-blur-2xl border border-border/80 dark:border-ink-soft/40 rounded-card shadow-card p-6 sm:p-7 space-y-4 max-h-[90vh] overflow-y-auto custom-scrollbar">
             <div className="flex items-center justify-between border-b border-border/60 dark:border-ink-soft/30 pb-3">
               <div className="flex items-center gap-2">
-                <ArrowRightLeft className="w-5 h-5 text-terracotta" />
-                <h3 className="text-base sm:text-lg font-bold text-ink dark:text-cream">Reassign Patient Caregiver</h3>
+                <Users className="w-5 h-5 text-terracotta" />
+                <h3 className="text-base sm:text-lg font-bold text-ink dark:text-cream">Assign Caregivers</h3>
               </div>
               <button
                 onClick={() => setReassignTarget(null)}
@@ -323,32 +357,64 @@ export const AllPatients = () => {
                 <span className="font-mono text-ink-soft dark:text-cream/50">({reassignTarget.patient_code || reassignTarget.id})</span>
               </div>
               <div>
-                <span className="text-ink-soft dark:text-cream/60">Current Assigned Caregiver: </span>
+                <span className="text-ink-soft dark:text-cream/60">Selected Caregivers: </span>
                 <span className="font-semibold text-terracotta">
-                  {reassignTarget.caregiver_name || 'None / Unassigned'}
+                  {selectedCaregiverIds.length} assigned
                 </span>
               </div>
             </div>
 
             <form onSubmit={handleReassignSubmit} className="space-y-4 text-xs sm:text-sm">
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-ink-soft dark:text-cream/70 mb-1.5">
-                  Select New Primary Caregiver
-                </label>
-                <StyledSelect
-                  value={selectedCaregiverId}
-                  onChange={(val) => setSelectedCaregiverId(val)}
-                  placeholder="-- Select a caregiver --"
-                  options={caregivers
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-ink-soft dark:text-cream/70">
+                    Active Caregivers ({caregivers.filter((c) => c.status === 'active').length})
+                  </label>
+                  <span className="text-[11px] text-ink-soft dark:text-cream/50">
+                    Select one or more
+                  </span>
+                </div>
+
+                <div className="space-y-2 max-h-60 overflow-y-auto custom-scrollbar pr-1">
+                  {caregivers
                     .filter((cg) => cg.status === 'active')
-                    .map((cg) => ({
-                      value: String(cg.id),
-                      label: `${cg.name} (${cg.email}) • ${cg.patient_count ?? 0} current patients`,
-                    }))}
-                />
-                <p className="text-[11px] text-ink-soft dark:text-cream/60 mt-1">
-                  Only active caregivers are eligible to accept patient reassignment.
-                </p>
+                    .map((cg) => {
+                      const isSelected = selectedCaregiverIds.includes(String(cg.id));
+                      return (
+                        <div
+                          key={cg.id}
+                          onClick={() => toggleCaregiverSelection(cg.id)}
+                          className={`p-3 rounded-xl border flex items-center justify-between cursor-pointer transition-all ${
+                            isSelected
+                              ? 'bg-terracotta/10 border-terracotta/50 shadow-xs'
+                              : 'bg-cream/40 dark:bg-ink-soft/10 border-border/70 dark:border-ink-soft/30 hover:border-terracotta/30'
+                          }`}
+                        >
+                          <div className="flex items-center gap-3">
+                            <div
+                              className={`w-5 h-5 rounded-md border flex items-center justify-center transition-colors ${
+                                isSelected
+                                  ? 'bg-terracotta border-terracotta text-cream'
+                                  : 'border-border dark:border-ink-soft/40 bg-surface'
+                              }`}
+                            >
+                              {isSelected && <Check className="w-3.5 h-3.5" />}
+                            </div>
+                            <div>
+                              <div className="font-semibold text-ink dark:text-cream">{cg.name}</div>
+                              <div className="text-[11px] text-ink-soft dark:text-cream/60">
+                                {cg.email} • {cg.patient_count ?? 0} current patients
+                              </div>
+                            </div>
+                          </div>
+
+                          <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-surface dark:bg-ink-soft/30 border border-border/60">
+                            {cg.region_language || 'EN'}
+                          </span>
+                        </div>
+                      );
+                    })}
+                </div>
               </div>
 
               <div className="flex items-center justify-end gap-2 pt-3 border-t border-border/60 dark:border-ink-soft/30">
@@ -361,10 +427,10 @@ export const AllPatients = () => {
                 </button>
                 <button
                   type="submit"
-                  disabled={reassignSubmitting || !selectedCaregiverId}
+                  disabled={reassignSubmitting}
                   className="px-4 py-2 rounded-full bg-terracotta hover:bg-terracotta-dark text-cream text-xs font-semibold shadow-xs transition-colors focus:outline-none focus:ring-2 focus:ring-terracotta/40"
                 >
-                  {reassignSubmitting ? 'Transferring...' : 'Confirm Reassignment'}
+                  {reassignSubmitting ? 'Saving...' : 'Save Assignments'}
                 </button>
               </div>
             </form>

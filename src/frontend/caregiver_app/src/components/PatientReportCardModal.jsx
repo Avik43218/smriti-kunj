@@ -1,4 +1,5 @@
-import React, { useRef } from 'react';
+import React, { useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Printer,
   Download,
@@ -22,6 +23,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { DOMAINS, formatDuration } from '../services/gameSessionService';
+import { downloadPatientStatsCsv } from '../services/csvExportService';
 
 export const PatientReportCardModal = ({
   isOpen,
@@ -34,6 +36,30 @@ export const PatientReportCardModal = ({
 }) => {
   const { user: currentUser } = useAuth();
   const reportRef = useRef(null);
+
+  // Lock body scroll and handle Escape key while modal is open
+  useEffect(() => {
+    if (!isOpen || !patient) return;
+
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        onClose?.();
+      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'p') {
+        e.preventDefault();
+        handlePrint();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      document.body.style.overflow = originalOverflow;
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isOpen, patient, onClose]);
 
   if (!isOpen || !patient) return null;
 
@@ -96,8 +122,18 @@ export const PatientReportCardModal = ({
   const alertCount = patientRisk?.active_alert_count !== undefined ? patientRisk.active_alert_count : 0;
 
   // Lifestyle & Physical Vitals
+  const formatBodyWeight = (val) => {
+    if (!val) return '68.5 kg';
+    const str = String(val).trim();
+    if (/\d+\s*kg/i.test(str)) {
+      return str.replace(/([0-9.]+)\s*kg/i, '$1 kg');
+    }
+    const match = str.match(/[\d.]+/);
+    return match ? `${match[0]} kg` : `${str} kg`;
+  };
+
   const lifestyleVitals = {
-    weight: patient.weight ? `${patient.weight} kg` : '68.5 kg',
+    weight: formatBodyWeight(patient.weight || patient.body_weight || patient.bodyWeight),
     diabetic: patient.diabetic || 'Type 2 (Managed)',
     nutritionDiet: patient.nutritionDiet || 'Low Sodium / Heart Healthy',
     physicalActivity: patient.physicalActivity || 'Moderate (30 min walking)',
@@ -111,14 +147,9 @@ export const PatientReportCardModal = ({
     .sort((a, b) => new Date(b.session_date).getTime() - new Date(a.session_date).getTime())
     .slice(0, 5);
 
-  // Trigger browser print
-  const handlePrint = () => {
-    window.print();
-  };
-
-  // Trigger Standalone HTML Download
-  const handleDownloadHtml = () => {
-    const reportHtml = `<!DOCTYPE html>
+  // Generate standalone light-mode clinical report HTML for both Print/PDF and HTML download
+  const generateReportHtml = () => {
+    return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -126,14 +157,22 @@ export const PatientReportCardModal = ({
   <title>Clinical Report Card - ${patient.name} (${reportId})</title>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+    
+    * {
+      box-sizing: border-box;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+
     body {
-      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       background-color: #FBF8F2;
       color: #2E2A24;
       margin: 0;
       padding: 32px 20px;
       line-height: 1.5;
     }
+
     .container {
       max-width: 860px;
       margin: 0 auto;
@@ -143,6 +182,7 @@ export const PatientReportCardModal = ({
       padding: 36px 40px;
       box-shadow: 0 4px 20px rgba(46, 42, 36, 0.06);
     }
+
     .header {
       display: flex;
       justify-content: space-between;
@@ -151,12 +191,14 @@ export const PatientReportCardModal = ({
       padding-bottom: 20px;
       margin-bottom: 24px;
     }
+
     .brand {
       font-size: 22px;
       font-weight: 800;
       color: #C85A32;
       letter-spacing: -0.5px;
     }
+
     .brand-sub {
       font-size: 11px;
       color: #7A7265;
@@ -164,11 +206,13 @@ export const PatientReportCardModal = ({
       letter-spacing: 1px;
       font-weight: 600;
     }
+
     .meta-block {
       text-align: right;
       font-size: 12px;
       color: #5C5549;
     }
+
     .patient-grid {
       display: grid;
       grid-template-columns: repeat(4, 1fr);
@@ -179,6 +223,7 @@ export const PatientReportCardModal = ({
       padding: 16px;
       margin-bottom: 24px;
     }
+
     .metric-cell .label {
       font-size: 10px;
       font-weight: 700;
@@ -186,12 +231,14 @@ export const PatientReportCardModal = ({
       text-transform: uppercase;
       letter-spacing: 0.5px;
     }
+
     .metric-cell .value {
       font-size: 14px;
       font-weight: 700;
       color: #2E2A24;
       margin-top: 2px;
     }
+
     .section-title {
       font-size: 14px;
       font-weight: 700;
@@ -205,6 +252,7 @@ export const PatientReportCardModal = ({
       border-bottom: 1px solid #EFE8DA;
       padding-bottom: 6px;
     }
+
     .risk-banner {
       display: flex;
       justify-content: space-between;
@@ -215,31 +263,37 @@ export const PatientReportCardModal = ({
       padding: 16px 20px;
       margin-bottom: 24px;
     }
+
     .risk-tag {
       font-weight: 800;
       font-size: 15px;
       color: ${riskGrade === 2 ? '#8C2C24' : riskGrade === 1 ? '#C9962C' : '#6E8C6A'};
     }
+
     .curve-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 16px;
       margin-bottom: 24px;
     }
+
     .curve-card {
       border: 1px solid #E4D9C4;
       border-radius: 8px;
       padding: 16px;
       background: #FFFFFF;
     }
+
     .curve-card.memory { border-top: 4px solid #B5562F; }
     .curve-card.attention { border-top: 4px solid #C9962C; }
+
     .table {
       width: 100%;
       border-collapse: collapse;
       font-size: 12px;
       margin-top: 8px;
     }
+
     .table th {
       text-align: left;
       padding: 8px 10px;
@@ -248,11 +302,13 @@ export const PatientReportCardModal = ({
       font-weight: 700;
       border-bottom: 1px solid #E4D9C4;
     }
+
     .table td {
       padding: 8px 10px;
       border-bottom: 1px solid #EFE8DA;
       color: #2E2A24;
     }
+
     .sign-box {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -261,20 +317,54 @@ export const PatientReportCardModal = ({
       padding-top: 24px;
       border-top: 1px dashed #D5C7AF;
     }
+
     .signature-line {
       border-bottom: 1px solid #7A7265;
       height: 40px;
       margin-bottom: 6px;
     }
+
     .sign-label {
       font-size: 11px;
       color: #5C5549;
       font-weight: 600;
       text-transform: uppercase;
     }
+
+    @page {
+      size: A4 portrait;
+      margin: 8mm 10mm;
+    }
+
     @media print {
-      body { background: white; padding: 0; }
-      .container { border: none; box-shadow: none; padding: 0; width: 100%; }
+      html, body {
+        background-color: #FFFFFF !important;
+        color: #2E2A24 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+      .container {
+        border: 1px solid #E4D9C4 !important;
+        border-radius: 8px !important;
+        box-shadow: none !important;
+        padding: 24px 28px !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        margin: 0 auto !important;
+        background: #FFFFFF !important;
+        page-break-inside: auto;
+      }
+      .patient-grid,
+      .risk-banner,
+      .curve-grid,
+      .curve-card,
+      .table tr,
+      .sign-box {
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
+      }
     }
   </style>
 </head>
@@ -308,7 +398,7 @@ export const PatientReportCardModal = ({
       </div>
       <div class="metric-cell">
         <div class="label">Primary Condition</div>
-        <div class="value">${patient.condition || 'Mild Cognitive Impairment'}</div>
+        <div class="value">${patient.diagnosis || patient.condition || 'Mild Cognitive Impairment (MCI)'}</div>
       </div>
     </div>
 
@@ -432,7 +522,68 @@ export const PatientReportCardModal = ({
   </div>
 </body>
 </html>`;
+  };
 
+  // Trigger Print / PDF in clean, isolated light-mode iframe matching .html format exactly
+  const handlePrint = () => {
+    const reportHtml = generateReportHtml();
+
+    // Clean up any old print iframe if present
+    const existingFrame = document.getElementById('smriti-print-frame');
+    if (existingFrame) {
+      existingFrame.remove();
+    }
+
+    const iframe = document.createElement('iframe');
+    iframe.id = 'smriti-print-frame';
+    iframe.style.position = 'fixed';
+    iframe.style.left = '-9999px';
+    iframe.style.top = '0';
+    iframe.style.width = '1024px';
+    iframe.style.height = '1024px';
+    iframe.style.border = 'none';
+    iframe.style.opacity = '0.01';
+    iframe.style.pointerEvents = 'none';
+    iframe.style.zIndex = '-9999';
+
+    document.body.appendChild(iframe);
+
+    const doc = iframe.contentWindow.document;
+    doc.open();
+    doc.write(reportHtml);
+    doc.close();
+
+    // Give iframe sufficient time to parse fonts/styles before invoking print
+    setTimeout(() => {
+      try {
+        iframe.contentWindow.focus();
+        iframe.contentWindow.print();
+      } catch (err) {
+        console.error('Print failed:', err);
+      } finally {
+        setTimeout(() => {
+          if (document.body.contains(iframe)) {
+            document.body.removeChild(iframe);
+          }
+        }, 2000);
+      }
+    }, 350);
+  };
+
+  // Trigger Standalone CSV Stats Download
+  const handleDownloadCsv = () => {
+    downloadPatientStatsCsv({
+      patient,
+      sessions,
+      stats,
+      riskData: riskOverview,
+      domainData,
+    });
+  };
+
+  // Trigger Standalone HTML Download
+  const handleDownloadHtml = () => {
+    const reportHtml = generateReportHtml();
     const blob = new Blob([reportHtml], { type: 'text/html;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -466,8 +617,8 @@ export const PatientReportCardModal = ({
     );
   };
 
-  return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-ink/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 print:p-0 print:static print:bg-white">
+  return createPortal(
+    <div className="fixed inset-0 z-[100] overflow-y-auto custom-scrollbar bg-ink/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 print:p-0 print:static print:bg-white">
       {/* MODAL WRAPPER */}
       <div className="bg-surface dark:bg-ink border border-border dark:border-ink-soft/40 w-full max-w-4xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh] print:max-h-none print:shadow-none print:border-none print:w-full print:rounded-none">
         
@@ -508,6 +659,16 @@ export const PatientReportCardModal = ({
 
             <button
               type="button"
+              onClick={handleDownloadCsv}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-terracotta hover:bg-terracotta-dark text-cream text-xs font-semibold rounded-lg transition-all shadow-2xs cursor-pointer active:scale-95"
+              title="Download full numerical statistics as a CSV file"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span>Download Stats</span>
+            </button>
+
+            <button
+              type="button"
               onClick={onClose}
               className="p-1.5 text-ink-soft dark:text-cream/60 hover:text-ink dark:hover:text-cream rounded-lg hover:bg-cream dark:hover:bg-ink-soft/40 transition-colors ml-1 cursor-pointer"
               aria-label="Close"
@@ -521,7 +682,7 @@ export const PatientReportCardModal = ({
         <div
           ref={reportRef}
           id="clinical-report-card"
-          className="p-6 sm:p-8 overflow-y-auto space-y-6 text-ink dark:text-cream print:p-0 print:overflow-visible print:text-black"
+          className="p-6 sm:p-8 overflow-y-auto custom-scrollbar space-y-6 text-ink dark:text-cream print:p-0 print:overflow-visible print:text-black"
         >
           {/* REPORT HEADER BANNER */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b-2 border-border/80 dark:border-ink-soft/40 pb-5">
@@ -572,7 +733,7 @@ export const PatientReportCardModal = ({
                 Clinical Diagnosis
               </span>
               <p className="text-sm font-bold text-terracotta mt-0.5 truncate">
-                {patient.condition || 'Cognitive Monitoring'}
+                {patient.diagnosis || patient.condition || 'Mild Cognitive Impairment (MCI)'}
               </p>
             </div>
           </div>
@@ -772,7 +933,7 @@ export const PatientReportCardModal = ({
               </span>
             </div>
 
-            <div className="overflow-x-auto rounded-lg border border-border/70 dark:border-ink-soft/30">
+            <div className="overflow-x-auto custom-scrollbar rounded-lg border border-border/70 dark:border-ink-soft/30">
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
                   <tr className="bg-cream/60 dark:bg-ink-soft/30 text-ink-soft dark:text-cream/70 text-[10px] uppercase font-bold border-b border-border/70 dark:border-ink-soft/30">
@@ -856,7 +1017,8 @@ export const PatientReportCardModal = ({
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
 

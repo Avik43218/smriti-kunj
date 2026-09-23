@@ -1,15 +1,24 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { SettingsDropdown } from './SettingsDropdown';
-import { LogOut, ChevronDown, User, Settings, ShieldCheck } from 'lucide-react';
+import { ChangePasswordModal } from './ChangePasswordModal';
+import { LogOut, ChevronDown, User, Settings, ShieldCheck, KeyRound } from 'lucide-react';
 
 export const ProfilePopover = () => {
   const { caregiver, logout, role, isAdmin } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [isOpen, setIsOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
   const containerRef = useRef(null);
+
+  const handleCloseChangePassword = useCallback(() => {
+    setIsChangePasswordOpen(false);
+  }, []);
+
+  const isCaregiverPortal = !isAdmin && role !== 'admin' && !location.pathname.startsWith('/admin');
 
   const caregiverInitials = caregiver?.name
     ? caregiver.name
@@ -109,6 +118,22 @@ export const ProfilePopover = () => {
               </button>
             )}
 
+            {/* Change Password Option (Caregiver Portal only) */}
+            {isCaregiverPortal && (
+              <button
+                type="button"
+                aria-label="Change password"
+                onClick={() => {
+                  setIsOpen(false);
+                  setIsChangePasswordOpen(true);
+                }}
+                className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs text-ink dark:text-cream hover:bg-cream dark:hover:bg-ink-soft/20 flex items-center gap-2 transition-colors"
+              >
+                <KeyRound className="w-3.5 h-3.5 text-ink-soft dark:text-cream/70" />
+                <span>Change Password</span>
+              </button>
+            )}
+
             {/* Settings Trigger Option */}
             <button
               type="button"
@@ -131,6 +156,14 @@ export const ProfilePopover = () => {
             </button>
           </div>
         </div>
+      )}
+
+      {/* Change Password Modal (Caregiver Portal only) */}
+      {isCaregiverPortal && (
+        <ChangePasswordModal
+          isOpen={isChangePasswordOpen}
+          onClose={handleCloseChangePassword}
+        />
       )}
 
       {/* Settings Overlay Panel */}

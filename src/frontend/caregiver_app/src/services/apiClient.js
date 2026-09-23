@@ -4,7 +4,11 @@
  * Separated to eliminate circular dependencies between api.js gateway and individual service modules.
  */
 
-const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const isBrowser = typeof window !== 'undefined';
+const isLocalhost = isBrowser && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+const BASE_URL = import.meta.env.VITE_API_URL !== undefined
+  ? import.meta.env.VITE_API_URL
+  : (isLocalhost ? 'http://localhost:8000' : '');
 
 export const apiClient = async (endpoint, options = {}) => {
   let token = localStorage.getItem('token') || localStorage.getItem('caregiver_auth_token'); 

@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, Optional, Annotated, Union, Literal
+from typing import Any, Dict, Optional, Annotated, Union, Literal, List
 
 from beanie import Document, Indexed, PydanticObjectId
 from pydantic import Field
@@ -34,6 +34,10 @@ class User(Document):
     region_language: str = "bn"  # as / bn / mni ...
     caregiver_id: Optional[uuid.UUID] = None
     device_id: Optional[str] = None
+    phone: Optional[str] = None
+    must_change_password: bool = False
+    token_version: int = 1
+    assigned_caregiver_ids: List[uuid.UUID] = Field(default_factory=list)
 
     # Patient profile attributes
     patient_code: Optional[str] = None  # e.g. "p101"
@@ -43,12 +47,19 @@ class User(Document):
     date_of_birth: Optional[str] = None
     diagnosis: Optional[str] = None
     health_issue: Optional[str] = None
+    body_weight: Optional[str] = None  # e.g. "68 kg" / "68.5 kg"
+    weight: Optional[str] = None  # synonym/alias for body_weight
+    diabetic: Optional[str] = None
+    nutrition_diet: Optional[str] = None
+    alcohol_level: Optional[str] = None
+    smoking_status: Optional[str] = None
     avatar_url: Optional[str] = None
     status: Optional[str] = "active"
     status_label: Optional[str] = "Active • Device synced"
     last_check_in: Optional[str] = None
     notes: Optional[str] = None
     emergency_contact: Optional[Dict[str, Any]] = None
+    alternative_emergency_contact: Optional[Dict[str, Any]] = None
     device_status: Optional[Dict[str, Any]] = None
 
     created_at: datetime = Field(default_factory=datetime.utcnow)
@@ -76,6 +87,7 @@ class User(Document):
                 partialFilterExpression={"pairing_token": {"$type": "string"}},
             ),
             IndexModel([("caregiver_id", ASCENDING)]),
+            IndexModel([("assigned_caregiver_ids", ASCENDING)]),
         ]
 
 

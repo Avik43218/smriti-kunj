@@ -1,0 +1,385 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 650" width="1000" height="650">
+  <defs>
+    <style>
+      .tg-outline  { fill: none; stroke: #8C3F20; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+      .tg-ridge    { fill: none; stroke: #8C3F20; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+      .tg-fine     { fill: none; stroke: #8C3F20; stroke-width: 1.0; stroke-linecap: round; stroke-linejoin: round; opacity: 0.85; }
+      .tg-gold     { fill: none; stroke: #C9962C; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+      .tg-gold-fine{ fill: none; stroke: #C9962C; stroke-width: 1.1; stroke-linecap: round; stroke-linejoin: round; opacity: 0.88; }
+      .tg-foliage  { fill: none; stroke: #8C3F20; stroke-width: 1.3; stroke-linecap: round; stroke-linejoin: round; }
+      .tg-leaf     { fill: #C9962C; stroke: #C9962C; stroke-width: 0.8; stroke-linecap: round; stroke-linejoin: round; }
+      .tg-fill-leaf{ fill: #8C3F20; stroke: #8C3F20; stroke-width: 0.8; stroke-linecap: round; stroke-linejoin: round; }
+      .tg-tint     { fill: #C9962C; opacity: 0.05; }
+      .tg-tint-hill{ fill: #8C3F20; opacity: 0.035; }
+      .tg-mist     { fill: none; stroke: #C9962C; stroke-width: 1.1; stroke-linecap: round; stroke-dasharray: 6 5; opacity: 0.55; }
+    </style>
+  </defs>
+
+  <!-- BACKGROUND: ROLLING MISTY DISTANT RIDGES -->
+  <path d="M 0,160 Q 180,120 380,150 Q 560,110 740,145 Q 890,125 1000,155 L 1000,650 L 0,650 Z" class="tg-tint-hill" />
+  <path d="M -10,155 C 160,125 320,150 490,135 C 660,120 830,155 1010,140" class="tg-gold-fine" stroke-dasharray="6 4" />
+  
+  <!-- Subtle distant Himalayan foothills backdrop -->
+  <path d="M 0,210 Q 140,175 320,195 Q 520,165 720,205 Q 880,180 1000,215" class="tg-outline" stroke-width="1.8" opacity="0.6" />
+  <path d="M 120,185 C 240,205 380,180 500,200" class="tg-fine" opacity="0.5" />
+  <path d="M 640,195 C 760,175 880,210 980,190" class="tg-fine" opacity="0.5" />
+
+  <!-- Morning Sun Rising softly over the Tea Estates -->
+  <g transform="translate(820, 110)">
+    <circle cx="0" cy="0" r="30" class="tg-gold" stroke-dasharray="3 3" opacity="0.6" />
+    <circle cx="0" cy="0" r="20" class="tg-gold" stroke-width="1.4" />
+    <circle cx="0" cy="0" r="10" fill="#C9962C" opacity="0.25" />
+    <line x1="0" y1="-26" x2="0" y2="-36" class="tg-gold-fine" />
+    <line x1="18" y1="-18" x2="26" y2="-26" class="tg-gold-fine" />
+    <line x1="26" y1="0" x2="36" y2="0" class="tg-gold-fine" />
+    <line x1="18" y1="18" x2="26" y2="26" class="tg-gold-fine" />
+    <line x1="-18" y1="-18" x2="-26" y2="-26" class="tg-gold-fine" />
+    <line x1="-26" y1="0" x2="-36" y2="0" class="tg-gold-fine" />
+  </g>
+
+  <!-- Valley Morning Mist drifting across upper slopes -->
+  <path d="M 80,180 Q 220,165 360,185 T 640,175" class="tg-mist" />
+  <path d="M 280,215 Q 440,200 600,220 T 920,205" class="tg-mist" />
+
+  <!-- ================= SHADE TREES (ALBIZIA / SAU TREES - ICONIC TEA CANOPY) ================= -->
+  <!-- Majestic Shade Tree 1 (Left Hill Crest - realistic layered umbrella canopy) -->
+  <g transform="translate(180, 240)">
+    <!-- Slender, tall elegant trunk with natural branching -->
+    <path d="M -2,120 C -2,70 2,30 -6,-15 C -8,-25 -14,-40 -16,-60" class="tg-outline" stroke-width="2.6" />
+    <path d="M 4,120 C 4,75 7,35 2,-12 C 0,-25 8,-42 14,-62" class="tg-ridge" stroke-width="1.8" />
+    <!-- Bark texture lines -->
+    <line x1="0" y1="100" x2="0" y2="60" class="tg-fine" />
+    <line x1="2" y1="45" x2="1" y2="10" class="tg-fine" />
+    
+    <!-- Major spreading branches -->
+    <path d="M -3,-10 C -25,-25 -55,-30 -85,-38" class="tg-outline" stroke-width="2.0" />
+    <path d="M -50,-29 C -70,-45 -95,-52 -115,-55" class="tg-ridge" />
+    <path d="M 1,-6 C 25,-22 55,-28 90,-35" class="tg-outline" stroke-width="2.0" />
+    <path d="M 52,-27 C 75,-42 105,-48 125,-50" class="tg-ridge" />
+    <path d="M -15,-55 C -30,-75 -50,-90 -80,-98" class="tg-ridge" />
+    <path d="M 12,-58 C 28,-78 50,-92 78,-100" class="tg-ridge" />
+    <path d="M -2,-50 C -4,-80 -2,-105 0,-120" class="tg-ridge" stroke-width="1.8" />
+
+    <!-- Delicate feathery Albizia foliage pads (horizontal flattened clouds) -->
+    <!-- Far left pad -->
+    <path d="M -125,-55 C -115,-65 -90,-62 -80,-52 C -70,-64 -45,-60 -40,-48" class="tg-gold" stroke-width="1.5" />
+    <path d="M -120,-58 Q -95,-68 -70,-56" class="tg-gold-fine" />
+    <!-- Lower left pad -->
+    <path d="M -95,-38 C -85,-48 -60,-46 -50,-35 C -40,-46 -20,-42 -15,-32" class="tg-outline" stroke-width="1.6" />
+    <!-- Center top feather crown -->
+    <path d="M -35,-122 C -20,-132 10,-132 25,-120 C 40,-130 65,-126 75,-116" class="tg-gold" stroke-width="1.6" />
+    <path d="M -28,-126 Q 5,-138 35,-124" class="tg-gold-fine" />
+    <path d="M -85,-98 C -70,-110 -40,-106 -30,-94" class="tg-gold" stroke-width="1.4" />
+    <path d="M 30,-98 C 45,-110 75,-106 85,-94" class="tg-gold" stroke-width="1.4" />
+    <!-- Right spread pads -->
+    <path d="M 45,-34 C 60,-44 85,-42 95,-32 C 105,-42 125,-38 132,-28" class="tg-outline" stroke-width="1.6" />
+    <path d="M 75,-50 C 90,-62 118,-60 130,-48" class="tg-gold" stroke-width="1.5" />
+    
+    <!-- Feathered bipinnate foliage leaflet sprays (fine decorative botanical detailing) -->
+    <g class="tg-gold-fine">
+      <line x1="-105" y1="-56" x2="-100" y2="-62" />
+      <line x1="-98" y1="-58" x2="-93" y2="-64" />
+      <line x1="-90" y1="-56" x2="-85" y2="-62" />
+      <line x1="-72" y1="-53" x2="-68" y2="-60" />
+      <line x1="-64" y1="-54" x2="-60" y2="-61" />
+      
+      <line x1="-15" y1="-124" x2="-10" y2="-130" />
+      <line x1="-5" y1="-126" x2="0" y2="-132" />
+      <line x1="5" y1="-126" x2="10" y2="-132" />
+      <line x1="15" y1="-124" x2="20" y2="-130" />
+
+      <line x1="60" y1="-36" x2="65" y2="-42" />
+      <line x1="70" y1="-37" x2="75" y2="-43" />
+      <line x1="80" y1="-36" x2="85" y2="-42" />
+      <line x1="100" y1="-51" x2="105" y2="-57" />
+      <line x1="110" y1="-52" x2="115" y2="-58" />
+    </g>
+  </g>
+
+  <!-- Distant Shade Tree 2 (Mid-Right Ridge - slender scale) -->
+  <g transform="translate(680, 220) scale(0.7)">
+    <path d="M -2,120 C -2,60 4,20 -4,-20 C -6,-40 2,-70 6,-95" class="tg-outline" stroke-width="2.2" />
+    <path d="M -3,-15 C -25,-30 -60,-38 -90,-45" class="tg-ridge" />
+    <path d="M 2,-10 C 25,-25 60,-32 95,-38" class="tg-ridge" />
+    <path d="M 4,-70 C 25,-90 60,-98 85,-105" class="tg-ridge" />
+    <path d="M 0,-72 C -20,-92 -50,-102 -75,-110" class="tg-ridge" />
+    
+    <path d="M -105,-46 C -90,-58 -60,-55 -45,-42 C -35,-55 -10,-52 0,-40" class="tg-gold" stroke-width="1.5" />
+    <path d="M 30,-38 C 50,-50 80,-48 100,-35" class="tg-gold" stroke-width="1.5" />
+    <path d="M -85,-112 C -65,-125 -35,-122 -20,-108 C 0,-122 35,-120 50,-106" class="tg-gold" stroke-width="1.5" />
+    <path d="M 50,-106 C 70,-118 95,-115 105,-102" class="tg-gold" stroke-width="1.5" />
+  </g>
+
+  <!-- ================= SECTION 1: CONTOUR-PLANTED TERRACED TEA SLOPES ================= -->
+  <!-- Continuous sweeping contour ridges characteristic of Darjeeling, Assam & Meghalaya hills -->
+  
+  <!-- Tier 1: Midground Rolling Terraces (upper slopes) -->
+  <path d="M -10,310 Q 140,270 300,290 Q 460,310 620,280 Q 780,250 1010,275" class="tg-outline" stroke-width="2.2" />
+  <path d="M -10,340 Q 160,298 330,320 Q 500,342 660,308 Q 820,275 1010,305" class="tg-ridge" />
+  <path d="M -10,370 Q 180,325 360,350 Q 540,375 710,338 Q 860,305 1010,335" class="tg-outline" stroke-width="2.0" />
+  
+  <!-- Fill tint on slope band for rich depth -->
+  <path d="M 0,370 Q 180,325 360,350 Q 540,375 710,338 Q 860,305 1010,335 L 1010,430 Q 860,395 720,430 Q 520,465 330,420 Q 160,380 0,430 Z" class="tg-tint" />
+
+  <!-- Tier 2: Prominent Meandering Contour Bands (midground slope) -->
+  <path d="M -10,405 Q 160,355 340,385 Q 520,412 690,372 Q 850,338 1010,370" class="tg-gold" stroke-width="1.8" />
+  <path d="M -10,440 Q 180,390 370,420 Q 560,448 730,405 Q 890,372 1010,405" class="tg-outline" stroke-width="2.4" />
+  <path d="M -10,480 Q 200,425 400,460 Q 600,490 770,442 Q 920,410 1010,445" class="tg-ridge" stroke-width="2.0" />
+
+  <!-- Tier 3: Foreground Master Slopes & Estate Access Pathways -->
+  <path d="M -10,525 Q 220,465 440,500 Q 640,532 820,482 Q 940,455 1010,485" class="tg-outline" stroke-width="2.6" />
+  <path d="M -10,575 Q 240,510 470,550 Q 690,580 860,530 Q 960,505 1010,535" class="tg-gold" stroke-width="2.0" />
+  <path d="M -10,625 Q 260,555 510,600 Q 730,630 900,580 Q 980,560 1010,585" class="tg-outline" stroke-width="2.4" />
+
+  <!-- Estate Earth Pathway (Meandering walking track between tea sections) -->
+  <path d="M 520,295 C 505,335 480,380 445,430 C 410,485 370,535 340,650" class="tg-gold" stroke-width="2.2" stroke-dasharray="10 5" />
+  <path d="M 538,300 C 522,340 498,385 462,435 C 428,490 390,540 365,650" class="tg-fine" stroke-dasharray="8 4" />
+  <!-- Stone steps / soil bund markers on pathway -->
+  <line x1="505" y1="345" x2="520" y2="350" class="tg-gold-fine" />
+  <line x1="482" y1="385" x2="500" y2="390" class="tg-gold-fine" />
+  <line x1="452" y1="432" x2="472" y2="438" class="tg-gold-fine" />
+  <line x1="420" y1="485" x2="442" y2="492" class="tg-gold-fine" />
+  <line x1="385" y1="545" x2="410" y2="552" class="tg-gold-fine" />
+  <line x1="352" y1="610" x2="380" y2="618" class="tg-gold-fine" />
+
+  <!-- Drainage Gullies / Chutes (typical of high-rainfall Northeast slopes) -->
+  <path d="M 210,310 C 225,355 215,405 240,460 C 260,505 250,555 265,620" class="tg-fine" opacity="0.6" />
+  <path d="M 830,270 C 815,315 835,365 820,415 C 805,465 825,510 810,580" class="tg-fine" opacity="0.6" />
+
+  <!-- ================= SECTION 2: BOTANICALLY REALISTIC PRUNED TEA BUSHES (CAMELLIA SINENSIS) ================= -->
+  <!-- Flat-topped pruning table (the "plucking table") with dense leaf clusters and fresh apical flushes -->
+
+  <!-- REPEATED ORGANIC TEA BUSH ROWS ALONG CONTOURS -->
+
+  <!-- Top Terrace Row 1 (Distant bushes - delicate clusters) -->
+  <g class="tg-foliage" opacity="0.8">
+    <path d="M 40,290 C 45,280 65,280 75,290 C 85,282 105,282 115,292" />
+    <path d="M 140,285 C 150,275 170,275 180,285 C 190,276 210,276 220,286" />
+    <path d="M 250,295 C 260,284 285,284 295,295 C 305,286 325,286 335,296" />
+    <path d="M 370,305 C 380,295 400,295 410,305 C 420,296 440,296 450,306" />
+    <path d="M 640,285 C 650,275 670,275 680,285 C 690,276 710,276 720,286" />
+    <path d="M 750,270 C 760,260 780,260 790,270 C 800,262 820,262 830,272" />
+    <path d="M 860,260 C 870,250 890,250 900,260 C 910,252 930,252 940,262" />
+  </g>
+
+  <!-- Midground Terrace Row 2 (Detailed tea bush mounds with distinctive flat pruning tables) -->
+  <!-- Bush Cluster A (Left slope) -->
+  <g transform="translate(90, 360)">
+    <!-- Bush dome outline with flat harvesting top -->
+    <path d="M -45,15 C -45,-12 -25,-18 0,-18 C 25,-18 45,-12 45,15" class="tg-outline" stroke-width="2.0" />
+    <!-- Internal layered foliage scallops -->
+    <path d="M -38,5 C -25,-4 -5,-4 8,4" class="tg-ridge" />
+    <path d="M -15,8 C 0,-1 20,-1 35,6" class="tg-ridge" />
+    <path d="M -30,-8 C -15,-15 15,-15 30,-8" class="tg-fine" />
+    <!-- Fresh tender tea shoots ("Two leaves and a bud") emerging from pruning table -->
+    <line x1="-20" y1="-17" x2="-22" y2="-28" class="tg-gold" stroke-width="1.4" />
+    <ellipse cx="-25" cy="-29" rx="3.5" ry="1.8" transform="rotate(-35 -25 -29)" class="tg-leaf" />
+    <ellipse cx="-19" cy="-30" rx="3.5" ry="1.6" transform="rotate(35 -19 -30)" class="tg-leaf" />
+    
+    <line x1="0" y1="-18" x2="0" y2="-30" class="tg-gold" stroke-width="1.4" />
+    <ellipse cx="-4" cy="-31" rx="3.8" ry="1.8" transform="rotate(-30 -4 -31)" class="tg-leaf" />
+    <ellipse cx="4" cy="-32" rx="3.5" ry="1.6" transform="rotate(30 4 -32)" class="tg-leaf" />
+
+    <line x1="22" y1="-16" x2="25" y2="-27" class="tg-gold" stroke-width="1.4" />
+    <ellipse cx="21" cy="-28" rx="3.2" ry="1.6" transform="rotate(-30 21 -28)" class="tg-leaf" />
+    <ellipse cx="28" cy="-28" rx="3.2" ry="1.5" transform="rotate(35 28 -28)" class="tg-leaf" />
+    <!-- Woody base stems -->
+    <path d="M -5,15 L -2,4 L 3,15" class="tg-fine" />
+  </g>
+
+  <!-- Bush Cluster B -->
+  <g transform="translate(195, 345)">
+    <path d="M -48,15 C -48,-14 -28,-20 0,-20 C 28,-20 48,-14 48,15" class="tg-outline" stroke-width="2.0" />
+    <path d="M -36,6 C -20,-5 0,-5 15,5" class="tg-ridge" />
+    <path d="M -12,8 C 5,-2 25,-2 40,6" class="tg-ridge" />
+    <line x1="-15" y1="-19" x2="-16" y2="-30" class="tg-gold" stroke-width="1.4" />
+    <ellipse cx="-20" cy="-31" rx="3.6" ry="1.8" transform="rotate(-35 -20 -31)" class="tg-leaf" />
+    <ellipse cx="-13" cy="-32" rx="3.5" ry="1.6" transform="rotate(30 -13 -32)" class="tg-leaf" />
+    <line x1="15" y1="-19" x2="18" y2="-30" class="tg-gold" stroke-width="1.4" />
+    <ellipse cx="14" cy="-31" rx="3.5" ry="1.7" transform="rotate(-30 14 -31)" class="tg-leaf" />
+    <ellipse cx="22" cy="-31" rx="3.5" ry="1.6" transform="rotate(35 22 -31)" class="tg-leaf" />
+  </g>
+
+  <!-- Bush Cluster C (Central mid-slope) -->
+  <g transform="translate(305, 365)">
+    <path d="M -50,15 C -50,-15 -30,-22 0,-22 C 30,-22 50,-15 50,15" class="tg-outline" stroke-width="2.0" />
+    <path d="M -40,5 C -25,-6 -5,-6 10,5" class="tg-ridge" />
+    <path d="M -10,7 C 10,-3 30,-3 42,6" class="tg-ridge" />
+    <line x1="-8" y1="-22" x2="-8" y2="-34" class="tg-gold" stroke-width="1.5" />
+    <ellipse cx="-13" cy="-35" rx="3.8" ry="1.8" transform="rotate(-30 -13 -35)" class="tg-leaf" />
+    <ellipse cx="-4" cy="-36" rx="3.5" ry="1.6" transform="rotate(30 -4 -36)" class="tg-leaf" />
+    <line x1="18" y1="-20" x2="20" y2="-31" class="tg-gold" stroke-width="1.4" />
+    <ellipse cx="16" cy="-32" rx="3.5" ry="1.6" transform="rotate(-30 16 -32)" class="tg-leaf" />
+    <ellipse cx="24" cy="-32" rx="3.5" ry="1.6" transform="rotate(35 24 -32)" class="tg-leaf" />
+  </g>
+
+  <!-- Bush Cluster D & E (Right slope terraces) -->
+  <g transform="translate(615, 340)">
+    <path d="M -48,15 C -48,-14 -28,-20 0,-20 C 28,-20 48,-14 48,15" class="tg-outline" stroke-width="2.0" />
+    <path d="M -36,5 C -20,-5 0,-5 15,5" class="tg-ridge" />
+    <line x1="0" y1="-20" x2="0" y2="-32" class="tg-gold" stroke-width="1.4" />
+    <ellipse cx="-5" cy="-33" rx="3.5" ry="1.7" transform="rotate(-30 -5 -33)" class="tg-leaf" />
+    <ellipse cx="5" cy="-33" rx="3.5" ry="1.7" transform="rotate(30 5 -33)" class="tg-leaf" />
+  </g>
+
+  <g transform="translate(735, 320)">
+    <path d="M -50,15 C -50,-15 -28,-22 0,-22 C 28,-22 50,-15 50,15" class="tg-outline" stroke-width="2.0" />
+    <path d="M -38,5 C -20,-6 0,-6 18,5" class="tg-ridge" />
+    <line x1="-12" y1="-21" x2="-14" y2="-33" class="tg-gold" stroke-width="1.4" />
+    <ellipse cx="-19" cy="-34" rx="3.5" ry="1.7" transform="rotate(-30 -19 -34)" class="tg-leaf" />
+    <ellipse cx="-10" cy="-35" rx="3.5" ry="1.7" transform="rotate(30 -10 -35)" class="tg-leaf" />
+    <line x1="16" y1="-20" x2="18" y2="-31" class="tg-gold" stroke-width="1.4" />
+    <ellipse cx="14" cy="-32" rx="3.5" ry="1.6" transform="rotate(-30 14 -32)" class="tg-leaf" />
+    <ellipse cx="22" cy="-32" rx="3.5" ry="1.6" transform="rotate(35 22 -32)" class="tg-leaf" />
+  </g>
+
+  <g transform="translate(860, 300)">
+    <path d="M -48,15 C -48,-14 -28,-20 0,-20 C 28,-20 48,-14 48,15" class="tg-outline" stroke-width="2.0" />
+    <path d="M -36,5 C -20,-5 0,-5 15,5" class="tg-ridge" />
+    <line x1="0" y1="-20" x2="0" y2="-32" class="tg-gold" stroke-width="1.4" />
+    <ellipse cx="-5" cy="-33" rx="3.5" ry="1.7" transform="rotate(-30 -5 -33)" class="tg-leaf" />
+    <ellipse cx="5" cy="-33" rx="3.5" ry="1.7" transform="rotate(30 5 -33)" class="tg-leaf" />
+  </g>
+
+  <!-- ================= FOREGROUND MASTER TEA BUSHES (HIGH DETAIL BOTANICAL LEAFWORK) ================= -->
+  <!-- Large Hero Bush 1 (Foreground Left) -->
+  <g transform="translate(130, 485)">
+    <!-- Broad mature tea bush canopy with authentic dense serrated foliage cushions -->
+    <path d="M -75,25 C -75,-25 -45,-34 0,-34 C 45,-34 75,-25 75,25" class="tg-outline" stroke-width="2.6" />
+    <!-- Secondary internal foliage terraces -->
+    <path d="M -65,10 C -45,-8 -15,-10 5,6 C 25,-8 50,-6 68,12" class="tg-ridge" stroke-width="2.0" />
+    <path d="M -50,-6 C -30,-22 0,-22 20,-7 C 40,-20 58,-16 62,-2" class="tg-ridge" stroke-width="1.8" />
+    <path d="M -35,-18 C -15,-28 15,-28 35,-16" class="tg-fine" />
+
+    <!-- Detailed Tea Leaf Sprays on the plucking surface (Individual leaves with venation) -->
+    <!-- Shoot 1 (Left flank) -->
+    <g transform="translate(-45, -28)">
+      <line x1="0" y1="10" x2="-4" y2="-12" class="tg-gold" stroke-width="1.8" />
+      <path d="M -4,-12 C -14,-15 -18,-24 -16,-30 C -10,-28 -4,-20 -4,-12" class="tg-leaf" />
+      <path d="M -4,-12 C 4,-16 10,-24 10,-30 C 4,-28 -1,-20 -4,-12" class="tg-leaf" />
+      <path d="M -4,-12 C -3,-22 -4,-32 -4,-36 C -2,-32 -1,-22 -4,-12" class="tg-leaf" />
+    </g>
+
+    <!-- Shoot 2 (Center prime apical flush - Two leaves and a bud) -->
+    <g transform="translate(-5, -34)">
+      <line x1="0" y1="12" x2="0" y2="-16" class="tg-gold" stroke-width="2.0" />
+      <!-- Left tender leaf -->
+      <path d="M 0,-16 C -12,-20 -18,-32 -16,-40 C -8,-37 -2,-26 0,-16" class="tg-leaf" />
+      <line x1="0" y1="-16" x2="-10" y2="-32" class="tg-fine" stroke-width="0.8" />
+      <!-- Right tender leaf -->
+      <path d="M 0,-16 C 12,-20 18,-32 16,-40 C 8,-37 2,-26 0,-16" class="tg-leaf" />
+      <line x1="0" y1="-16" x2="10" y2="-32" class="tg-fine" stroke-width="0.8" />
+      <!-- Unopened central leaf bud (golden pekoe tip) -->
+      <path d="M 0,-16 C -3,-28 -2,-42 0,-48 C 2,-42 3,-28 0,-16" class="tg-fill-leaf" />
+    </g>
+
+    <!-- Shoot 3 (Right flank) -->
+    <g transform="translate(38, -30)">
+      <line x1="0" y1="10" x2="3" y2="-12" class="tg-gold" stroke-width="1.8" />
+      <path d="M 3,-12 C -7,-15 -12,-25 -10,-30 C -4,-28 1,-20 3,-12" class="tg-leaf" />
+      <path d="M 3,-12 C 12,-16 18,-24 17,-31 C 11,-28 6,-20 3,-12" class="tg-leaf" />
+      <path d="M 3,-12 C 4,-22 4,-32 4,-36 C 5,-32 5,-22 3,-12" class="tg-leaf" />
+    </g>
+
+    <!-- Lower leafy texture accents -->
+    <path d="M -60,18 Q -50,8 -40,16" class="tg-gold-fine" />
+    <path d="M -30,12 Q -18,4 -6,14" class="tg-gold-fine" />
+    <path d="M 12,14 Q 25,6 38,15" class="tg-gold-fine" />
+    <path d="M 45,18 Q 55,10 65,20" class="tg-gold-fine" />
+    
+    <!-- Bush Gnarled Base Stem / Root flare -->
+    <path d="M -8,25 L -4,5 L 0,25" class="tg-outline" stroke-width="2.2" />
+    <path d="M 2,14 L 8,25" class="tg-ridge" />
+  </g>
+
+  <!-- Large Hero Bush 2 (Foreground Center-Right) -->
+  <g transform="translate(560, 520)">
+    <path d="M -85,30 C -85,-30 -50,-40 0,-40 C 50,-40 85,-30 85,30" class="tg-outline" stroke-width="2.8" />
+    <path d="M -75,12 C -52,-10 -18,-12 5,8 C 28,-10 58,-8 78,14" class="tg-ridge" stroke-width="2.2" />
+    <path d="M -58,-8 C -35,-26 0,-26 24,-8 C 48,-24 70,-18 74,-2" class="tg-ridge" stroke-width="2.0" />
+    <path d="M -40,-22 C -18,-34 18,-34 40,-20" class="tg-fine" />
+
+    <!-- Multiple flush shoots across the pruning surface -->
+    <g transform="translate(-40, -35)">
+      <line x1="0" y1="12" x2="-2" y2="-14" class="tg-gold" stroke-width="1.8" />
+      <path d="M -2,-14 C -12,-18 -17,-28 -14,-34 C -8,-32 -2,-23 -2,-14" class="tg-leaf" />
+      <path d="M -2,-14 C 8,-18 14,-28 12,-34 C 6,-32 1,-23 -2,-14" class="tg-leaf" />
+      <path d="M -2,-14 C -1,-25 -1,-36 -2,-42 C -1,-36 0,-25 -2,-14" class="tg-fill-leaf" />
+    </g>
+
+    <g transform="translate(0, -40)">
+      <line x1="0" y1="14" x2="0" y2="-16" class="tg-gold" stroke-width="2.2" />
+      <path d="M 0,-16 C -14,-22 -20,-34 -17,-44 C -8,-40 -2,-28 0,-16" class="tg-leaf" />
+      <path d="M 0,-16 C 14,-22 20,-34 17,-44 C 8,-40 2,-28 0,-16" class="tg-leaf" />
+      <path d="M 0,-16 C -3,-30 -2,-45 0,-52 C 2,-45 3,-30 0,-16" class="tg-fill-leaf" />
+    </g>
+
+    <g transform="translate(42, -36)">
+      <line x1="0" y1="12" x2="2" y2="-14" class="tg-gold" stroke-width="1.8" />
+      <path d="M 2,-14 C -8,-18 -14,-28 -12,-34 C -6,-32 0,-23 2,-14" class="tg-leaf" />
+      <path d="M 2,-14 C 12,-18 17,-28 14,-34 C 8,-32 2,-23 2,-14" class="tg-leaf" />
+      <path d="M 2,-14 C 3,-25 3,-36 2,-42 C 3,-36 4,-25 2,-14" class="tg-fill-leaf" />
+    </g>
+
+    <path d="M -70,22 Q -58,10 -45,20" class="tg-gold-fine" />
+    <path d="M -35,16 Q -20,6 -8,18" class="tg-gold-fine" />
+    <path d="M 15,18 Q 30,8 45,20" class="tg-gold-fine" />
+    <path d="M 52,24 Q 65,12 78,25" class="tg-gold-fine" />
+    
+    <path d="M -10,30 L -5,8 L 0,30" class="tg-outline" stroke-width="2.4" />
+    <path d="M 4,16 L 10,30" class="tg-ridge" stroke-width="1.8" />
+  </g>
+
+  <!-- Large Hero Bush 3 (Foreground Right Edge) -->
+  <g transform="translate(860, 480)">
+    <path d="M -75,25 C -75,-25 -45,-34 0,-34 C 45,-34 75,-25 75,25" class="tg-outline" stroke-width="2.6" />
+    <path d="M -65,10 C -45,-8 -15,-10 5,6 C 25,-8 50,-6 68,12" class="tg-ridge" stroke-width="2.0" />
+    <path d="M -50,-6 C -30,-22 0,-22 20,-7 C 40,-20 58,-16 62,-2" class="tg-ridge" stroke-width="1.8" />
+    <g transform="translate(-10, -34)">
+      <line x1="0" y1="12" x2="0" y2="-15" class="tg-gold" stroke-width="2.0" />
+      <path d="M 0,-15 C -12,-20 -18,-30 -15,-38 C -7,-35 -1,-25 0,-15" class="tg-leaf" />
+      <path d="M 0,-15 C 12,-20 18,-30 15,-38 C 7,-35 1,-25 0,-15" class="tg-leaf" />
+      <path d="M 0,-15 C -2,-26 -2,-38 0,-44 C 2,-38 2,-26 0,-15" class="tg-fill-leaf" />
+    </g>
+    <g transform="translate(35, -28)">
+      <line x1="0" y1="10" x2="2" y2="-12" class="tg-gold" stroke-width="1.6" />
+      <path d="M 2,-12 C -6,-16 -10,-24 -8,-30 C -3,-28 1,-20 2,-12" class="tg-leaf" />
+      <path d="M 2,-12 C 10,-16 16,-24 14,-30 C 9,-28 4,-20 2,-12" class="tg-leaf" />
+    </g>
+  </g>
+
+  <!-- ================= BOTANICAL DETAILS: ORNAMENTAL FOIL & ORCHIDS ================= -->
+  <!-- Wild Foxtail Orchids (Kopou Phool) growing on shade tree trunk -->
+  <g transform="translate(196, 215)">
+    <path d="M 0,0 C 8,12 12,28 8,42" class="tg-gold" stroke-width="1.6" />
+    <ellipse cx="6" cy="14" rx="3.5" ry="2" transform="rotate(-25 6 14)" class="tg-leaf" />
+    <ellipse cx="12" cy="22" rx="3.5" ry="2" transform="rotate(30 12 22)" class="tg-leaf" />
+    <ellipse cx="8" cy="30" rx="3.5" ry="2" transform="rotate(-20 8 30)" class="tg-leaf" />
+    <ellipse cx="13" cy="36" rx="3.5" ry="2" transform="rotate(25 13 36)" class="tg-leaf" />
+    <ellipse cx="8" cy="42" rx="3" ry="1.8" class="tg-leaf" />
+  </g>
+
+  <!-- Assamese Weathervane / Traditional Japi hat placed on bamboo estate fence -->
+  <g transform="translate(372, 495)">
+    <!-- Bamboo boundary fence poles -->
+    <line x1="-15" y1="50" x2="-15" y2="10" class="tg-outline" stroke-width="1.8" />
+    <line x1="15" y1="50" x2="15" y2="15" class="tg-outline" stroke-width="1.8" />
+    <line x1="-25" y1="25" x2="25" y2="28" class="tg-gold" stroke-width="1.6" />
+    <line x1="-25" y1="42" x2="25" y2="45" class="tg-gold" stroke-width="1.6" />
+    <!-- Authentic conical Japi hat resting on fence pole -->
+    <g transform="translate(-15, 6) scale(0.85)">
+      <polygon points="0,-18 -22,10 22,10" class="tg-outline" stroke-width="1.8" />
+      <polygon points="0,-12 -15,7 15,7" class="tg-gold" stroke-width="1.4" />
+      <polygon points="0,-4 5,1 0,6 -5,1" class="tg-leaf" />
+      <line x1="0" y1="-18" x2="0" y2="10" class="tg-fine" />
+      <line x1="-9" y1="0" x2="-16" y2="10" class="tg-fine" />
+      <line x1="9" y1="0" x2="16" y2="10" class="tg-fine" />
+    </g>
+  </g>
+
+  <!-- Flight of valley egrets soaring over the tea slopes -->
+  <g class="tg-gold">
+    <path d="M 460,165 C 468,155 478,153 488,159 C 498,153 508,155 516,165 C 508,161 498,163 488,170 C 478,163 468,161 460,165 Z" stroke-width="1.4" fill="#C9962C" fill-opacity="0.3" />
+    <path d="M 505,145 C 511,137 519,135 527,140 C 535,135 543,137 549,145 C 543,142 535,143 527,149 C 519,143 511,142 505,145 Z" stroke-width="1.2" fill="#C9962C" fill-opacity="0.3" />
+  </g>
+</svg>

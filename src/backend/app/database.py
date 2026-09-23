@@ -4,8 +4,9 @@ from beanie import init_beanie
 from app.config import settings
 from app.core.security import hash_password
 from app.models.analytics import Alert, BanditArmState, DriftMetric
+from app.models.audit import AdminAuditLog
 from app.models.auth import OtpCode, RevokedToken
-from app.models.care_plan import FamilyMember
+from app.models.care_plan import FamilyMember, FamiliarSound
 from app.models.reminder import PatientReminder
 from app.models.session import GameSession, VoiceInteraction
 from app.models.user import DevicePairingToken, RoleEnum, User
@@ -115,7 +116,9 @@ async def init_db() -> None:
             Alert,
             BanditArmState,
             FamilyMember,
+            FamiliarSound,
             PatientReminder,
+            AdminAuditLog,
         ],
     )
     await seed_initial_admin()

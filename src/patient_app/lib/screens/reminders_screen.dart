@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../models/reminder_item.dart';
 import '../services/activity_database_service.dart';
@@ -9,6 +11,9 @@ import '../services/locale_service.dart';
 import '../services/reminder_database_service.dart';
 import '../services/session_service.dart';
 import '../theme/theme.dart';
+import '../widgets/app_background.dart';
+
+const _kAlarmChannel = MethodChannel('com.smritikunj.patient_app/alarm');
 
 class RemindersScreen extends StatefulWidget {
   const RemindersScreen({super.key});
@@ -17,20 +22,64 @@ class RemindersScreen extends StatefulWidget {
   State<RemindersScreen> createState() => _RemindersScreenState();
 }
 
-class _RemindersScreenState extends State<RemindersScreen> {
+class _RemindersScreenState extends State<RemindersScreen> with WidgetsBindingObserver {
   List<ReminderItem> _reminders = [];
   bool _isLoading = true;
   bool _isSyncing = false;
   String? _statusMessage;
+  bool? _alarmPermsGranted;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _kAlarmChannel.setMethodCallHandler(_handleAlarmChannelCall);
+    _checkPermissions();
     _loadLocalRemindersAndFetch();
   }
 
-  /// 1. Immediately loads any previously cached reminders from local SQLite.
-  /// 2. Asynchronously requests fresh reminders from backend MongoDB if paired.
+  Future<void> _checkPermissions() async {
+    try {
+      final res = await _kAlarmChannel.invokeMapMethod<String, dynamic>('checkPermissions');
+      final allGranted = res?['allGranted'] as bool? ?? false;
+      if (mounted) {
+        setState(() => _alarmPermsGranted = allGranted);
+      }
+      if (!allGranted) {
+        // Trigger onboarding flow on first open if permissions are missing
+        await _kAlarmChannel.invokeMethod<void>('requestPermissions');
+      }
+    } catch (e) {
+      debugPrint('[RemindersScreen] Error checking permissions: $e');
+    }
+  }
+
+  Future<void> _handleAlarmChannelCall(MethodCall call) async {
+    if (call.method == 'onPermissionsStatus') {
+      final allGranted = (call.arguments as Map?)?['allGranted'] as bool? ?? false;
+      if (mounted) {
+        setState(() => _alarmPermsGranted = allGranted);
+      }
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _checkPermissions();
+      _loadLocalRemindersAndFetch();
+    }
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _kAlarmChannel.setMethodCallHandler(null);
+    super.dispose();
+  }
+
+  /// 1. Loads cached reminders from local SQLite.
+  /// 2. Fetches fresh reminders from backend MongoDB if paired.
   Future<void> _loadLocalRemindersAndFetch() async {
     setState(() {
       _isLoading = true;
@@ -72,8 +121,7 @@ class _RemindersScreenState extends State<RemindersScreen> {
     }
   }
 
-  /// Sends request to backend, checks if pairing code exists, fetches reminders from MongoDB,
-  /// and stores them into the local SQLite database.
+  /// Sends request to backend, updates local SQLite database, and synchronizes device alarms.
   Future<void> _fetchFromBackend(String pairingCode, {bool showFeedback = true}) async {
     if (_isSyncing) return;
     setState(() {
@@ -87,7 +135,7 @@ class _RemindersScreenState extends State<RemindersScreen> {
       // Save into local SQLite database
       await ReminderDatabaseService.instance.saveReminders(remoteItems, pairingCode: pairingCode);
 
-      // Save as everyday alarms in the mobile device by label
+      // Synchronize everyday alarms in the device
       int alarmsScheduled = 0;
       try {
         alarmsScheduled = await DeviceAlarmService.instance.syncRemindersToDeviceAlarms(remoteItems);
@@ -103,7 +151,6 @@ class _RemindersScreenState extends State<RemindersScreen> {
       if (mounted) {
         setState(() {
           _reminders = updatedLocal;
-          _isSyncing = false;
           _statusMessage = null;
         });
 
@@ -127,13 +174,11 @@ class _RemindersScreenState extends State<RemindersScreen> {
       debugPrint('[RemindersScreen] Fetch error: $e');
       final errorClean = e.toString().replaceAll('Exception: ', '').trim();
       if (mounted) {
-        setState(() {
-          _isSyncing = false;
-          if (_reminders.isEmpty) {
+        if (_reminders.isEmpty) {
+          setState(() {
             _statusMessage = errorClean;
-          }
-        });
-
+          });
+        }
         if (showFeedback) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -147,56 +192,24 @@ class _RemindersScreenState extends State<RemindersScreen> {
           );
         }
       }
+    } finally {
+      // Guarantees the refresh spinner never gets stuck circling
+      if (mounted) {
+        setState(() {
+          _isSyncing = false;
+        });
+      }
     }
   }
 
-  /// Flushes the local SQLite table containing daily reminders.
-  Future<void> _clearReminders() async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogCtx) => AlertDialog(
-        backgroundColor: AppColors.surface,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text(
-          'Clear Reminders?',
-          style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: AppColors.ink),
-        ),
-        content: const Text(
-          'This will flush all reminders stored in your local device database.',
-          style: TextStyle(fontSize: 18, color: AppColors.inkSoft),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogCtx).pop(false),
-            child: const Text(
-              'Cancel',
-              style: TextStyle(fontSize: 18, color: AppColors.inkSoft, fontWeight: FontWeight.w600),
-            ),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.of(dialogCtx).pop(true),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.alertRed,
-              foregroundColor: Colors.white,
-              minimumSize: const Size(110, 48),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-            ),
-            child: const Text(
-              'Clear',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
-            ),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed != true) return;
+  /// Flushes the local SQLite table for reminders.
+  Future<void> _clearLocalReminders() async {
+    final session = Provider.of<SessionService>(context, listen: false);
+    String? pairingCode = session.pairingCode;
+    pairingCode ??= await ActivityDatabaseService.instance.getActivePairingCode();
 
     try {
-      // Flush the local SQLite table
-      final deleted = await ReminderDatabaseService.instance.clearReminders();
-      debugPrint('[RemindersScreen] Flushed $deleted reminders from local SQLite.');
-
+      await ReminderDatabaseService.instance.clearReminders(pairingCode: pairingCode);
       if (mounted) {
         setState(() {
           _reminders = [];
@@ -219,78 +232,6 @@ class _RemindersScreenState extends State<RemindersScreen> {
     }
   }
 
-  /// Marks a reminder as done both in memory and persists to SQLite.
-  Future<void> _markAsDone(int index) async {
-    final item = _reminders[index];
-    setState(() {
-      item.isCompleted = true;
-    });
-
-    try {
-      await ReminderDatabaseService.instance.toggleReminderCompleted(item.id, true);
-    } catch (e) {
-      debugPrint('[RemindersScreen] Error updating reminder completion: $e');
-    }
-  }
-
-  /// Manually synchronizes all loaded reminders to native everyday alarms on the mobile device.
-  Future<void> _syncToDeviceAlarms() async {
-    if (_reminders.isEmpty) return;
-
-    try {
-      final scheduled = await DeviceAlarmService.instance.syncRemindersToDeviceAlarms(_reminders);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Saved $scheduled reminders as everyday alarms on device',
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-            ),
-            backgroundColor: AppColors.terracotta,
-            duration: const Duration(seconds: 2),
-          ),
-        );
-      }
-    } catch (e) {
-      debugPrint('[RemindersScreen] Error during manual alarm sync: $e');
-    }
-  }
-
-  /// Sets a single reminder as an everyday alarm on the mobile device.
-  Future<void> _setSingleAlarm(ReminderItem item) async {
-    final parsed = DeviceAlarmService.parseTimeString(item.time);
-    if (parsed == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Invalid time format: "${item.time}"'),
-          backgroundColor: AppColors.alertRed,
-        ),
-      );
-      return;
-    }
-
-    final success = await DeviceAlarmService.instance.setDeviceAlarm(
-      label: item.title,
-      hour: parsed.hour,
-      minute: parsed.minute,
-    );
-
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            success
-                ? 'Everyday alarm set: "${item.title}" at ${item.time}'
-                : 'Could not set alarm for "${item.title}"',
-            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-          ),
-          backgroundColor: success ? AppColors.sageGreen : AppColors.alertRed,
-          duration: const Duration(seconds: 2),
-        ),
-      );
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
@@ -298,10 +239,11 @@ class _RemindersScreenState extends State<RemindersScreen> {
     final s = AppStrings(locale.lang);
     final session = context.watch<SessionService>();
 
-    return Scaffold(
-      backgroundColor: AppColors.cream,
-      appBar: AppBar(
-        backgroundColor: AppColors.cream,
+    return AppBackground(
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        appBar: AppBar(
+          backgroundColor: Colors.transparent,
         elevation: 0,
         scrolledUnderElevation: 0,
         leading: IconButton(
@@ -317,69 +259,66 @@ class _RemindersScreenState extends State<RemindersScreen> {
           ),
         ),
         actions: [
-          // Sync Reminders to Everyday Device Alarms button
-          IconButton(
-            icon: const Icon(Icons.alarm_add_rounded, size: 28, color: AppColors.terracotta),
-            tooltip: 'Sync Reminders to Everyday Device Alarms',
-            onPressed: _reminders.isEmpty ? null : _syncToDeviceAlarms,
-          ),
-
-          // Refresh / Fetch button
-          IconButton(
-            icon: _isSyncing
-                ? const SizedBox(
-                    width: 22,
-                    height: 22,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2.5,
-                      color: AppColors.terracotta,
-                    ),
-                  )
-                : const Icon(Icons.refresh_rounded, size: 28, color: AppColors.terracotta),
-            tooltip: 'Fetch Reminders from Server',
-            onPressed: _isSyncing
-                ? null
-                : () async {
-                    String? code = session.pairingCode;
-                    code ??= await ActivityDatabaseService.instance.getActivePairingCode();
-                    if (!context.mounted) return;
-                    if (code != null && code.isNotEmpty) {
-                      await _fetchFromBackend(code, showFeedback: true);
-                    } else {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Please pair device first to fetch reminders.'),
-                          backgroundColor: AppColors.terracotta,
-                        ),
-                      );
-                    }
-                  },
-          ),
-
-          // Clear Reminders button
+          // Refresh / Fetch from Server button
           Padding(
-            padding: const EdgeInsets.only(right: 12.0),
-            child: OutlinedButton.icon(
-              onPressed: _reminders.isEmpty ? null : _clearReminders,
-              icon: const Icon(Icons.delete_sweep_rounded, size: 20, color: AppColors.alertRed),
-              label: const Text(
-                'Clear Reminders',
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.alertRed,
-                ),
-              ),
-              style: OutlinedButton.styleFrom(
-                side: BorderSide(
-                  color: _reminders.isEmpty ? AppColors.border : AppColors.alertRed.withValues(alpha: 0.5),
-                  width: 1.5,
-                ),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              ),
+            padding: const EdgeInsets.only(right: 8.0),
+            child: IconButton(
+              icon: _isSyncing
+                  ? const SizedBox(
+                      width: 22,
+                      height: 22,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.5,
+                        color: AppColors.terracotta,
+                      ),
+                    )
+                  : const Icon(Icons.refresh_rounded, size: 28, color: AppColors.terracotta),
+              tooltip: 'Fetch Reminders from Server',
+              onPressed: _isSyncing
+                  ? null
+                  : () async {
+                      String? code = session.pairingCode;
+                      code ??= await ActivityDatabaseService.instance.getActivePairingCode();
+                      if (!context.mounted) return;
+                      if (code != null && code.isNotEmpty) {
+                        await _fetchFromBackend(code, showFeedback: true);
+                      } else {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Please pair device first to fetch reminders.'),
+                            backgroundColor: AppColors.terracotta,
+                          ),
+                        );
+                      }
+                    },
             ),
           ),
+          // Clear Reminders menu
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert_rounded, size: 28, color: AppColors.inkSoft),
+            tooltip: 'Options',
+            onSelected: (value) {
+              if (value == 'clear') {
+                _clearLocalReminders();
+              }
+            },
+            itemBuilder: (context) => [
+              const PopupMenuItem(
+                value: 'clear',
+                child: Row(
+                  children: [
+                    Icon(Icons.delete_outline_rounded, color: AppColors.alertRed, size: 22),
+                    SizedBox(width: 10),
+                    Text(
+                      'Clear Local Reminders',
+                      style: TextStyle(color: AppColors.alertRed, fontWeight: FontWeight.w600),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(width: 8),
         ],
       ),
       body: SafeArea(
@@ -387,35 +326,45 @@ class _RemindersScreenState extends State<RemindersScreen> {
             ? const Center(
                 child: CircularProgressIndicator(color: AppColors.terracotta),
               )
-            : RefreshIndicator(
-                color: AppColors.terracotta,
-                onRefresh: () async {
-                  String? code = session.pairingCode;
-                  code ??= await ActivityDatabaseService.instance.getActivePairingCode();
-                  if (code != null && code.isNotEmpty) {
-                    await _fetchFromBackend(code, showFeedback: true);
-                  }
-                },
-                child: _reminders.isEmpty
-                    ? _buildEmptyState(context, session)
-                    : ListView.separated(
-                        physics: const AlwaysScrollableScrollPhysics(),
-                        padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
-                        itemCount: _reminders.length,
-                        separatorBuilder: (_, __) => const SizedBox(height: 16),
-                        itemBuilder: (context, index) {
-                          final item = _reminders[index];
-                          return _ReminderCard(
-                            item: item,
-                            onDone: () => _markAsDone(index),
-                            onSetAlarm: () => _setSingleAlarm(item),
-                          );
-                        },
-                      ),
+            : Column(
+                children: [
+                  // Stepwise permission warning banner
+                  if (_alarmPermsGranted == false)
+                    _AlarmPermBanner(
+                      onRetry: () async {
+                        await _kAlarmChannel.invokeMethod<void>('requestPermissions');
+                      },
+                    ),
+                  Expanded(
+                    child: RefreshIndicator(
+                      color: AppColors.terracotta,
+                      onRefresh: () async {
+                        String? code = session.pairingCode;
+                        code ??= await ActivityDatabaseService.instance.getActivePairingCode();
+                        if (code != null && code.isNotEmpty) {
+                          await _fetchFromBackend(code, showFeedback: true);
+                        }
+                      },
+                      child: _reminders.isEmpty
+                          ? _buildEmptyState(context, session)
+                          : ListView.separated(
+                              physics: const AlwaysScrollableScrollPhysics(),
+                              padding: const EdgeInsets.fromLTRB(20, 14, 20, 24),
+                              itemCount: _reminders.length,
+                              separatorBuilder: (_, __) => const SizedBox(height: 16),
+                              itemBuilder: (context, index) {
+                                final item = _reminders[index];
+                                return _ReminderCard(item: item);
+                              },
+                            ),
+                    ),
+                  ),
+                ],
               ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildEmptyState(BuildContext context, SessionService session) {
     final textTheme = Theme.of(context).textTheme;
@@ -505,20 +454,45 @@ class _RemindersScreenState extends State<RemindersScreen> {
   }
 }
 
+/// Strictly read-only ReminderCard per specifications:
+/// - No tap handlers anywhere on the card or badge.
+/// - Status badge reflects done, upcoming, or missed from SQLite.
 class _ReminderCard extends StatelessWidget {
   final ReminderItem item;
-  final VoidCallback onDone;
-  final VoidCallback onSetAlarm;
 
-  const _ReminderCard({
-    required this.item,
-    required this.onDone,
-    required this.onSetAlarm,
-  });
+  const _ReminderCard({required this.item});
 
   @override
   Widget build(BuildContext context) {
-    final isDone = item.isCompleted;
+    final status = item.status;
+    final isDone = item.isCompleted || status == 'done';
+    final isMissed = status == 'missed';
+
+    final Color badgeBg;
+    final Color badgeBorder;
+    final Color badgeFg;
+    final IconData badgeIcon;
+    final String badgeText;
+
+    if (isDone) {
+      badgeBg = AppColors.sageGreen.withValues(alpha: 0.15);
+      badgeBorder = AppColors.sageGreen;
+      badgeFg = AppColors.sageGreen;
+      badgeIcon = Icons.check_circle_rounded;
+      badgeText = 'Done';
+    } else if (isMissed) {
+      badgeBg = AppColors.terracotta.withValues(alpha: 0.15);
+      badgeBorder = AppColors.terracotta;
+      badgeFg = AppColors.terracotta;
+      badgeIcon = Icons.alarm_off_rounded;
+      badgeText = 'Missed';
+    } else {
+      badgeBg = AppColors.mugaGold.withValues(alpha: 0.15);
+      badgeBorder = AppColors.mugaGold;
+      badgeFg = AppColors.mugaGold;
+      badgeIcon = Icons.schedule_rounded;
+      badgeText = 'Upcoming';
+    }
 
     return Container(
       padding: const EdgeInsets.all(20.0),
@@ -526,7 +500,7 @@ class _ReminderCard extends StatelessWidget {
         color: isDone ? AppColors.surface.withValues(alpha: 0.7) : AppColors.surface,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: isDone ? AppColors.sageGreen.withValues(alpha: 0.5) : AppColors.border,
+          color: isDone ? AppColors.sageGreen.withValues(alpha: 0.4) : AppColors.border,
           width: isDone ? 2.0 : 1.5,
         ),
         boxShadow: [
@@ -542,8 +516,8 @@ class _ReminderCard extends StatelessWidget {
         children: [
           // Category Icon
           Container(
-            width: 58,
-            height: 58,
+            width: 54,
+            height: 54,
             decoration: BoxDecoration(
               color: isDone
                   ? AppColors.sageGreen.withValues(alpha: 0.2)
@@ -552,7 +526,7 @@ class _ReminderCard extends StatelessWidget {
             ),
             child: Icon(
               item.icon,
-              size: 30,
+              size: 28,
               color: isDone ? AppColors.sageGreen : item.categoryColor,
             ),
           ),
@@ -567,7 +541,7 @@ class _ReminderCard extends StatelessWidget {
                 Text(
                   item.title,
                   style: TextStyle(
-                    fontSize: 22,
+                    fontSize: 20,
                     fontWeight: FontWeight.w700,
                     color: isDone ? AppColors.inkSoft : AppColors.ink,
                     decoration: isDone ? TextDecoration.lineThrough : null,
@@ -588,7 +562,7 @@ class _ReminderCard extends StatelessWidget {
                     Text(
                       item.time,
                       style: TextStyle(
-                        fontSize: 18,
+                        fontSize: 17,
                         fontWeight: FontWeight.w600,
                         color: isDone ? AppColors.sageGreen : AppColors.inkSoft,
                       ),
@@ -604,7 +578,7 @@ class _ReminderCard extends StatelessWidget {
                         child: Text(
                           item.dosage!,
                           style: TextStyle(
-                            fontSize: 14,
+                            fontSize: 13,
                             fontWeight: FontWeight.w600,
                             color: item.categoryColor,
                           ),
@@ -618,75 +592,83 @@ class _ReminderCard extends StatelessWidget {
           ),
           const SizedBox(width: 12),
 
-          // Action Target: Save Everyday Alarm to Mobile Device
-          IconButton(
-            icon: const Icon(
-              Icons.alarm_on_rounded,
-              size: 28,
-              color: AppColors.terracotta,
+          // Strictly Read-Only Status Badge
+          Container(
+            height: 44,
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+            decoration: BoxDecoration(
+              color: badgeBg,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: badgeBorder, width: 1.5),
             ),
-            tooltip: 'Set Everyday Alarm',
-            onPressed: onSetAlarm,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  badgeIcon,
+                  color: badgeFg,
+                  size: 20,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  badgeText,
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: badgeFg,
+                  ),
+                ),
+              ],
+            ),
           ),
-          const SizedBox(width: 4),
+        ],
+      ),
+    );
+  }
+}
 
-          // Action Target: "Done" button or "Completed" badge (Min 44px height)
-          if (!isDone)
-            ElevatedButton.icon(
-              onPressed: onDone,
-              icon: const Icon(
-                Icons.check_rounded,
-                size: 24,
-                color: Colors.white,
-              ),
-              label: const Text(
-                'Done',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.white,
-                ),
-              ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.terracotta,
-                foregroundColor: Colors.white,
-                minimumSize: const Size(100, 52),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                elevation: 1,
-              ),
-            )
-          else
-            Container(
-              height: 52,
-              padding: const EdgeInsets.symmetric(horizontal: 14),
-              decoration: BoxDecoration(
-                color: AppColors.sageGreen.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: AppColors.sageGreen, width: 1.5),
-              ),
-              child: const Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.check_circle_rounded,
-                    color: AppColors.sageGreen,
-                    size: 24,
-                  ),
-                  SizedBox(width: 6),
-                  Text(
-                    'Done',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.sageGreen,
-                    ),
-                  ),
-                ],
-              ),
+// ─────────────────────────────────────────────────────────────────────────────
+// Persistent (non-nagging) one-line banner shown when alarm permissions are missing.
+// ─────────────────────────────────────────────────────────────────────────────
+class _AlarmPermBanner extends StatelessWidget {
+  final Future<void> Function() onRetry;
+
+  const _AlarmPermBanner({required this.onRetry});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(20, 10, 20, 0),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: AppColors.mugaGold.withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.mugaGold.withValues(alpha: 0.45), width: 1.5),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.warning_amber_rounded, color: AppColors.mugaGold, size: 22),
+          const SizedBox(width: 12),
+          const Expanded(
+            child: Text(
+              'Reminders need permissions to ring. Tap Fix to grant.',
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.ink),
             ),
+          ),
+          const SizedBox(width: 8),
+          TextButton(
+            onPressed: onRetry,
+            style: TextButton.styleFrom(
+              foregroundColor: AppColors.terracotta,
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              minimumSize: Size.zero,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+            child: const Text(
+              'Fix this',
+              style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+            ),
+          ),
         ],
       ),
     );

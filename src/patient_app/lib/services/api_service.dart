@@ -3,8 +3,10 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import '../models/memory_item.dart';
 import '../models/patient_activity.dart';
 import '../models/patient_diagnosis.dart';
+import '../models/patient_profile_status.dart';
 import '../models/patient_session.dart';
 import '../models/reminder_item.dart';
 import 'activity_database_service.dart';
@@ -211,7 +213,16 @@ class ApiService {
         },
         guardianPhone: '+91 98765 43210',
         guardianName: 'Priya Sharma',
-        guardianRelationship: 'Daughter (Primary Guardian)',
+        guardianRelationship: 'Daughter (Caregiver)',
+        caregiverPhone: '+91 98765 43210',
+        caregiverName: 'Priya Sharma',
+        caregivers: const [
+          {
+            'name': 'Priya Sharma',
+            'phone': '+91 98765 43210',
+            'is_primary': true,
+          },
+        ],
         diagnosis: 'Mild Cognitive Impairment',
         status: 'stable',
       );
@@ -486,5 +497,234 @@ class ApiService {
     throw lastError ??
         Exception('Unable to reach backend server to fetch patient diagnosis.');
   }
+
+  /// Fetches patient memories (photos & audio clips) from the backend MongoDB database
+  /// using the patient ID as the identifier.
+  /// Calls GET /api/patients/<patientId>/memories
+  /// Caches the results in local SQLite for offline access.
+  Future<List<MemoryItem>> fetchPatientMemories(
+    String patientId, {
+    String? token,
+  }) async {
+    final cleanId = patientId.trim();
+    if (cleanId.isEmpty) {
+      throw Exception('Patient ID is required to fetch memories.');
+    }
+
+    final urls = candidateBaseUrls;
+
+    final headers = {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+      if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
+      'X-Patient-Id': cleanId,
+    };
+
+    for (final base in urls) {
+      // 1. Try unified memories endpoint
+      final endpoint = Uri.parse('$base/api/patients/$cleanId/memories');
+      debugPrint('[ApiService] Fetching memories for patient $cleanId from $endpoint');
+
+      try {
+        final response = await http
+            .get(endpoint, headers: headers)
+            .timeout(const Duration(seconds: 5));
+
+        debugPrint('[ApiService] Memories response from $base: ${response.statusCode}');
+
+        if (response.statusCode == 200) {
+          _customBaseUrl = base;
+          final dynamic resData = jsonDecode(response.body);
+          if (resData is List) {
+            final memories = <MemoryItem>[];
+            for (var i = 0; i < resData.length; i++) {
+              final raw = resData[i];
+              if (raw is Map) {
+                try {
+                  memories.add(MemoryItem.fromJson(
+                    Map<String, dynamic>.from(raw),
+                    defaultPatientId: cleanId,
+                    index: i,
+                  ));
+                } catch (err) {
+                  debugPrint('[ApiService] Error parsing memory item $i: $err');
+                }
+              }
+            }
+
+            // Cache in local SQLite database for offline availability
+            try {
+              await ActivityDatabaseService.instance.savePatientMemories(cleanId, memories);
+            } catch (err) {
+              debugPrint('[ApiService] Non-fatal SQLite cache error: $err');
+            }
+            return memories;
+          }
+        }
+      } catch (e) {
+        debugPrint('[ApiService] Error fetching memories from $endpoint: $e');
+      }
+
+      // 2. Fallback to /api/patients/$cleanId/family-members + /familiar-sounds if unified endpoint failed
+      try {
+        final famEndpoint = Uri.parse('$base/api/patients/$cleanId/family-members');
+        final response = await http
+            .get(famEndpoint, headers: headers)
+            .timeout(const Duration(seconds: 5));
+
+        if (response.statusCode == 200) {
+          _customBaseUrl = base;
+          final dynamic resData = jsonDecode(response.body);
+          if (resData is List) {
+            final memories = <MemoryItem>[];
+            for (var i = 0; i < resData.length; i++) {
+              final raw = resData[i];
+              if (raw is Map) {
+                try {
+                  memories.add(MemoryItem.fromJson(
+                    Map<String, dynamic>.from(raw),
+                    defaultPatientId: cleanId,
+                    index: i,
+                  ));
+                } catch (_) {}
+              }
+            }
+
+            // Also attempt to fetch familiar sounds if supported
+            try {
+              final soundEndpoint = Uri.parse('$base/api/patients/$cleanId/familiar-sounds');
+              final soundRes = await http
+                  .get(soundEndpoint, headers: headers)
+                  .timeout(const Duration(seconds: 3));
+              if (soundRes.statusCode == 200) {
+                final dynamic soundData = jsonDecode(soundRes.body);
+                if (soundData is List) {
+                  for (var i = 0; i < soundData.length; i++) {
+                    final rawSound = soundData[i];
+                    if (rawSound is Map) {
+                      try {
+                        memories.add(MemoryItem.fromJson(
+                          {
+                            ...Map<String, dynamic>.from(rawSound),
+                            'type': 'audio',
+                            'title': rawSound['caption'] ?? 'Familiar Sound',
+                            'relationship': 'Family Voice',
+                          },
+                          defaultPatientId: cleanId,
+                          index: memories.length,
+                        ));
+                      } catch (_) {}
+                    }
+                  }
+                }
+              }
+            } catch (_) {}
+
+            try {
+              await ActivityDatabaseService.instance.savePatientMemories(cleanId, memories);
+            } catch (_) {}
+            return memories;
+          }
+        }
+      } catch (_) {}
+    }
+
+    // If backend is unreachable, return cached memories from SQLite
+    final cached = await ActivityDatabaseService.instance.getPatientMemories(cleanId);
+    if (cached.isNotEmpty) {
+      debugPrint('[ApiService] Backend unreachable. Returned ${cached.length} SQLite cached memories for patient $cleanId.');
+      return cached;
+    }
+
+    return [];
+  }
+
+  /// Fetches read-only profile status (patient name, assigned caregivers, emergency contacts)
+  /// from the backend MongoDB database.
+  /// Calls GET /api/patients/profile-status?pairing_code=<cleanCode>
+  /// Caches the results in local SQLite for offline access.
+  Future<PatientProfileStatus> fetchPatientProfileStatus({
+    String? pairingCode,
+    String? token,
+  }) async {
+    final cleanCode = (pairingCode ?? await ActivityDatabaseService.instance.getActivePairingCode() ?? '').trim().toUpperCase();
+    final urls = candidateBaseUrls;
+
+    Exception? lastError;
+    final headers = {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+      if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
+      if (cleanCode.isNotEmpty) 'X-Pairing-Code': cleanCode,
+    };
+
+    for (final base in urls) {
+      final endpoint = Uri.parse(
+        cleanCode.isNotEmpty
+            ? '$base/api/patients/profile-status?pairing_code=$cleanCode'
+            : '$base/api/patients/profile-status',
+      );
+
+      try {
+        final response = await http
+            .get(endpoint, headers: headers)
+            .timeout(const Duration(seconds: 4));
+
+        if (response.statusCode == 200) {
+          _customBaseUrl = base;
+          final data = jsonDecode(response.body) as Map<String, dynamic>;
+          final status = PatientProfileStatus.fromJson(data);
+          await ActivityDatabaseService.instance.saveProfileStatus(status, pairingCode: cleanCode);
+          return status;
+        }
+      } catch (e) {
+        lastError = e is Exception ? e : Exception(e.toString());
+      }
+    }
+
+    // Check local SQLite cache before applying fallback
+    final cached = await ActivityDatabaseService.instance.getProfileStatus(pairingCode: cleanCode);
+    if (cached != null && !cached.isEmpty) {
+      return cached;
+    }
+
+    // Default offline fallback for demo/seed code
+    final isCodeLike = cleanCode.startsWith('PAIR-') ||
+        cleanCode.length >= 4 ||
+        cleanCode == '652759' ||
+        cleanCode == 'P101';
+    if (isCodeLike) {
+      final fallback = PatientProfileStatus(
+        patientName: 'Aarav Sharma',
+        caregivers: const [
+          CaregiverContact(
+            name: 'Priya Sharma',
+            phone: '+919876543210',
+            isPrimary: true,
+          ),
+        ],
+        emergencyContacts: const [
+          ProfileEmergencyContact(
+            type: 'primary',
+            name: 'Priya Sharma',
+            relationship: 'Daughter',
+            phone: '+919876543210',
+          ),
+          ProfileEmergencyContact(
+            type: 'alternative',
+            name: 'Dr. Barua',
+            relationship: 'Family Doctor',
+            phone: '+919876543211',
+          ),
+        ],
+        lastUpdated: DateTime.now(),
+      );
+      await ActivityDatabaseService.instance.saveProfileStatus(fallback, pairingCode: cleanCode);
+      return fallback;
+    }
+
+    throw lastError ?? Exception('Unable to reach backend server to fetch profile status.');
+  }
 }
+
 

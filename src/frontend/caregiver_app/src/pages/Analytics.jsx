@@ -29,12 +29,14 @@ import { useTheme } from '../context/ThemeContext';
 import { fetchPatients, getPatientById } from '../services/patientService';
 import { fetchPatientRiskOverview } from '../services/riskService';
 import { PatientReportCardModal } from '../components/PatientReportCardModal';
+import { CardLineArt } from '../components/CardLineArt';
 import {
   getGameSessions,
   DOMAINS,
   GAME_TYPES,
   DOMAIN_CONFIG,
   formatSessionDate,
+  parseSessionDate,
   formatDuration,
 } from '../services/gameSessionService';
 
@@ -192,7 +194,7 @@ export const Analytics = () => {
         id: s.session_id,
         date: formatSessionDate(s.session_date),
         fullDate: formatSessionDate(s.session_date, true),
-        rawDate: new Date(s.session_date).getTime(),
+        rawDate: parseSessionDate(s.session_date)?.getTime() || 0,
         score: s.score_normalized,
         difficulty: s.difficulty_level,
         duration: s.session_duration,
@@ -221,10 +223,12 @@ export const Analytics = () => {
     };
   }, [sessions]);
 
-  // All sessions sorted newest first for the history table
+  // All sessions sorted newest first for the history table (by sync time, fallback to session_date)
   const sortedSessions = useMemo(() => {
     return [...sessions].sort(
-      (a, b) => new Date(b.session_date).getTime() - new Date(a.session_date).getTime()
+      (a, b) =>
+        (parseSessionDate(b.synced_at || b.session_date)?.getTime() || 0) -
+        (parseSessionDate(a.synced_at || a.session_date)?.getTime() || 0)
     );
   }, [sessions]);
 
@@ -428,8 +432,13 @@ export const Analytics = () => {
   return (
     <div className="space-y-6">
       {/* PAGE HEADER & COGNITIVE SUMMARY */}
-      <div className="bg-surface dark:bg-ink-soft/20 border border-border dark:border-ink-soft/40 rounded-card p-6 sm:p-8 shadow-sm transition-colors">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+      <div className="relative overflow-hidden bg-surface dark:bg-ink-soft/20 border border-border dark:border-ink-soft/40 rounded-card p-6 sm:p-8 shadow-sm transition-colors">
+        <CardLineArt
+          variant="rivers"
+          position="right"
+          className="opacity-35 sm:opacity-45"
+        />
+        <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
           <div>
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-terracotta/10 text-terracotta border border-terracotta/20 text-xs font-bold uppercase tracking-wider mb-3">
               <Activity className="w-3.5 h-3.5" />
@@ -475,9 +484,11 @@ export const Analytics = () => {
             <button
               type="button"
               onClick={() => setShowReportModal(true)}
-              className="inline-flex items-center justify-center gap-2 px-4 py-3 bg-terracotta hover:bg-terracotta/90 text-cream text-xs sm:text-sm font-bold rounded-card shadow-sm hover:shadow transition-all cursor-pointer h-full self-stretch min-h-[58px]"
+              disabled={!patient}
+              className="inline-flex items-center justify-center gap-2 px-5 py-3 bg-terracotta hover:bg-terracotta-dark text-cream text-xs sm:text-sm font-bold rounded-card shadow-sm hover:shadow active:scale-95 transition-all cursor-pointer h-full self-stretch min-h-[58px] focus:outline-none focus:ring-2 focus:ring-terracotta/40"
+              title="Download patient cognitive report card in PDF or HTML format"
             >
-              <FileText className="w-4 h-4" />
+              <FileText className="w-4 h-4 text-cream" />
               <span>Download Report Card</span>
             </button>
           </div>
@@ -514,7 +525,7 @@ export const Analytics = () => {
             <p>No game sessions recorded yet for this patient.</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto custom-scrollbar">
             <table className="w-full text-left text-xs text-ink dark:text-cream">
               <thead>
                 <tr className="border-b border-border/80 dark:border-ink-soft/40 bg-cream/50 dark:bg-ink-soft/30 text-ink-soft dark:text-cream/70 uppercase font-bold text-[10px] tracking-wider">
@@ -541,7 +552,7 @@ export const Analytics = () => {
                       <td className="py-3 px-4 font-medium whitespace-nowrap">
                         <div className="flex items-center gap-2">
                           <Calendar className="w-3.5 h-3.5 text-ink-soft/60" />
-                          <span>{formatSessionDate(session.session_date, true)}</span>
+                          <span>{formatSessionDate(session.synced_at || session.session_date, true)}</span>
                         </div>
                       </td>
 

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { User, ChevronRight, Clock } from 'lucide-react';
 import { getCareStatusConfig } from '../services/patientService';
+import { RISK_LEVEL_CONFIG } from '../services/riskService';
 
 /**
  * PatientCard Component
@@ -16,28 +17,41 @@ import { getCareStatusConfig } from '../services/patientService';
  * - "Last active" stat line
  * - Smooth subtle scale lift on card hover
  */
-export const PatientCard = ({ patient }) => {
+export const PatientCard = ({ patient, riskGrade }) => {
   const [isTooltipOpen, setIsTooltipOpen] = useState(false);
 
   if (!patient) return null;
 
   const statusConfig = getCareStatusConfig(patient.careStatus);
 
-  // Top stripe + dot color keyed to careStatus tier (single source of mapping).
-  // normal → sage, reminder_missed → gold, alert → status-urgent
-  const stripeClass =
-    patient.careStatus === 'alert'
+  // Prefer ML risk_grade from backend (RISK_LEVEL_CONFIG) over static careStatus.
+  // riskGrade is 0 | 1 | 2 when the model has scored this patient; null otherwise.
+  const riskConfig = riskGrade != null ? RISK_LEVEL_CONFIG[riskGrade] : null;
+
+  // Top stripe color: ML grade takes priority, careStatus is the fallback.
+  const stripeClass = riskConfig
+    ? riskGrade === 2
+      ? 'border-t-terracotta'
+      : riskGrade === 1
+        ? 'border-t-gold'
+        : 'border-t-sage'
+    : patient.careStatus === 'alert'
       ? 'border-t-status-urgent'
       : patient.careStatus === 'reminder_missed'
         ? 'border-t-gold'
         : 'border-t-sage';
 
-  const dotClass =
-    patient.careStatus === 'alert'
+  // Status dot color: same priority logic.
+  const dotClass = riskConfig
+    ? riskConfig.dotBg
+    : patient.careStatus === 'alert'
       ? 'bg-status-urgent'
       : patient.careStatus === 'reminder_missed'
         ? 'bg-gold'
         : 'bg-sage';
+
+  // Tooltip label: risk level text when available, else careStatus label.
+  const tooltipLabel = riskConfig ? riskConfig.level : statusConfig.label;
 
   return (
     <Link
@@ -74,7 +88,7 @@ export const PatientCard = ({ patient }) => {
             >
               <span
                 className={`block w-3.5 h-3.5 rounded-full ${dotClass} ring-2 ring-surface dark:ring-ink transition-transform hover:scale-110`}
-                aria-label={`Status: ${statusConfig.label}`}
+                aria-label={`Status: ${tooltipLabel}`}
               />
 
               {/* Single Custom Tooltip positioned below-right of the dot */}
@@ -83,7 +97,7 @@ export const PatientCard = ({ patient }) => {
                   role="tooltip"
                   className="absolute top-full left-0 mt-1 px-2.5 py-0.5 bg-ink/95 dark:bg-surface text-surface dark:text-ink text-xs font-medium rounded-full shadow-lg whitespace-nowrap z-50 pointer-events-none animate-in fade-in duration-150"
                 >
-                  {statusConfig.label}
+                  {tooltipLabel}
                 </div>
               )}
             </div>

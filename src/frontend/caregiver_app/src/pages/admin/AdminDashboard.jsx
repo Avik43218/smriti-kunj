@@ -140,48 +140,70 @@ export const AdminDashboard = () => {
       </div>
 
       {/* Quick Access Action Panels */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Link
           to="/admin/caregivers"
-          className="group p-6 rounded-card bg-surface dark:bg-ink-soft/20 border border-border/80 dark:border-ink-soft/40 hover:border-terracotta/50 dark:hover:border-terracotta/50 shadow-sm hover:shadow-md transition-all flex items-start justify-between"
+          className="group p-5 rounded-card bg-surface dark:bg-ink-soft/20 border border-border/80 dark:border-ink-soft/40 hover:border-terracotta/50 dark:hover:border-terracotta/50 shadow-sm hover:shadow-md transition-all flex items-start justify-between"
         >
           <div className="space-y-1.5">
             <div className="flex items-center gap-2">
               <div className="w-7 h-7 rounded-full bg-cream dark:bg-ink-soft/30 flex items-center justify-center text-terracotta">
                 <UserCheck className="w-4 h-4" />
               </div>
-              <h2 className="text-base sm:text-lg font-bold text-ink dark:text-cream group-hover:text-terracotta transition-colors">
-                Manage Caregiver Portal
+              <h2 className="text-sm sm:text-base font-bold text-ink dark:text-cream group-hover:text-terracotta transition-colors">
+                Manage Caregivers
               </h2>
             </div>
-            <p className="text-xs sm:text-sm text-ink-soft dark:text-cream/70 leading-relaxed">
-              Create caregiver logins directly without OTP verification, disable accounts, and monitor patient assignment counts.
+            <p className="text-xs text-ink-soft dark:text-cream/70 leading-relaxed">
+              Create accounts with secure temporary passwords, reset credentials, and toggle access status.
             </p>
           </div>
-          <div className="w-8 h-8 rounded-full bg-cream/60 dark:bg-ink-soft/20 border border-border/60 dark:border-ink-soft/30 flex items-center justify-center text-ink-soft dark:text-cream/70 group-hover:text-terracotta group-hover:bg-cream dark:group-hover:bg-ink-soft/40 group-hover:translate-x-0.5 transition-all shrink-0">
-            <ChevronRight className="w-4 h-4" />
+          <div className="w-7 h-7 rounded-full bg-cream/60 dark:bg-ink-soft/20 border border-border/60 dark:border-ink-soft/30 flex items-center justify-center text-ink-soft dark:text-cream/70 group-hover:text-terracotta group-hover:bg-cream dark:group-hover:bg-ink-soft/40 group-hover:translate-x-0.5 transition-all shrink-0">
+            <ChevronRight className="w-3.5 h-3.5" />
           </div>
         </Link>
 
         <Link
           to="/admin/patients"
-          className="group p-6 rounded-card bg-surface dark:bg-ink-soft/20 border border-border/80 dark:border-ink-soft/40 hover:border-terracotta/50 dark:hover:border-terracotta/50 shadow-sm hover:shadow-md transition-all flex items-start justify-between"
+          className="group p-5 rounded-card bg-surface dark:bg-ink-soft/20 border border-border/80 dark:border-ink-soft/40 hover:border-terracotta/50 dark:hover:border-terracotta/50 shadow-sm hover:shadow-md transition-all flex items-start justify-between"
         >
           <div className="space-y-1.5">
             <div className="flex items-center gap-2">
               <div className="w-7 h-7 rounded-full bg-cream dark:bg-ink-soft/30 flex items-center justify-center text-terracotta">
                 <HeartHandshake className="w-4 h-4" />
               </div>
-              <h2 className="text-base sm:text-lg font-bold text-ink dark:text-cream group-hover:text-terracotta transition-colors">
-                Cross-Caregiver Patient Directory
+              <h2 className="text-sm sm:text-base font-bold text-ink dark:text-cream group-hover:text-terracotta transition-colors">
+                Patient Directory
               </h2>
             </div>
-            <p className="text-xs sm:text-sm text-ink-soft dark:text-cream/70 leading-relaxed">
-              View all patients system-wide and reassign patients seamlessly when caregiver caseloads change or shift rotations occur.
+            <p className="text-xs text-ink-soft dark:text-cream/70 leading-relaxed">
+              View all patients system-wide and assign multiple caregivers per patient for shared care protocols.
             </p>
           </div>
-          <div className="w-8 h-8 rounded-full bg-cream/60 dark:bg-ink-soft/20 border border-border/60 dark:border-ink-soft/30 flex items-center justify-center text-ink-soft dark:text-cream/70 group-hover:text-terracotta group-hover:bg-cream dark:group-hover:bg-ink-soft/40 group-hover:translate-x-0.5 transition-all shrink-0">
-            <ChevronRight className="w-4 h-4" />
+          <div className="w-7 h-7 rounded-full bg-cream/60 dark:bg-ink-soft/20 border border-border/60 dark:border-ink-soft/30 flex items-center justify-center text-ink-soft dark:text-cream/70 group-hover:text-terracotta group-hover:bg-cream dark:group-hover:bg-ink-soft/40 group-hover:translate-x-0.5 transition-all shrink-0">
+            <ChevronRight className="w-3.5 h-3.5" />
+          </div>
+        </Link>
+
+        <Link
+          to="/admin/audit-logs"
+          className="group p-5 rounded-card bg-surface dark:bg-ink-soft/20 border border-border/80 dark:border-ink-soft/40 hover:border-terracotta/50 dark:hover:border-terracotta/50 shadow-sm hover:shadow-md transition-all flex items-start justify-between"
+        >
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-full bg-cream dark:bg-ink-soft/30 flex items-center justify-center text-terracotta">
+                <ShieldAlert className="w-4 h-4" />
+              </div>
+              <h2 className="text-sm sm:text-base font-bold text-ink dark:text-cream group-hover:text-terracotta transition-colors">
+                System Audit Trail
+              </h2>
+            </div>
+            <p className="text-xs text-ink-soft dark:text-cream/70 leading-relaxed">
+              Review immutable audit trail of administrative modifications, credential resets, and assignments.
+            </p>
+          </div>
+          <div className="w-7 h-7 rounded-full bg-cream/60 dark:bg-ink-soft/20 border border-border/60 dark:border-ink-soft/30 flex items-center justify-center text-ink-soft dark:text-cream/70 group-hover:text-terracotta group-hover:bg-cream dark:group-hover:bg-ink-soft/40 group-hover:translate-x-0.5 transition-all shrink-0">
+            <ChevronRight className="w-3.5 h-3.5" />
           </div>
         </Link>
       </div>
@@ -206,7 +228,7 @@ export const AdminDashboard = () => {
         </div>
 
         <div className="rounded-card bg-surface dark:bg-ink-soft/20 border border-border/80 dark:border-ink-soft/40 shadow-sm overflow-hidden transition-colors">
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto custom-scrollbar">
             <table className="w-full text-left text-xs sm:text-sm">
               <thead className="bg-cream/40 dark:bg-ink-soft/30 border-b border-border/80 dark:border-ink-soft/40 text-ink-soft dark:text-cream/70 text-xs font-semibold">
                 <tr>

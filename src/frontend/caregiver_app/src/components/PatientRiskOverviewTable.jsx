@@ -17,8 +17,6 @@ import { StyledSelect } from './StyledSelect';
 const SORT_OPTIONS = [
   { value: 'risk_desc', label: 'Risk: High → Low' },
   { value: 'risk_asc', label: 'Risk: Low → High' },
-  { value: 'alerts_desc', label: 'Alerts: Most → Least' },
-  { value: 'alerts_asc', label: 'Alerts: Least → Most' },
 ];
 
 /**
@@ -30,10 +28,9 @@ const SORT_OPTIONS = [
  *
  * Features:
  *  - Summary metric cards: Total, High (Grade 2), Moderate (Grade 1), Low (Grade 0)
- *  - Risk filter tabs, name/ID search, sort by risk level & active alerts
- *  - Strictly 6-column table capped at 5 visible rows with internal scroll
- *    1. Patient ID / Code  2. Patient Name  3. Age & Gender
- *    4. Active Alerts Count  5. Risk Level Badge  6. Recommended Action
+ *  - Risk filter tabs, name/ID search, sort by risk level
+ *  - 4-column table capped at 5 visible rows with internal scroll
+ *    1. Patient ID / Code  2. Patient Name  3. Age & Gender  4. Risk Level Badge
  */
 export const PatientRiskOverviewTable = () => {
   const [data, setData] = useState({
@@ -89,10 +86,8 @@ export const PatientRiskOverviewTable = () => {
     else if (riskFilter === 'low') result = result.filter((p) => p.risk_grade === 0);
 
     result.sort((a, b) => {
-      if (sortBy === 'risk_desc') return b.risk_grade - a.risk_grade || b.active_alerts_count - a.active_alerts_count;
-      if (sortBy === 'risk_asc') return a.risk_grade - b.risk_grade || a.active_alerts_count - b.active_alerts_count;
-      if (sortBy === 'alerts_desc') return b.active_alerts_count - a.active_alerts_count || b.risk_grade - a.risk_grade;
-      if (sortBy === 'alerts_asc') return a.active_alerts_count - b.active_alerts_count || a.risk_grade - b.risk_grade;
+      if (sortBy === 'risk_desc') return b.risk_grade - a.risk_grade;
+      if (sortBy === 'risk_asc') return a.risk_grade - b.risk_grade;
       return 0;
     });
 
@@ -288,41 +283,41 @@ export const PatientRiskOverviewTable = () => {
         </div>
       </div>
 
-      {/* Table — capped at 5 rows with internal vertical scroll */}
-      <div className="overflow-x-auto">
-        <table className="w-full text-left border-collapse min-w-[700px]">
-          <thead className="sticky top-0 z-10">
-            <tr className="border-b border-border/80 dark:border-ink-soft/40 bg-cream/40 dark:bg-ink-soft/25 text-[10px] font-bold text-ink-soft dark:text-cream/70 uppercase tracking-wider select-none">
-              <th scope="col" className="py-2.5 px-3 sm:px-4">Patient ID</th>
-              <th scope="col" className="py-2.5 px-3">Patient Name</th>
-              <th scope="col" className="py-2.5 px-3">Age & Gender</th>
-              <th scope="col" className="py-2.5 px-3 text-center">Active Alerts</th>
-              <th scope="col" className="py-2.5 px-3">Risk Level</th>
-              <th scope="col" className="py-2.5 px-3 sm:px-4">Recommended Action</th>
-            </tr>
-          </thead>
-        </table>
-        {/* Scrollable tbody container — max 5 rows (~48px each) */}
-        <div className="overflow-y-auto" style={{ maxHeight: '240px' }}>
-          <table className="w-full text-left border-collapse min-w-[700px]">
+      {/*
+        Table — single <table> with sticky <thead> inside a single overflow-y-auto container.
+        This keeps header and body columns aligned (they share the same column sizing context).
+        Capped at ~5 rows (240px) with vertical scroll.
+      */}
+      <div className="overflow-x-auto custom-scrollbar">
+        <div className="overflow-y-auto custom-scrollbar" style={{ maxHeight: '240px' }}>
+          <table className="w-full text-left border-collapse min-w-[580px]">
+            <thead className="sticky top-0 z-10">
+              <tr className="border-b border-border/80 dark:border-ink-soft/40 bg-cream/60 dark:bg-ink-soft/30 text-[10px] font-bold text-ink-soft dark:text-cream/70 uppercase tracking-wider select-none">
+                <th scope="col" className="py-2.5 px-4 w-28">Patient ID</th>
+                <th scope="col" className="py-2.5 px-4">Patient Name</th>
+                <th scope="col" className="py-2.5 px-4 w-28">Age &amp; Gender</th>
+                <th scope="col" className="py-2.5 px-4">Primary Diagnosis</th>
+                <th scope="col" className="py-2.5 px-4 w-36">Risk Level</th>
+              </tr>
+            </thead>
             <tbody className="divide-y divide-border/60 dark:divide-ink-soft/20 text-xs">
+
               {/* Loading skeleton */}
               {loading &&
                 [1, 2, 3].map((idx) => (
                   <tr key={idx} className="animate-pulse">
-                    <td className="py-3 px-3 sm:px-4"><div className="h-3.5 w-14 bg-cream dark:bg-ink-soft/30 rounded" /></td>
-                    <td className="py-3 px-3"><div className="h-3.5 w-24 bg-cream dark:bg-ink-soft/30 rounded" /></td>
-                    <td className="py-3 px-3"><div className="h-3.5 w-16 bg-cream dark:bg-ink-soft/30 rounded" /></td>
-                    <td className="py-3 px-3 text-center"><div className="h-3.5 w-6 bg-cream dark:bg-ink-soft/30 rounded mx-auto" /></td>
-                    <td className="py-3 px-3"><div className="h-5 w-22 bg-cream dark:bg-ink-soft/30 rounded-full" /></td>
-                    <td className="py-3 px-3 sm:px-4"><div className="h-3.5 w-28 bg-cream dark:bg-ink-soft/30 rounded" /></td>
+                    <td className="py-3 px-4"><div className="h-3.5 w-14 bg-cream dark:bg-ink-soft/30 rounded" /></td>
+                    <td className="py-3 px-4"><div className="h-3.5 w-28 bg-cream dark:bg-ink-soft/30 rounded" /></td>
+                    <td className="py-3 px-4"><div className="h-3.5 w-16 bg-cream dark:bg-ink-soft/30 rounded" /></td>
+                    <td className="py-3 px-4"><div className="h-3.5 w-32 bg-cream dark:bg-ink-soft/30 rounded" /></td>
+                    <td className="py-3 px-4"><div className="h-5 w-24 bg-cream dark:bg-ink-soft/30 rounded-full" /></td>
                   </tr>
                 ))}
 
               {/* Error */}
               {!loading && error && (
                 <tr>
-                  <td colSpan={6} className="py-6 text-center text-status-urgent">
+                  <td colSpan={5} className="py-6 text-center text-status-urgent">
                     <div className="flex flex-col items-center gap-2">
                       <ShieldAlert className="w-5 h-5" />
                       <p className="text-xs font-semibold">{error}</p>
@@ -341,7 +336,7 @@ export const PatientRiskOverviewTable = () => {
               {/* Empty */}
               {!loading && !error && filteredAndSortedPatients.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="py-8 text-center text-ink-soft dark:text-cream/60">
+                  <td colSpan={5} className="py-8 text-center text-ink-soft dark:text-cream/60">
                     <p className="text-xs font-semibold">
                       {data.patients.length === 0
                         ? 'No patients registered'
@@ -371,14 +366,14 @@ export const PatientRiskOverviewTable = () => {
                       className="hover:bg-cream/40 dark:hover:bg-ink-soft/20 transition-colors"
                     >
                       {/* 1. Patient ID */}
-                      <td className="py-3 px-3 sm:px-4 whitespace-nowrap">
+                      <td className="py-3 px-4 whitespace-nowrap">
                         <span className="px-1.5 py-0.5 rounded font-mono text-[11px] font-bold bg-cream/80 dark:bg-ink-soft/50 text-ink dark:text-cream border border-border/80 dark:border-ink-soft/40">
                           {patient.patient_id}
                         </span>
                       </td>
 
                       {/* 2. Patient Name */}
-                      <td className="py-3 px-3 whitespace-nowrap">
+                      <td className="py-3 px-4 whitespace-nowrap">
                         <div className="flex items-center gap-2">
                           <div className="w-6 h-6 rounded-full bg-terracotta/10 border border-terracotta/20 flex items-center justify-center text-terracotta font-bold text-[10px] shrink-0">
                             {patient.name.charAt(0)}
@@ -390,39 +385,28 @@ export const PatientRiskOverviewTable = () => {
                       </td>
 
                       {/* 3. Age & Gender */}
-                      <td className="py-3 px-3 whitespace-nowrap text-ink-soft dark:text-cream/70 text-xs">
+                      <td className="py-3 px-4 whitespace-nowrap text-ink-soft dark:text-cream/70 text-xs">
                         {patient.age} yrs
                         <span className="mx-1 opacity-40">·</span>
                         {patient.gender}
                       </td>
 
-                      {/* 4. Active Alerts Count */}
-                      <td className="py-3 px-3 whitespace-nowrap text-center">
-                        {patient.active_alerts_count > 0 ? (
-                          <span className="inline-flex items-center justify-center px-1.5 py-0.5 rounded-full text-[11px] font-bold bg-terracotta/15 text-terracotta border border-terracotta/30 min-w-[20px]">
-                            {patient.active_alerts_count}
-                          </span>
-                        ) : (
-                          <span className="text-[11px] text-ink-soft/50 dark:text-cream/30">0</span>
-                        )}
+                      {/* 4. Primary Diagnosis */}
+                      <td className="py-3 px-4 text-xs text-ink dark:text-cream/90">
+                        {patient.diagnosis
+                          ? <span className="font-medium">{patient.diagnosis}</span>
+                          : <span className="text-ink-soft/50 dark:text-cream/30 italic">—</span>
+                        }
                       </td>
 
                       {/* 5. Risk Level badge */}
-                      <td className="py-3 px-3 whitespace-nowrap">
+                      <td className="py-3 px-4 whitespace-nowrap">
                         <span
                           className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${config.badgeBg || 'bg-sage/15'} ${config.badgeText || 'text-sage'} ${config.badgeBorder || 'border-sage/30'}`}
                         >
                           <span className={`w-1.5 h-1.5 rounded-full ${config.dotBg || 'bg-sage'}`} />
                           {config.level}
                         </span>
-                      </td>
-
-                      {/* 6. Recommended Action */}
-                      <td className="py-3 px-3 sm:px-4 whitespace-nowrap">
-                        <span className="font-semibold text-ink dark:text-cream text-xs">{config.action}</span>
-                        <p className="text-[10px] text-ink-soft dark:text-cream/55 mt-0.5 max-w-[200px] leading-snug">
-                          {config.actionDescription}
-                        </p>
                       </td>
                     </tr>
                   );
@@ -434,12 +418,8 @@ export const PatientRiskOverviewTable = () => {
 
       {/* Footer */}
       <div className="px-4 py-2 bg-cream/20 dark:bg-ink-soft/10 border-t border-border/60 dark:border-ink-soft/20 flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-[10px] text-ink-soft/70 dark:text-cream/50">
-        <span>
-          Real-time cognitive risk monitoring
-        </span>
-        <span>
-          {filteredAndSortedPatients.length} of {data.patients.length} records
-        </span>
+        <span>Real-time cognitive risk monitoring</span>
+        <span>{filteredAndSortedPatients.length} of {data.patients.length} records</span>
       </div>
     </section>
   );
