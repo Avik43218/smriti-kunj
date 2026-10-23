@@ -526,49 +526,51 @@ export const PatientReportCardModal = ({
 
   // Trigger Print / PDF in clean, isolated light-mode iframe matching .html format exactly
   const handlePrint = () => {
-    const reportHtml = generateReportHtml();
+  const reportHtml = generateReportHtml();
 
-    // Clean up any old print iframe if present
-    const existingFrame = document.getElementById('smriti-print-frame');
-    if (existingFrame) {
-      existingFrame.remove();
+  // 1. Wipe out any zombie print frames 
+  const existingFrame = document.getElementById('smriti-print-frame');
+  if (existingFrame) {
+    existingFrame.remove();
+  }
+
+  // 2. Setup the iframe
+  const iframe = document.createElement('iframe');
+  iframe.id = 'smriti-print-frame';
+  Object.assign(iframe.style, {
+    position: 'fixed',
+    left: '-9999px',
+    top: '0',
+    width: '1024px',
+    height: '1024px',
+    border: 'none',
+    opacity: '0.01',
+    pointerEvents: 'none',
+    zIndex: '-9999',
+  });
+
+  // 3. Trigger print once iframe parses & loads cleanly
+  iframe.onload = () => {
+    try {
+      iframe.contentWindow.focus();
+      iframe.contentWindow.print();
+    } catch (err) {
+      console.error('Print failed:', err);
+    } finally {
+      // Auto-cleanup after user finishes the print dialog
+      setTimeout(() => {
+        if (document.body.contains(iframe)) {
+          iframe.remove();
+        }
+      }, 1000);
     }
-
-    const iframe = document.createElement('iframe');
-    iframe.id = 'smriti-print-frame';
-    iframe.style.position = 'fixed';
-    iframe.style.left = '-9999px';
-    iframe.style.top = '0';
-    iframe.style.width = '1024px';
-    iframe.style.height = '1024px';
-    iframe.style.border = 'none';
-    iframe.style.opacity = '0.01';
-    iframe.style.pointerEvents = 'none';
-    iframe.style.zIndex = '-9999';
-
-    document.body.appendChild(iframe);
-
-    const doc = iframe.contentWindow.document;
-    doc.open();
-    doc.write(reportHtml);
-    doc.close();
-
-    // Give iframe sufficient time to parse fonts/styles before invoking print
-    setTimeout(() => {
-      try {
-        iframe.contentWindow.focus();
-        iframe.contentWindow.print();
-      } catch (err) {
-        console.error('Print failed:', err);
-      } finally {
-        setTimeout(() => {
-          if (document.body.contains(iframe)) {
-            document.body.removeChild(iframe);
-          }
-        }, 2000);
-      }
-    }, 350);
   };
+
+  // 4. Inject safely via srcdoc
+  iframe.srcdoc = reportHtml;
+
+  document.body.appendChild(iframe);
+};
 
   // Trigger Standalone CSV Stats Download
   const handleDownloadCsv = () => {
